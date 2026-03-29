@@ -411,6 +411,249 @@ def translate_query(sql: str, query_label: str = "", dialect: str = None) -> lis
     return [translate_with_context(d) for d in defs]
 
 
+def translate_resolved(sql: str, dialect: str = None) -> list[dict]:
+    """Translate with full resolved lineage — complete business definitions.
+
+    Unlike translate_query which only looks one scope deep, this uses
+    Layer 5 lineage resolution to trace every column to base tables,
+    collecting all filters and transformations along the chain.
+    """
+    from resolve import resolve_query
+
+    resolved = resolve_query(sql.strip(), dialect=dialect)
+    results = []
+
+    for col in resolved.columns:
+        if col.type == "star":
+            continue
+
+        # Build the core description
+        description = _build_resolved_description(col)
+
+        # Translate all filters to plain English
+        filter_descriptions = []
+        seen_filters = set()
+        for f in col.filters:
+            if f in seen_filters:
+                continue
+            seen_filters.add(f)
+            try:
+                parsed = sqlglot.parse_one(f)
+                filter_descriptions.append(_translate_condition(parsed))
+            except Exception:
+                filter_descriptions.append(f)
+
+        # Translate the transformation chain
+        chain_description = _build_chain_description(col)
+
+        # Source tables
+        source_tables = []
+        for t in col.base_tables:
+            source_tables.append(_table_desc(t))
+
+        # Base columns
+        base_col_descriptions = []
+        for bc in col.base_columns:
+            base_col_descriptions.append(_col_desc(bc))
+
+        result = {
+            "name": col.name,
+            "business_definition": description,
+            "type": col.type,
+        }
+        if filter_descriptions:
+            result["business_conditions"] = filter_descriptions
+            # Build the full definition sentence
+            full_def = description
+            if filter_descriptions:
+                full_def += "\n  Where: " + "; and ".join(filter_descriptions)
+            result["full_business_definition"] = full_def
+        else:
+            result["full_business_definition"] = description
+
+        if source_tables:
+            result["source_tables"] = source_tables
+        if base_col_descriptions:
+            result["base_columns"] = base_col_descriptions
+        if chain_description:
+            result["transformation_chain"] = chain_description
+        if col.resolved_expression:
+            result["resolved_expression"] = col.resolved_expression
+        result["direct_expression"] = col.expression
+
+        results.append(result)
+
+    return results
+
+
+def _build_resolved_description(col) -> str:
+    """Build a plain English description from a resolved column."""
+    from resolve import ResolvedColumn
+
+    # Find the deepest non-passthrough step in the chain
+    actual_type = col.type
+    actual_expr = col.resolved_expression or col.expression
+
+    if actual_type == "passthrough":
+        # Pure passthrough to base table
+        if col.base_columns:
+            return _col_desc(col.base_columns[0])
+        return col.name
+
+    if actual_type == "calculated":
+        expr_upper = actual_expr.upper()
+        if "DATEDIFF" in expr_upper:
+            return _translate_datediff_from_expr(actual_expr)
+        cols = [_col_desc_short(c) for c in col.base_columns]
+        if " - " in actual_expr and len(cols) == 2:
+            return f"{cols[0]} minus {cols[1]}"
+        if " + " in actual_expr and len(cols) == 2:
+            return f"{cols[0]} plus {cols[1]}"
+        if " * " in actual_expr and len(cols) == 2:
+            return f"{cols[0]} multiplied by {cols[1]}"
+        if " / " in actual_expr and len(cols) == 2:
+            return f"{cols[0]} divided by {cols[1]}"
+        if cols:
+            return f"Calculated from {', '.join(cols)}"
+        return f"Calculated value"
+
+    if actual_type == "case":
+        return _translate_case_from_expr(actual_expr)
+
+    if actual_type == "aggregate":
+        return _translate_agg_from_expr(actual_expr, col.base_columns)
+
+    if actual_type == "window":
+        return _translate_window_from_expr(actual_expr, col.base_columns)
+
+    if actual_type == "literal":
+        return f"Fixed value: {actual_expr}"
+
+    if actual_type == "subquery":
+        return f"Value derived from a sub-query"
+
+    return actual_expr
+
+
+def _translate_datediff_from_expr(expr: str) -> str:
+    """Translate a DATEDIFF expression string."""
+    try:
+        parsed = sqlglot.parse_one(expr)
+        if isinstance(parsed, exp.Alias):
+            parsed = parsed.this
+        if isinstance(parsed, exp.DateDiff):
+            unit_node = parsed.args.get("this")
+            expr_node = parsed.args.get("expression")
+            unit_node2 = parsed.args.get("unit")
+            unit = unit_node.sql(pretty=False).upper() if unit_node else "?"
+            col1 = expr_node.sql(pretty=False) if expr_node else "?"
+            col2 = unit_node2.sql(pretty=False) if unit_node2 else "?"
+            unit_word = {
+                "DAY": "days", "YEAR": "years", "MONTH": "months",
+                "HOUR": "hours", "MINUTE": "minutes",
+            }.get(unit, unit.lower() + "s")
+            return f"The number of {unit_word} between {_col_desc_short(col1)} and {_col_desc_short(col2)}"
+    except Exception:
+        pass
+    return f"Date difference calculation"
+
+
+def _translate_case_from_expr(expr: str) -> str:
+    """Translate a CASE expression string."""
+    try:
+        parsed = sqlglot.parse_one(expr)
+        if isinstance(parsed, exp.Alias):
+            parsed = parsed.this
+        case_node = parsed if isinstance(parsed, exp.Case) else parsed.find(exp.Case)
+        if case_node:
+            lines = ["Classified as:"]
+            for if_ in case_node.find_all(exp.If):
+                cond = if_.this
+                result = if_.args.get("true")
+                cond_text = _translate_condition(cond)
+                result_text = result.sql(pretty=False) if result else "?"
+                lines.append(f"  - {result_text} when {cond_text}")
+            default = case_node.args.get("default")
+            if default:
+                lines.append(f"  - {default.sql(pretty=False)} otherwise")
+            return "\n".join(lines)
+    except Exception:
+        pass
+    return "Conditional classification"
+
+
+def _translate_agg_from_expr(expr: str, base_columns: list) -> str:
+    """Translate an aggregate expression."""
+    expr_upper = expr.upper()
+    cols = [_col_desc_short(c) for c in base_columns]
+
+    if "COUNT" in expr_upper and "DISTINCT" in expr_upper:
+        return f"Count of distinct {', '.join(cols) if cols else 'records'}"
+    if "COUNT" in expr_upper and "*" in expr:
+        return "Count of records"
+    if "COUNT" in expr_upper and "CASE" in expr_upper:
+        # Try to extract the condition
+        try:
+            parsed = sqlglot.parse_one(expr)
+            if isinstance(parsed, exp.Alias):
+                parsed = parsed.this
+            case = parsed.find(exp.Case)
+            if case:
+                ifs = list(case.find_all(exp.If))
+                if ifs:
+                    cond_text = _translate_condition(ifs[0].this)
+                    return f"Count of records where {cond_text}"
+        except Exception:
+            pass
+    if "AVG" in expr_upper:
+        # Check if it wraps another expression
+        if "DATEDIFF" in expr_upper:
+            inner = _translate_datediff_from_expr(expr)
+            return f"Average of: {inner}"
+        return f"Average of {', '.join(cols) if cols else 'values'}"
+    if "SUM" in expr_upper:
+        return f"Sum of {', '.join(cols) if cols else 'values'}"
+    if "COUNT" in expr_upper:
+        return f"Count of {', '.join(cols) if cols else 'records'}"
+    if "MIN" in expr_upper:
+        return f"Minimum of {', '.join(cols) if cols else 'values'}"
+    if "MAX" in expr_upper:
+        return f"Maximum of {', '.join(cols) if cols else 'values'}"
+    return f"Aggregation of {', '.join(cols) if cols else 'values'}"
+
+
+def _translate_window_from_expr(expr: str, base_columns: list) -> str:
+    """Translate a window function expression."""
+    expr_upper = expr.upper()
+    if "ROW_NUMBER" in expr_upper:
+        return "Row ranking (used for deduplication or ordering)"
+    if "LAG" in expr_upper or "LEAD" in expr_upper:
+        cols = [_col_desc_short(c) for c in base_columns]
+        direction = "previous" if "LAG" in expr_upper else "next"
+        return f"The {direction} value of {', '.join(cols) if cols else 'the column'} for the same group"
+    if "SUM" in expr_upper:
+        cols = [_col_desc_short(c) for c in base_columns]
+        return f"Running total of {', '.join(cols) if cols else 'values'}"
+    return "Window function calculation"
+
+
+def _build_chain_description(col) -> str:
+    """Build a human-readable transformation chain."""
+    if not col.transformation_chain or len(col.transformation_chain) <= 1:
+        return ""
+
+    lines = []
+    for i, step in enumerate(col.transformation_chain):
+        scope = step.get("scope", "")
+        sname = step.get("name", "")
+        stype = step.get("type", "")
+        if stype == "passthrough":
+            lines.append(f"{'  ' * i}Passed through from {scope}")
+        else:
+            lines.append(f"{'  ' * i}Defined in {scope} as {stype}: {sname}")
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -435,6 +678,8 @@ Examples:
     parser.add_argument("--dialect", "-d", default=None, help="SQL dialect")
     parser.add_argument("--compact", action="store_true", help="Compact JSON")
     parser.add_argument("--text", action="store_true", help="Plain text output instead of JSON")
+    parser.add_argument("--resolved", action="store_true",
+                        help="Use full lineage resolution (traces through CTEs/subqueries)")
 
     args = parser.parse_args()
 
@@ -452,23 +697,43 @@ Examples:
         parser.print_help()
         sys.exit(1)
 
-    results = translate_query(sql.strip(), dialect=args.dialect)
+    if args.resolved:
+        results = translate_resolved(sql.strip(), dialect=args.dialect)
 
-    if args.text:
-        for r in results:
-            name = r["name"]
-            desc = r["business_description"]
-            print(f"\n{name}")
-            print(f"  {desc}")
-            if "source" in r:
-                print(f"  Source: {r['source']}")
-            if "conditions" in r:
-                for c in r["conditions"]:
-                    print(f"  Condition: {c}")
-            print(f"  Technical: {r['technical_expression']}")
+        if args.text:
+            for r in results:
+                print(f"\n{r['name']} ({r['type']})")
+                print(f"  {r['full_business_definition']}")
+                if "source_tables" in r:
+                    print(f"  Source: {', '.join(r['source_tables'])}")
+                if "base_columns" in r:
+                    print(f"  Uses: {', '.join(r['base_columns'])}")
+                if "transformation_chain" in r:
+                    print(f"  Derivation:")
+                    for line in r["transformation_chain"].split("\n"):
+                        print(f"    {line}")
+                print(f"  Technical: {r.get('resolved_expression', r['direct_expression'])}")
+        else:
+            indent = None if args.compact else 2
+            print(json.dumps({"definitions": results}, indent=indent))
     else:
-        indent = None if args.compact else 2
-        print(json.dumps({"definitions": results}, indent=indent))
+        results = translate_query(sql.strip(), dialect=args.dialect)
+
+        if args.text:
+            for r in results:
+                name = r["name"]
+                desc = r["business_description"]
+                print(f"\n{name}")
+                print(f"  {desc}")
+                if "source" in r:
+                    print(f"  Source: {r['source']}")
+                if "conditions" in r:
+                    for c in r["conditions"]:
+                        print(f"  Condition: {c}")
+                print(f"  Technical: {r['technical_expression']}")
+        else:
+            indent = None if args.compact else 2
+            print(json.dumps({"definitions": results}, indent=indent))
 
 
 if __name__ == "__main__":

@@ -132,12 +132,25 @@ class ScopeRegistry:
         return scope.get(column_name.lower())
 
     def get_filters(self, scope_name: str) -> list[str]:
-        """Get all WHERE/HAVING filters for a scope."""
+        """Get all business-relevant filters for a scope (WHERE, HAVING, QUALIFY, and non-equi JOIN conditions)."""
         logic = self._scope_logic.get(scope_name.lower(), {})
         filters = []
         for f in logic.get("filters", []):
-            if f.get("scope") in ("where", "having", "qualify"):
-                filters.append(f.get("expression", ""))
+            scope = f.get("scope", "")
+            expr = f.get("expression", "")
+            if scope in ("where", "having", "qualify"):
+                filters.append(expr)
+            elif scope == "join":
+                # Include non-equi join conditions (they carry business logic)
+                # e.g., "d2.HOSP_DISCH_TIME > d1.HOSP_DISCH_TIME" is business logic
+                # but "e.PAT_ID = p.PAT_ID" is just a key relationship
+                expr_upper = expr.upper()
+                # Skip simple equi-joins (col = col)
+                if " = " in expr and not any(op in expr_upper for op in
+                    [" > ", " < ", " >= ", " <= ", " <> ", " != ",
+                     "BETWEEN", "LIKE", "DATEDIFF", "AND "]):
+                    continue
+                filters.append(expr)
         return filters
 
     def is_base_table(self, name: str) -> bool:

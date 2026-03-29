@@ -85,6 +85,12 @@ class AliasResolver:
             cte_name = cte.get("name", "")
             self._alias_map[cte_name.lower()] = cte_name
 
+        # Subquery sources — treat aliases as opaque names (don't resolve to raw SQL)
+        for src in logic.get("sources", []):
+            if src.get("type") == "subquery" and src.get("alias"):
+                alias = src["alias"]
+                self._alias_map[alias.lower()] = alias
+
     def resolve_table(self, alias_or_name: str) -> str:
         if not alias_or_name:
             return alias_or_name
@@ -453,27 +459,6 @@ class BusinessLogicNormalizer:
                 sub_defs = sub_normalizer.normalize(sq_logic)
                 self._def_counter = sub_normalizer._def_counter
                 defs.extend(sub_defs)
-
-        # Recursively extract from subquery sources (derived tables in FROM)
-        for src in logic.get("sources", []):
-            if src.get("type") == "subquery":
-                alias = src.get("alias", "")
-                src_sql = src.get("name", "")
-                if src_sql:
-                    try:
-                        from extract import SQLBusinessLogicExtractor
-                        sub_logic = to_dict(SQLBusinessLogicExtractor().extract(src_sql))
-                        sub_label = f"{self.query_label}:FROM:{alias or 'derived'}"
-                        sub_normalizer = BusinessLogicNormalizer(
-                            query_file=self.query_file,
-                            query_label=sub_label,
-                        )
-                        sub_normalizer._def_counter = self._def_counter
-                        sub_defs = sub_normalizer.normalize(sub_logic)
-                        self._def_counter = sub_normalizer._def_counter
-                        defs.extend(sub_defs)
-                    except Exception:
-                        pass
 
         return defs
 

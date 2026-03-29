@@ -106,6 +106,188 @@
       ]
     }
   ],
+  "subqueries": [
+    {
+      "context": "from",
+      "expression": "SELECT dep.DEPARTMENT_NAME, AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los, COUNT(*) AS encounter_count FROM PAT_ENC_HSP AS e JOIN CLARITY_DEP AS dep ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID WHERE NOT e.HOSP_DISCH_TIME IS NULL GROUP BY dep.DEPARTMENT_NAME",
+      "alias": "dept_stats",
+      "logic": {
+        "sources": [
+          {
+            "name": "PAT_ENC_HSP",
+            "alias": "e",
+            "schema": null,
+            "type": "table"
+          },
+          {
+            "name": "CLARITY_DEP",
+            "alias": "dep",
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "DEPARTMENT_NAME",
+            "expression": "dep.DEPARTMENT_NAME",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "DEPARTMENT_NAME",
+                "table": "dep",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "avg_los",
+            "expression": "AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los",
+            "type": "aggregate",
+            "source_columns": [
+              {
+                "column": "DAY",
+                "table": null,
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "HOSP_DISCH_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "encounter_count",
+            "expression": "COUNT(*) AS encounter_count",
+            "type": "aggregate",
+            "source_columns": []
+          }
+        ],
+        "filters": [
+          {
+            "expression": "e.DEPARTMENT_ID = dep.DEPARTMENT_ID",
+            "scope": "join",
+            "columns": [
+              {
+                "column": "DEPARTMENT_ID",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "DEPARTMENT_ID",
+                "table": "dep",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "expression": "NOT e.HOSP_DISCH_TIME IS NULL",
+            "scope": "where",
+            "columns": [
+              {
+                "column": "HOSP_DISCH_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "joins": [
+          {
+            "join_type": "JOIN",
+            "right_table": "CLARITY_DEP",
+            "right_alias": "dep",
+            "on_expression": "e.DEPARTMENT_ID = dep.DEPARTMENT_ID",
+            "columns": [
+              {
+                "column": "DEPARTMENT_ID",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "DEPARTMENT_ID",
+                "table": "dep",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "aggregations": [
+          {
+            "function": "AVG",
+            "expression": "AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME))",
+            "source_columns": [
+              {
+                "column": "DAY",
+                "table": null,
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "HOSP_DISCH_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ],
+            "group_by": [
+              "dep.DEPARTMENT_NAME"
+            ]
+          },
+          {
+            "function": "COUNT",
+            "expression": "COUNT(*)",
+            "source_columns": [],
+            "group_by": [
+              "dep.DEPARTMENT_NAME"
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "DEPARTMENT_NAME",
+            "expression": "dep.DEPARTMENT_NAME",
+            "depends_on": [
+              "dep.DEPARTMENT_NAME"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "avg_los",
+            "expression": "AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los",
+            "depends_on": [
+              "DAY",
+              "e.HOSP_ADMSN_TIME",
+              "e.HOSP_DISCH_TIME"
+            ],
+            "filtered_by": {
+              "e.HOSP_ADMSN_TIME": [
+                "NOT e.HOSP_DISCH_TIME IS NULL"
+              ],
+              "e.HOSP_DISCH_TIME": [
+                "NOT e.HOSP_DISCH_TIME IS NULL"
+              ]
+            }
+          },
+          {
+            "output": "encounter_count",
+            "expression": "COUNT(*) AS encounter_count",
+            "depends_on": [],
+            "filtered_by": {}
+          }
+        ],
+        "raw_sql": "SELECT dep.DEPARTMENT_NAME, AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los, COUNT(*) AS encounter_count FROM PAT_ENC_HSP AS e JOIN CLARITY_DEP AS dep ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID WHERE NOT e.HOSP_DISCH_TIME IS NULL GROUP BY dep.DEPARTMENT_NAME"
+      }
+    }
+  ],
   "lineage": [
     {
       "output": "DEPARTMENT_NAME",

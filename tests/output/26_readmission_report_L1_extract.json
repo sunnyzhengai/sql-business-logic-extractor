@@ -496,9 +496,9 @@
             ],
             "filtered_by": {
               "e.PAT_ID": [
-                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
                 "NOT e.HOSP_DISCH_TIME IS NULL",
-                "e.ADT_PAT_CLASS_C = 1"
+                "e.ADT_PAT_CLASS_C = 1",
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'"
               ]
             }
           },
@@ -510,9 +510,9 @@
             ],
             "filtered_by": {
               "e.PAT_ENC_CSN_ID": [
-                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
                 "NOT e.HOSP_DISCH_TIME IS NULL",
-                "e.ADT_PAT_CLASS_C = 1"
+                "e.ADT_PAT_CLASS_C = 1",
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'"
               ]
             }
           },
@@ -524,9 +524,9 @@
             ],
             "filtered_by": {
               "e.HOSP_ADMSN_TIME": [
-                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
                 "NOT e.HOSP_DISCH_TIME IS NULL",
-                "e.ADT_PAT_CLASS_C = 1"
+                "e.ADT_PAT_CLASS_C = 1",
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'"
               ]
             }
           },
@@ -538,9 +538,9 @@
             ],
             "filtered_by": {
               "e.HOSP_DISCH_TIME": [
-                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
                 "NOT e.HOSP_DISCH_TIME IS NULL",
-                "e.ADT_PAT_CLASS_C = 1"
+                "e.ADT_PAT_CLASS_C = 1",
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'"
               ]
             }
           },
@@ -552,9 +552,9 @@
             ],
             "filtered_by": {
               "e.DEPARTMENT_ID": [
-                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
                 "NOT e.HOSP_DISCH_TIME IS NULL",
-                "e.ADT_PAT_CLASS_C = 1"
+                "e.ADT_PAT_CLASS_C = 1",
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'"
               ]
             }
           },
@@ -568,14 +568,14 @@
             ],
             "filtered_by": {
               "e.HOSP_ADMSN_TIME": [
-                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
                 "NOT e.HOSP_DISCH_TIME IS NULL",
-                "e.ADT_PAT_CLASS_C = 1"
+                "e.ADT_PAT_CLASS_C = 1",
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'"
               ],
               "e.HOSP_DISCH_TIME": [
-                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
                 "NOT e.HOSP_DISCH_TIME IS NULL",
-                "e.ADT_PAT_CLASS_C = 1"
+                "e.ADT_PAT_CLASS_C = 1",
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'"
               ]
             }
           },
@@ -588,14 +588,14 @@
             ],
             "filtered_by": {
               "e.PAT_ID": [
-                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
                 "NOT e.HOSP_DISCH_TIME IS NULL",
-                "e.ADT_PAT_CLASS_C = 1"
+                "e.ADT_PAT_CLASS_C = 1",
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'"
               ],
               "e.HOSP_ADMSN_TIME": [
-                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
                 "NOT e.HOSP_DISCH_TIME IS NULL",
-                "e.ADT_PAT_CLASS_C = 1"
+                "e.ADT_PAT_CLASS_C = 1",
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'"
               ]
             }
           }

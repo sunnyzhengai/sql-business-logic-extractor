@@ -14,7 +14,7 @@
       "query_label": "15_row_number"
     },
     {
-      "id": "15_row_number:FROM:ranked:def-002",
+      "id": "15_row_number:SUB:ranked:def-002",
       "name": "rn",
       "category": "window_function",
       "subcategory": "ranking",
@@ -32,10 +32,10 @@
       "filters_context": [
         "NOT pat_enc_hsp.hosp_disch_time IS NULL"
       ],
-      "query_label": "15_row_number:FROM:ranked"
+      "query_label": "15_row_number:SUB:ranked"
     },
     {
-      "id": "15_row_number:FROM:ranked:def-003",
+      "id": "15_row_number:SUB:ranked:def-003",
       "name": "filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME",
       "category": "null_check",
       "pattern": "NOT e.HOSP_DISCH_TIME IS NULL",
@@ -48,7 +48,7 @@
       "source_columns": [
         "PAT_ENC_HSP.HOSP_DISCH_TIME"
       ],
-      "query_label": "15_row_number:FROM:ranked"
+      "query_label": "15_row_number:SUB:ranked"
     }
   ]
 }

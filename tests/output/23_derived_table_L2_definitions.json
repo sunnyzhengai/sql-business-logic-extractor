@@ -2,22 +2,22 @@
   "definitions": [
     {
       "id": "23_derived_table:def-001",
-      "name": "filter:where:SELECT dep.DEPARTMENT_NAME, AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los, COUNT(*) AS encounter_count FROM PAT_ENC_HSP AS e JOIN CLARITY_DEP AS dep ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID WHERE NOT e.HOSP_DISCH_TIME IS NULL GROUP BY dep.DEPARTMENT_NAME.avg_los",
+      "name": "filter:where:dept_stats.avg_los",
       "category": "comparison_filter",
       "pattern": "<col> > <val>",
-      "normalized_expression": "SELECT clarity_dep.department_name, AVG(DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)) AS avg_los, COUNT(*) AS encounter_count FROM pat_enc_hsp AS e JOIN clarity_dep AS dep ON pat_enc_hsp.department_id = clarity_dep.department_id WHERE NOT pat_enc_hsp.hosp_disch_time IS NULL GROUP BY clarity_dep.department_name.avg_los > 5",
-      "signature": "f04f8f7541c0f1d0",
+      "normalized_expression": "dept_stats.avg_los > 5",
+      "signature": "63412a25a278f643",
       "structural_signature": "2b184d69b657e055",
       "source_tables": [
-        "SELECT dep.DEPARTMENT_NAME, AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los, COUNT(*) AS encounter_count FROM PAT_ENC_HSP AS e JOIN CLARITY_DEP AS dep ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID WHERE NOT e.HOSP_DISCH_TIME IS NULL GROUP BY dep.DEPARTMENT_NAME"
+        "dept_stats"
       ],
       "source_columns": [
-        "SELECT dep.DEPARTMENT_NAME, AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los, COUNT(*) AS encounter_count FROM PAT_ENC_HSP AS e JOIN CLARITY_DEP AS dep ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID WHERE NOT e.HOSP_DISCH_TIME IS NULL GROUP BY dep.DEPARTMENT_NAME.avg_los"
+        "dept_stats.avg_los"
       ],
       "query_label": "23_derived_table"
     },
     {
-      "id": "23_derived_table:FROM:dept_stats:def-002",
+      "id": "23_derived_table:SUB:dept_stats:def-002",
       "name": "avg_los",
       "category": "aggregation",
       "subcategory": "average",
@@ -36,10 +36,10 @@
       "filters_context": [
         "NOT pat_enc_hsp.hosp_disch_time IS NULL"
       ],
-      "query_label": "23_derived_table:FROM:dept_stats"
+      "query_label": "23_derived_table:SUB:dept_stats"
     },
     {
-      "id": "23_derived_table:FROM:dept_stats:def-003",
+      "id": "23_derived_table:SUB:dept_stats:def-003",
       "name": "encounter_count",
       "category": "aggregation",
       "subcategory": "count",
@@ -47,10 +47,10 @@
       "normalized_expression": "COUNT(*)",
       "signature": "ee8d27fcde4b2f3a",
       "structural_signature": "ee8d27fcde4b2f3a",
-      "query_label": "23_derived_table:FROM:dept_stats"
+      "query_label": "23_derived_table:SUB:dept_stats"
     },
     {
-      "id": "23_derived_table:FROM:dept_stats:def-004",
+      "id": "23_derived_table:SUB:dept_stats:def-004",
       "name": "filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME",
       "category": "null_check",
       "pattern": "NOT e.HOSP_DISCH_TIME IS NULL",
@@ -63,7 +63,7 @@
       "source_columns": [
         "PAT_ENC_HSP.HOSP_DISCH_TIME"
       ],
-      "query_label": "23_derived_table:FROM:dept_stats"
+      "query_label": "23_derived_table:SUB:dept_stats"
     }
   ]
 }

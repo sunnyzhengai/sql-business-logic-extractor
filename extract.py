@@ -319,7 +319,17 @@ class SQLBusinessLogicExtractor:
         if not from_clause:
             return
 
+        # Collect subquery boundaries so we can skip tables inside them
+        subquery_nodes = set()
+        for subq in select.find_all(exp.Subquery):
+            subquery_nodes.add(id(subq))
+            for descendant in subq.walk():
+                subquery_nodes.add(id(descendant[0]))
+
         for table in select.find_all(exp.Table):
+            # Skip tables that are inside a subquery (they belong to the inner query)
+            if id(table) in subquery_nodes:
+                continue
             alias = table.alias or table.name
             schema = table.db if hasattr(table, "db") and table.db else None
             logic.sources.append(SourceTable(
@@ -328,12 +338,26 @@ class SQLBusinessLogicExtractor:
                 schema=schema, type="table",
             ))
 
+        # Derived tables (subqueries in FROM) — extract recursively
         for subq in from_clause.find_all(exp.Subquery):
+            alias = subq.alias or None
+            inner_sql = _sql(subq.this)
+            sub_logic = None
+            try:
+                sub_logic = to_dict(SQLBusinessLogicExtractor(dialect=self.dialect).extract(inner_sql))
+            except Exception:
+                pass
             logic.sources.append(SourceTable(
-                name=_sql(subq.this), alias=subq.alias or None, type="subquery",
+                name=inner_sql, alias=alias, type="subquery",
             ))
+            if sub_logic:
+                logic.subqueries.append(SubqueryInfo(
+                    context="from", expression=inner_sql, alias=alias, logic=sub_logic,
+                ))
 
         for lat in select.find_all(exp.Lateral):
+            if id(lat) in subquery_nodes:
+                continue
             logic.sources.append(SourceTable(
                 name=_sql(lat.this), alias=lat.alias or None, type="lateral",
             ))

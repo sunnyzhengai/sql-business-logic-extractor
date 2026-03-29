@@ -1,7 +1,7 @@
-filter:where:SELECT dep.DEPARTMENT_NAME, AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los, COUNT(*) AS encounter_count FROM PAT_ENC_HSP AS e JOIN CLARITY_DEP AS dep ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID WHERE NOT e.HOSP_DISCH_TIME IS NULL GROUP BY dep.DEPARTMENT_NAME.avg_los
-  Filter: only include records where SELECT clarity_dep.department_name, AVG(DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)) AS avg_los, COUNT(*) AS encounter_count FROM pat_enc_hsp AS e JOIN clarity_dep AS dep ON pat_enc_hsp.department_id = clarity_dep.department_id WHERE NOT pat_enc_hsp.hosp_disch_time IS NULL GROUP BY clarity_dep.department_name.avg_los > 5
-  Source: SELECT dep.DEPARTMENT_NAME, AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los, COUNT(*) AS encounter_count FROM PAT_ENC_HSP AS e JOIN CLARITY_DEP AS dep ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID WHERE NOT e.HOSP_DISCH_TIME IS NULL GROUP BY dep.DEPARTMENT_NAME
-  Technical: SELECT clarity_dep.department_name, AVG(DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)) AS avg_los, COUNT(*) AS encounter_count FROM pat_enc_hsp AS e JOIN clarity_dep AS dep ON pat_enc_hsp.department_id = clarity_dep.department_id WHERE NOT pat_enc_hsp.hosp_disch_time IS NULL GROUP BY clarity_dep.department_name.avg_los > 5
+filter:where:dept_stats.avg_los
+  Filter: only include records where dept_stats.avg_los is greater than 5
+  Source: dept_stats
+  Technical: dept_stats.avg_los > 5
 
 avg_los
   Average of DAY, Hospital admission date and time, Hospital discharge date and time

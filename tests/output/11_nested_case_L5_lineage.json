@@ -1,0 +1,43 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+      "direct_expression": "e.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    },
+    {
+      "name": "readmit_risk",
+      "type": "case",
+      "resolved_expression": "CASE WHEN dx.DX_NAME LIKE '%heart failure%' AND e.LOS_DAYS > 7 THEN 'High' WHEN dx.DX_NAME LIKE '%pneumonia%' THEN 'Medium' WHEN NOT e.ED_DEPARTURE_TIME IS NULL THEN 'Medium' ELSE 'Low' END",
+      "direct_expression": "CASE WHEN dx.DX_NAME LIKE '%heart failure%' AND e.LOS_DAYS > 7 THEN 'High' WHEN dx.DX_NAME LIKE '%pneumonia%' THEN 'Medium' WHEN NOT e.ED_DEPARTURE_TIME IS NULL THEN 'Medium' ELSE 'Low' END AS readmit_risk",
+      "base_columns": [
+        "CLARITY_EDG.DX_NAME",
+        "PAT_ENC_HSP.LOS_DAYS",
+        "PAT_ENC_HSP.ED_DEPARTURE_TIME"
+      ],
+      "base_tables": [
+        "CLARITY_EDG",
+        "PAT_ENC_HSP"
+      ]
+    },
+    {
+      "name": "visit_type",
+      "type": "case",
+      "resolved_expression": "CASE e.ADT_PAT_CLASS_C WHEN 1 THEN 'Inpatient' WHEN 2 THEN 'Outpatient' WHEN 3 THEN 'Emergency' ELSE 'Other' END",
+      "direct_expression": "CASE e.ADT_PAT_CLASS_C WHEN 1 THEN 'Inpatient' WHEN 2 THEN 'Outpatient' WHEN 3 THEN 'Emergency' ELSE 'Other' END AS visit_type",
+      "base_columns": [
+        "PAT_ENC_HSP.ADT_PAT_CLASS_C"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    }
+  ]
+}

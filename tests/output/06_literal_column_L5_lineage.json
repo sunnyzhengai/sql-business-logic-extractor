@@ -1,0 +1,28 @@
+{
+  "columns": [
+    {
+      "name": "PAT_MRN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_MRN_ID",
+      "direct_expression": "PAT_MRN_ID",
+      "base_columns": [
+        "PATIENT.PAT_MRN_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    },
+    {
+      "name": "encounter_type",
+      "type": "literal",
+      "resolved_expression": "'Inpatient'",
+      "direct_expression": "'Inpatient' AS encounter_type"
+    },
+    {
+      "name": "is_active",
+      "type": "literal",
+      "resolved_expression": "1",
+      "direct_expression": "1 AS is_active"
+    }
+  ]
+}

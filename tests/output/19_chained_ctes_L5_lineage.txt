@@ -1,0 +1,56 @@
+PAT_ID (passthrough)
+  Resolved: PAT_ENC_HSP.PAT_ID
+  Base columns: PAT_ENC_HSP.PAT_ID
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - NOT HOSP_DISCH_TIME IS NULL
+    - ADT_PAT_CLASS_C = 1
+  Chain:
+    -> query.PAT_ID (passthrough)
+      -> readmissions.PAT_ID (passthrough)
+        -> discharges.PAT_ID (passthrough)
+
+PAT_MRN_ID (passthrough)
+  Resolved: PATIENT.PAT_MRN_ID
+  Base columns: PATIENT.PAT_MRN_ID
+  Base tables: PATIENT
+  Filters:
+    - NOT HOSP_DISCH_TIME IS NULL
+    - ADT_PAT_CLASS_C = 1
+
+index_csn (passthrough)
+  Resolved: PAT_ENC_HSP.PAT_ENC_CSN_ID
+  Base columns: PAT_ENC_HSP.PAT_ENC_CSN_ID
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - NOT HOSP_DISCH_TIME IS NULL
+    - ADT_PAT_CLASS_C = 1
+  Chain:
+    -> query.index_csn (passthrough)
+      -> readmissions.index_csn (passthrough)
+        -> discharges.PAT_ENC_CSN_ID (passthrough)
+
+readmit_csn (passthrough)
+  Resolved: PAT_ENC_HSP.PAT_ENC_CSN_ID
+  Base columns: PAT_ENC_HSP.PAT_ENC_CSN_ID
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - NOT HOSP_DISCH_TIME IS NULL
+    - ADT_PAT_CLASS_C = 1
+  Chain:
+    -> query.readmit_csn (passthrough)
+      -> readmissions.readmit_csn (passthrough)
+        -> discharges.PAT_ENC_CSN_ID (passthrough)
+
+days_to_readmit (calculated)
+  Resolved: DATEDIFF(DAY, d1.HOSP_DISCH_TIME, d2.HOSP_DISCH_TIME)
+  Base columns: .DAY, PAT_ENC_HSP.HOSP_DISCH_TIME
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - NOT HOSP_DISCH_TIME IS NULL
+    - ADT_PAT_CLASS_C = 1
+  Chain:
+    -> query.days_to_readmit (passthrough)
+      -> readmissions.days_to_readmit = DATEDIFF(DAY, d1.HOSP_DISCH_TIME, d2.HOSP_DISCH_TIME) AS days_to_readmit (calculated)
+        -> discharges.HOSP_DISCH_TIME (passthrough)
+          -> discharges.HOSP_DISCH_TIME (passthrough)

@@ -1,0 +1,22 @@
+DEPARTMENT_NAME (passthrough)
+  Resolved: CLARITY_DEP.DEPARTMENT_NAME
+  Base columns: CLARITY_DEP.DEPARTMENT_NAME
+  Base tables: CLARITY_DEP
+
+discharged_home (aggregate)
+  Resolved: COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 1 END)
+  Base columns: PAT_ENC_HSP.DISCH_DISPOSITION_C
+  Base tables: PAT_ENC_HSP
+
+transferred (aggregate)
+  Resolved: COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 2 THEN 1 END)
+  Base columns: PAT_ENC_HSP.DISCH_DISPOSITION_C
+  Base tables: PAT_ENC_HSP
+
+expired (aggregate)
+  Resolved: COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 20 THEN 1 END)
+  Base columns: PAT_ENC_HSP.DISCH_DISPOSITION_C
+  Base tables: PAT_ENC_HSP
+
+total (aggregate)
+  Resolved: COUNT(*)

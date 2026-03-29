@@ -1,0 +1,27 @@
+PAT_MRN_ID (passthrough)
+  Resolved: PATIENT.PAT_MRN_ID
+  Base columns: PATIENT.PAT_MRN_ID
+  Base tables: PATIENT
+  Filters:
+    - NOT e.HOSP_DISCH_TIME IS NULL
+
+PAT_ENC_CSN_ID (passthrough)
+  Resolved: PAT_ENC_HSP.PAT_ENC_CSN_ID
+  Base columns: PAT_ENC_HSP.PAT_ENC_CSN_ID
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - NOT e.HOSP_DISCH_TIME IS NULL
+
+HOSP_ADMSN_TIME (passthrough)
+  Resolved: PAT_ENC_HSP.HOSP_ADMSN_TIME
+  Base columns: PAT_ENC_HSP.HOSP_ADMSN_TIME
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - NOT e.HOSP_DISCH_TIME IS NULL
+
+HOSP_DISCH_TIME (passthrough)
+  Resolved: PAT_ENC_HSP.HOSP_DISCH_TIME
+  Base columns: PAT_ENC_HSP.HOSP_DISCH_TIME
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - NOT e.HOSP_DISCH_TIME IS NULL

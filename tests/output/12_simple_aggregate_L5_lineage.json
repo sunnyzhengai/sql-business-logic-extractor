@@ -1,0 +1,51 @@
+{
+  "columns": [
+    {
+      "name": "DEPARTMENT_NAME",
+      "type": "passthrough",
+      "resolved_expression": "CLARITY_DEP.DEPARTMENT_NAME",
+      "direct_expression": "dep.DEPARTMENT_NAME",
+      "base_columns": [
+        "CLARITY_DEP.DEPARTMENT_NAME"
+      ],
+      "base_tables": [
+        "CLARITY_DEP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "encounter_count",
+      "type": "aggregate",
+      "resolved_expression": "COUNT(DISTINCT e.PAT_ENC_CSN_ID)",
+      "direct_expression": "COUNT(DISTINCT e.PAT_ENC_CSN_ID) AS encounter_count",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "avg_los",
+      "type": "aggregate",
+      "resolved_expression": "AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME))",
+      "direct_expression": "AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los",
+      "base_columns": [
+        "PAT_ENC_HSP.DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL"
+      ]
+    }
+  ]
+}

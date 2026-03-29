@@ -1,0 +1,46 @@
+{
+  "columns": [
+    {
+      "name": "PRIMARY_DX_CODE",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PRIMARY_DX_CODE",
+      "direct_expression": "p.PRIMARY_DX_CODE",
+      "base_columns": [
+        "PATIENT.PRIMARY_DX_CODE"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "COUNT(*) >= 10",
+        "AVG(e.TOTAL_CHARGES) > 5000"
+      ]
+    },
+    {
+      "name": "patient_count",
+      "type": "aggregate",
+      "resolved_expression": "COUNT(*)",
+      "direct_expression": "COUNT(*) AS patient_count",
+      "filters": [
+        "COUNT(*) >= 10",
+        "AVG(e.TOTAL_CHARGES) > 5000"
+      ]
+    },
+    {
+      "name": "avg_charges",
+      "type": "aggregate",
+      "resolved_expression": "AVG(e.TOTAL_CHARGES)",
+      "direct_expression": "AVG(e.TOTAL_CHARGES) AS avg_charges",
+      "base_columns": [
+        "PAT_ENC_HSP.TOTAL_CHARGES"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "COUNT(*) >= 10",
+        "AVG(e.TOTAL_CHARGES) > 5000"
+      ]
+    }
+  ]
+}

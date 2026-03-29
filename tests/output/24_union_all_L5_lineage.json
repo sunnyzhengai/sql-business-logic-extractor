@@ -1,0 +1,46 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "resolved_expression": ".PAT_ENC_CSN_ID",
+      "direct_expression": "PAT_ENC_CSN_ID",
+      "base_columns": [
+        ".PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        ""
+      ]
+    },
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": ".PAT_ID",
+      "direct_expression": "PAT_ID",
+      "base_columns": [
+        ".PAT_ID"
+      ],
+      "base_tables": [
+        ""
+      ]
+    },
+    {
+      "name": "HOSP_ADMSN_TIME",
+      "type": "passthrough",
+      "resolved_expression": ".HOSP_ADMSN_TIME",
+      "direct_expression": "HOSP_ADMSN_TIME",
+      "base_columns": [
+        ".HOSP_ADMSN_TIME"
+      ],
+      "base_tables": [
+        ""
+      ]
+    },
+    {
+      "name": "source",
+      "type": "literal",
+      "resolved_expression": "'Inpatient'",
+      "direct_expression": "'Inpatient' AS source"
+    }
+  ]
+}

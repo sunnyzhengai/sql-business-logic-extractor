@@ -1,0 +1,49 @@
+{
+  "columns": [
+    {
+      "name": "PAT_MRN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_MRN_ID",
+      "direct_expression": "p.PAT_MRN_ID",
+      "base_columns": [
+        "PATIENT.PAT_MRN_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "p.PAT_ID IN (SELECT DISTINCT e.PAT_ID FROM PAT_ENC_HSP AS e JOIN HSP_ACCT_DX_LIST AS dl ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID JOIN CLARITY_EDG AS dx ON dl.DX_ID = dx.DX_ID WHERE dx.ICD10_CODE LIKE 'I50%')"
+      ]
+    },
+    {
+      "name": "PAT_FIRST_NAME",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_FIRST_NAME",
+      "direct_expression": "p.PAT_FIRST_NAME",
+      "base_columns": [
+        "PATIENT.PAT_FIRST_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "p.PAT_ID IN (SELECT DISTINCT e.PAT_ID FROM PAT_ENC_HSP AS e JOIN HSP_ACCT_DX_LIST AS dl ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID JOIN CLARITY_EDG AS dx ON dl.DX_ID = dx.DX_ID WHERE dx.ICD10_CODE LIKE 'I50%')"
+      ]
+    },
+    {
+      "name": "PAT_LAST_NAME",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_LAST_NAME",
+      "direct_expression": "p.PAT_LAST_NAME",
+      "base_columns": [
+        "PATIENT.PAT_LAST_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "p.PAT_ID IN (SELECT DISTINCT e.PAT_ID FROM PAT_ENC_HSP AS e JOIN HSP_ACCT_DX_LIST AS dl ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID JOIN CLARITY_EDG AS dx ON dl.DX_ID = dx.DX_ID WHERE dx.ICD10_CODE LIKE 'I50%')"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "columns": [
+    {
+      "name": "DEPARTMENT_NAME",
+      "type": "passthrough",
+      "resolved_expression": "CLARITY_DEP.DEPARTMENT_NAME",
+      "base_columns": [
+        "CLARITY_DEP.DEPARTMENT_NAME"
+      ],
+      "base_tables": [
+        "CLARITY_DEP"
+      ],
+      "filters": [
+        "dept_stats.avg_los > 5",
+        "NOT e.HOSP_DISCH_TIME IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "DEPARTMENT_NAME",
+          "expression": "dept_stats.DEPARTMENT_NAME",
+          "type": "passthrough"
+        },
+        {
+          "scope": "dept_stats",
+          "name": "DEPARTMENT_NAME",
+          "expression": "dep.DEPARTMENT_NAME",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "avg_los",
+      "type": "aggregate",
+      "resolved_expression": "AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME))",
+      "base_columns": [
+        "PAT_ENC_HSP.DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "dept_stats.avg_los > 5",
+        "NOT e.HOSP_DISCH_TIME IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "avg_los",
+          "expression": "dept_stats.avg_los",
+          "type": "passthrough"
+        },
+        {
+          "scope": "dept_stats",
+          "name": "avg_los",
+          "expression": "AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los",
+          "type": "aggregate"
+        }
+      ]
+    },
+    {
+      "name": "encounter_count",
+      "type": "aggregate",
+      "resolved_expression": "COUNT(*)",
+      "filters": [
+        "dept_stats.avg_los > 5",
+        "NOT e.HOSP_DISCH_TIME IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "encounter_count",
+          "expression": "dept_stats.encounter_count",
+          "type": "passthrough"
+        },
+        {
+          "scope": "dept_stats",
+          "name": "encounter_count",
+          "expression": "COUNT(*) AS encounter_count",
+          "type": "aggregate"
+        }
+      ]
+    }
+  ]
+}

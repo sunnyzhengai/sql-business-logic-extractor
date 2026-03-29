@@ -1,0 +1,28 @@
+{
+  "columns": [
+    {
+      "name": "PAT_MRN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_MRN_ID",
+      "direct_expression": "PAT_MRN_ID",
+      "base_columns": [
+        "PATIENT.PAT_MRN_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    },
+    {
+      "name": "age_group",
+      "type": "case",
+      "resolved_expression": "CASE WHEN AGE_YEARS < 18 THEN 'Pediatric' WHEN AGE_YEARS BETWEEN 18 AND 64 THEN 'Adult' ELSE 'Geriatric' END",
+      "direct_expression": "CASE WHEN AGE_YEARS < 18 THEN 'Pediatric' WHEN AGE_YEARS BETWEEN 18 AND 64 THEN 'Adult' ELSE 'Geriatric' END AS age_group",
+      "base_columns": [
+        "PATIENT.AGE_YEARS"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+      "direct_expression": "e.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID",
+        "fm.FLO_MEAS_ID = '5'"
+      ]
+    },
+    {
+      "name": "last_bp_time",
+      "type": "subquery",
+      "resolved_expression": "(SELECT MAX(fm.RECORDED_TIME) FROM IP_FLWSHT_MEAS AS fm WHERE fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID AND fm.FLO_MEAS_ID = '5')",
+      "direct_expression": "(SELECT MAX(fm.RECORDED_TIME) FROM IP_FLWSHT_MEAS AS fm WHERE fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID AND fm.FLO_MEAS_ID = '5') AS last_bp_time",
+      "base_columns": [
+        "IP_FLWSHT_MEAS.RECORDED_TIME",
+        "IP_FLWSHT_MEAS.PAT_ENC_CSN_ID",
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+        "IP_FLWSHT_MEAS.FLO_MEAS_ID"
+      ],
+      "base_tables": [
+        "IP_FLWSHT_MEAS",
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID",
+        "fm.FLO_MEAS_ID = '5'"
+      ]
+    }
+  ]
+}

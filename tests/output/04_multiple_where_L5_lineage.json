@@ -1,0 +1,21 @@
+{
+  "columns": [
+    {
+      "name": "PAT_MRN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_MRN_ID",
+      "direct_expression": "PAT_MRN_ID",
+      "base_columns": [
+        "PATIENT.PAT_MRN_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "PAT_STATUS = 'Active'",
+        "BIRTH_DATE > '1950-01-01'",
+        "STATE_ABBR = 'TX'"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "columns": [
+    {
+      "name": "PAT_MRN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_MRN_ID",
+      "direct_expression": "PAT_MRN_ID",
+      "base_columns": [
+        "PATIENT.PAT_MRN_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    },
+    {
+      "name": "age",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(YEAR, BIRTH_DATE, GETDATE())",
+      "direct_expression": "DATEDIFF(YEAR, BIRTH_DATE, GETDATE()) AS age",
+      "base_columns": [
+        "PATIENT.YEAR",
+        "PATIENT.BIRTH_DATE"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "columns": [
+    {
+      "name": "*",
+      "type": "star",
+      "direct_expression": "*"
+    }
+  ]
+}

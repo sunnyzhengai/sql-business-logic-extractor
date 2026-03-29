@@ -1,0 +1,40 @@
+{
+  "columns": [
+    {
+      "name": "mrn",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_MRN_ID",
+      "direct_expression": "PAT_MRN_ID AS mrn",
+      "base_columns": [
+        "PATIENT.PAT_MRN_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    },
+    {
+      "name": "first_name",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_FIRST_NAME",
+      "direct_expression": "PAT_FIRST_NAME AS first_name",
+      "base_columns": [
+        "PATIENT.PAT_FIRST_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    },
+    {
+      "name": "last_name",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_LAST_NAME",
+      "direct_expression": "PAT_LAST_NAME AS last_name",
+      "base_columns": [
+        "PATIENT.PAT_LAST_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    }
+  ]
+}

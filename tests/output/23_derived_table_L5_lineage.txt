@@ -1,0 +1,30 @@
+DEPARTMENT_NAME (passthrough)
+  Resolved: CLARITY_DEP.DEPARTMENT_NAME
+  Base columns: CLARITY_DEP.DEPARTMENT_NAME
+  Base tables: CLARITY_DEP
+  Filters:
+    - dept_stats.avg_los > 5
+    - NOT e.HOSP_DISCH_TIME IS NULL
+  Chain:
+    -> query.DEPARTMENT_NAME (passthrough)
+      -> dept_stats.DEPARTMENT_NAME (passthrough)
+
+avg_los (aggregate)
+  Resolved: AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME))
+  Base columns: PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - dept_stats.avg_los > 5
+    - NOT e.HOSP_DISCH_TIME IS NULL
+  Chain:
+    -> query.avg_los (passthrough)
+      -> dept_stats.avg_los = AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los (aggregate)
+
+encounter_count (aggregate)
+  Resolved: COUNT(*)
+  Filters:
+    - dept_stats.avg_los > 5
+    - NOT e.HOSP_DISCH_TIME IS NULL
+  Chain:
+    -> query.encounter_count (passthrough)
+      -> dept_stats.encounter_count = COUNT(*) AS encounter_count (aggregate)

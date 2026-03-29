@@ -1,0 +1,34 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+      "direct_expression": "e.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "dl.LINE = 1"
+      ]
+    },
+    {
+      "name": "DX_NAME",
+      "type": "passthrough",
+      "resolved_expression": "CLARITY_EDG.DX_NAME",
+      "direct_expression": "dx.DX_NAME",
+      "base_columns": [
+        "CLARITY_EDG.DX_NAME"
+      ],
+      "base_tables": [
+        "CLARITY_EDG"
+      ],
+      "filters": [
+        "dl.LINE = 1"
+      ]
+    }
+  ]
+}

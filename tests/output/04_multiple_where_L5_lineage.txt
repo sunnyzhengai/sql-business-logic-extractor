@@ -1,0 +1,8 @@
+PAT_MRN_ID (passthrough)
+  Resolved: PATIENT.PAT_MRN_ID
+  Base columns: PATIENT.PAT_MRN_ID
+  Base tables: PATIENT
+  Filters:
+    - PAT_STATUS = 'Active'
+    - BIRTH_DATE > '1950-01-01'
+    - STATE_ABBR = 'TX'

@@ -1,0 +1,39 @@
+PAT_MRN_ID (passthrough)
+  Resolved: PATIENT.PAT_MRN_ID
+  Base columns: PATIENT.PAT_MRN_ID
+  Base tables: PATIENT
+  Filters:
+    - NOT e.HOSP_DISCH_TIME IS NULL
+    - e.ADT_PAT_CLASS_C = 1
+
+PAT_ENC_CSN_ID (passthrough)
+  Resolved: PAT_ENC_HSP.PAT_ENC_CSN_ID
+  Base columns: PAT_ENC_HSP.PAT_ENC_CSN_ID
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - NOT e.HOSP_DISCH_TIME IS NULL
+    - e.ADT_PAT_CLASS_C = 1
+
+DEPARTMENT_NAME (passthrough)
+  Resolved: CLARITY_DEP.DEPARTMENT_NAME
+  Base columns: CLARITY_DEP.DEPARTMENT_NAME
+  Base tables: CLARITY_DEP
+  Filters:
+    - NOT e.HOSP_DISCH_TIME IS NULL
+    - e.ADT_PAT_CLASS_C = 1
+
+los_days (calculated)
+  Resolved: DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)
+  Base columns: PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - NOT e.HOSP_DISCH_TIME IS NULL
+    - e.ADT_PAT_CLASS_C = 1
+
+total_cost (calculated)
+  Resolved: DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) * dep.COST_PER_DAY
+  Base columns: CLARITY_DEP.COST_PER_DAY, PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+  Base tables: CLARITY_DEP, PAT_ENC_HSP
+  Filters:
+    - NOT e.HOSP_DISCH_TIME IS NULL
+    - e.ADT_PAT_CLASS_C = 1

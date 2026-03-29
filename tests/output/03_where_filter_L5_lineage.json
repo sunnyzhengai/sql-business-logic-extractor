@@ -1,0 +1,34 @@
+{
+  "columns": [
+    {
+      "name": "PAT_MRN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_MRN_ID",
+      "direct_expression": "PAT_MRN_ID",
+      "base_columns": [
+        "PATIENT.PAT_MRN_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "PAT_STATUS = 'Active'"
+      ]
+    },
+    {
+      "name": "PAT_FIRST_NAME",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_FIRST_NAME",
+      "direct_expression": "PAT_FIRST_NAME",
+      "base_columns": [
+        "PATIENT.PAT_FIRST_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "PAT_STATUS = 'Active'"
+      ]
+    }
+  ]
+}

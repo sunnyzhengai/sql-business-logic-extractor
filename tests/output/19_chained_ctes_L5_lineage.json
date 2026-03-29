@@ -1,0 +1,167 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT HOSP_DISCH_TIME IS NULL",
+        "ADT_PAT_CLASS_C = 1"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "PAT_ID",
+          "expression": "r.PAT_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "readmissions",
+          "name": "PAT_ID",
+          "expression": "d1.PAT_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "discharges",
+          "name": "PAT_ID",
+          "expression": "PAT_ID",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "PAT_MRN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_MRN_ID",
+      "direct_expression": "p.PAT_MRN_ID",
+      "base_columns": [
+        "PATIENT.PAT_MRN_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "NOT HOSP_DISCH_TIME IS NULL",
+        "ADT_PAT_CLASS_C = 1"
+      ]
+    },
+    {
+      "name": "index_csn",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT HOSP_DISCH_TIME IS NULL",
+        "ADT_PAT_CLASS_C = 1"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "index_csn",
+          "expression": "r.index_csn",
+          "type": "passthrough"
+        },
+        {
+          "scope": "readmissions",
+          "name": "index_csn",
+          "expression": "d1.PAT_ENC_CSN_ID AS index_csn",
+          "type": "passthrough"
+        },
+        {
+          "scope": "discharges",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "readmit_csn",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT HOSP_DISCH_TIME IS NULL",
+        "ADT_PAT_CLASS_C = 1"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "readmit_csn",
+          "expression": "r.readmit_csn",
+          "type": "passthrough"
+        },
+        {
+          "scope": "readmissions",
+          "name": "readmit_csn",
+          "expression": "d2.PAT_ENC_CSN_ID AS readmit_csn",
+          "type": "passthrough"
+        },
+        {
+          "scope": "discharges",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "days_to_readmit",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(DAY, d1.HOSP_DISCH_TIME, d2.HOSP_DISCH_TIME)",
+      "base_columns": [
+        ".DAY",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT HOSP_DISCH_TIME IS NULL",
+        "ADT_PAT_CLASS_C = 1"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "days_to_readmit",
+          "expression": "r.days_to_readmit",
+          "type": "passthrough"
+        },
+        {
+          "scope": "readmissions",
+          "name": "days_to_readmit",
+          "expression": "DATEDIFF(DAY, d1.HOSP_DISCH_TIME, d2.HOSP_DISCH_TIME) AS days_to_readmit",
+          "type": "calculated"
+        },
+        {
+          "scope": "discharges",
+          "name": "HOSP_DISCH_TIME",
+          "expression": "HOSP_DISCH_TIME",
+          "type": "passthrough"
+        },
+        {
+          "scope": "discharges",
+          "name": "HOSP_DISCH_TIME",
+          "expression": "HOSP_DISCH_TIME",
+          "type": "passthrough"
+        }
+      ]
+    }
+  ]
+}

@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from extract import SQLBusinessLogicExtractor, to_dict
 from normalize import extract_definitions, definitions_to_dict
 from translate import translate_query
+from resolve import resolve_query, resolved_to_dict
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -279,6 +280,41 @@ for name, sql in QUERIES.items():
     with open(os.path.join(OUT_DIR, f"{name}_L4_english.txt"), "w") as f:
         f.write("\n".join(lines))
 
-    print(f"  {name}: {len(logic.get('outputs', []))} outputs, {len(defs)} definitions, {len(translated)} translated")
+    # Lineage resolution
+    resolved = resolve_query(sql.strip())
+    with open(os.path.join(OUT_DIR, f"{name}_L5_lineage.json"), "w") as f:
+        json.dump(resolved_to_dict(resolved), f, indent=2, default=str)
+
+    # Lineage text version
+    lines_r = []
+    for col in resolved.columns:
+        lines_r.append(f"{col.name} ({col.type})")
+        if col.resolved_expression:
+            lines_r.append(f"  Resolved: {col.resolved_expression}")
+        if col.base_columns:
+            lines_r.append(f"  Base columns: {', '.join(col.base_columns)}")
+        if col.base_tables:
+            lines_r.append(f"  Base tables: {', '.join(col.base_tables)}")
+        if col.filters:
+            lines_r.append(f"  Filters:")
+            for flt in col.filters:
+                lines_r.append(f"    - {flt}")
+        if col.transformation_chain and len(col.transformation_chain) > 1:
+            lines_r.append(f"  Chain:")
+            for i, step in enumerate(col.transformation_chain):
+                indent = "    " + "  " * i
+                scope = step.get("scope", "")
+                sname = step.get("name", "")
+                stype = step.get("type", "")
+                sexpr = step.get("expression", "")
+                if stype == "passthrough":
+                    lines_r.append(f"{indent}-> {scope}.{sname} (passthrough)")
+                else:
+                    lines_r.append(f"{indent}-> {scope}.{sname} = {sexpr} ({stype})")
+        lines_r.append("")
+    with open(os.path.join(OUT_DIR, f"{name}_L5_lineage.txt"), "w") as f:
+        f.write("\n".join(lines_r))
+
+    print(f"  {name}: {len(logic.get('outputs', []))} outputs, {len(defs)} defs, {len(translated)} translated, {len(resolved.columns)} resolved")
 
 print(f"\nDone. Files in {OUT_DIR}/")

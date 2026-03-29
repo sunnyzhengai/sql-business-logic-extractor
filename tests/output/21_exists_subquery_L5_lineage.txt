@@ -1,0 +1,13 @@
+PAT_ENC_CSN_ID (passthrough)
+  Resolved: PAT_ENC_HSP.PAT_ENC_CSN_ID
+  Base columns: PAT_ENC_HSP.PAT_ENC_CSN_ID
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - EXISTS(SELECT 1 FROM ORDER_MED AS om WHERE om.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID AND om.ORDER_STATUS_C = 2)
+
+HOSP_ADMSN_TIME (passthrough)
+  Resolved: PAT_ENC_HSP.HOSP_ADMSN_TIME
+  Base columns: PAT_ENC_HSP.HOSP_ADMSN_TIME
+  Base tables: PAT_ENC_HSP
+  Filters:
+    - EXISTS(SELECT 1 FROM ORDER_MED AS om WHERE om.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID AND om.ORDER_STATUS_C = 2)

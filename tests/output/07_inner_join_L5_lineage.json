@@ -1,0 +1,64 @@
+{
+  "columns": [
+    {
+      "name": "PAT_MRN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_MRN_ID",
+      "direct_expression": "p.PAT_MRN_ID",
+      "base_columns": [
+        "PATIENT.PAT_MRN_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+      "direct_expression": "e.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "HOSP_ADMSN_TIME",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+      "direct_expression": "e.HOSP_ADMSN_TIME",
+      "base_columns": [
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "HOSP_DISCH_TIME",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.HOSP_DISCH_TIME",
+      "direct_expression": "e.HOSP_DISCH_TIME",
+      "base_columns": [
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "columns": [
+    {
+      "name": "DEPARTMENT_NAME",
+      "type": "passthrough",
+      "resolved_expression": "CLARITY_DEP.DEPARTMENT_NAME",
+      "direct_expression": "dep.DEPARTMENT_NAME",
+      "base_columns": [
+        "CLARITY_DEP.DEPARTMENT_NAME"
+      ],
+      "base_tables": [
+        "CLARITY_DEP"
+      ]
+    },
+    {
+      "name": "discharged_home",
+      "type": "aggregate",
+      "resolved_expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 1 END)",
+      "direct_expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 1 END) AS discharged_home",
+      "base_columns": [
+        "PAT_ENC_HSP.DISCH_DISPOSITION_C"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    },
+    {
+      "name": "transferred",
+      "type": "aggregate",
+      "resolved_expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 2 THEN 1 END)",
+      "direct_expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 2 THEN 1 END) AS transferred",
+      "base_columns": [
+        "PAT_ENC_HSP.DISCH_DISPOSITION_C"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    },
+    {
+      "name": "expired",
+      "type": "aggregate",
+      "resolved_expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 20 THEN 1 END)",
+      "direct_expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 20 THEN 1 END) AS expired",
+      "base_columns": [
+        "PAT_ENC_HSP.DISCH_DISPOSITION_C"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    },
+    {
+      "name": "total",
+      "type": "aggregate",
+      "resolved_expression": "COUNT(*)",
+      "direct_expression": "COUNT(*) AS total"
+    }
+  ]
+}

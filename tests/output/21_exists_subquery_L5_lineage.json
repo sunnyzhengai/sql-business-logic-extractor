@@ -1,0 +1,34 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+      "direct_expression": "e.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "EXISTS(SELECT 1 FROM ORDER_MED AS om WHERE om.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID AND om.ORDER_STATUS_C = 2)"
+      ]
+    },
+    {
+      "name": "HOSP_ADMSN_TIME",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+      "direct_expression": "e.HOSP_ADMSN_TIME",
+      "base_columns": [
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "EXISTS(SELECT 1 FROM ORDER_MED AS om WHERE om.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID AND om.ORDER_STATUS_C = 2)"
+      ]
+    }
+  ]
+}

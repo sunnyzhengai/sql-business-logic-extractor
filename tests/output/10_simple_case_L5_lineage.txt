@@ -1,0 +1,9 @@
+PAT_MRN_ID (passthrough)
+  Resolved: PATIENT.PAT_MRN_ID
+  Base columns: PATIENT.PAT_MRN_ID
+  Base tables: PATIENT
+
+age_group (case)
+  Resolved: CASE WHEN AGE_YEARS < 18 THEN 'Pediatric' WHEN AGE_YEARS BETWEEN 18 AND 64 THEN 'Adult' ELSE 'Geriatric' END
+  Base columns: PATIENT.AGE_YEARS
+  Base tables: PATIENT

@@ -1,0 +1,10 @@
+PAT_MRN_ID (passthrough)
+  Resolved: PATIENT.PAT_MRN_ID
+  Base columns: PATIENT.PAT_MRN_ID
+  Base tables: PATIENT
+
+encounter_type (literal)
+  Resolved: 'Inpatient'
+
+is_active (literal)
+  Resolved: 1

@@ -1,0 +1,22 @@
+======================================================================
+  L2_14_arithmetic
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  total_charges - total_payments AS balance
+FROM HSP_TRANSACTIONS
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  balance
+    total_charges minus total_payments
+    Technical: total_charges - total_payments
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  balance (calculated)
+    Resolved: total_charges - total_payments
+    Base columns: HSP_TRANSACTIONS.total_charges, HSP_TRANSACTIONS.total_payments
+    Base tables: HSP_TRANSACTIONS

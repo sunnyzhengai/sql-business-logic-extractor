@@ -1,0 +1,18 @@
+{
+  "definitions": [
+    {
+      "id": "L1_31_or_conditions:def-001",
+      "name": "filter:where:PAT_STATUS",
+      "category": "equality_filter",
+      "pattern": "OR(<col> = <val>, <col> = <val>)",
+      "normalized_expression": "pat_status = 'Active' OR pat_status = 'Inactive'",
+      "signature": "331b77a1df73a4e8",
+      "structural_signature": "2146ba871c8d67bd",
+      "source_columns": [
+        "PAT_STATUS",
+        "PAT_STATUS"
+      ],
+      "query_label": "L1_31_or_conditions"
+    }
+  ]
+}

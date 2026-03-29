@@ -1,0 +1,70 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "los_category",
+      "expression": "CASE WHEN LOS_DAYS <= 3 THEN 'Short' WHEN LOS_DAYS <= 7 THEN 'Medium' ELSE 'Long' END AS los_category",
+      "type": "case",
+      "source_columns": [
+        {
+          "column": "LOS_DAYS",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "LOS_DAYS",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "case_expressions": [
+    {
+      "output_name": "los_category",
+      "expression": "CASE WHEN LOS_DAYS <= 3 THEN 'Short' WHEN LOS_DAYS <= 7 THEN 'Medium' ELSE 'Long' END",
+      "branches": [
+        {
+          "condition": "LOS_DAYS <= 3",
+          "result": "'Short'"
+        },
+        {
+          "condition": "LOS_DAYS <= 7",
+          "result": "'Medium'"
+        }
+      ],
+      "else_result": "'Long'",
+      "source_columns": [
+        {
+          "column": "LOS_DAYS",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "LOS_DAYS",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "los_category",
+      "expression": "CASE WHEN LOS_DAYS <= 3 THEN 'Short' WHEN LOS_DAYS <= 7 THEN 'Medium' ELSE 'Long' END AS los_category",
+      "depends_on": [
+        "LOS_DAYS",
+        "LOS_DAYS"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT CASE WHEN LOS_DAYS <= 3 THEN 'Short' WHEN LOS_DAYS <= 7 THEN 'Medium' ELSE 'Long' END AS los_category FROM PAT_ENC_HSP"
+}

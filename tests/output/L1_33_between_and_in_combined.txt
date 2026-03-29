@@ -1,0 +1,37 @@
+======================================================================
+  L1_33_between_and_in
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  PAT_ENC_CSN_ID
+FROM PAT_ENC_HSP
+WHERE
+  HOSP_ADMSN_TIME BETWEEN '2025-01-01' AND '2025-12-31'
+  AND ADT_PAT_CLASS_C IN (1, 2, 3)
+  AND NOT DEPARTMENT_ID IN (100, 200)
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  filter:where:HOSP_ADMSN_TIME
+    Filter: only include records where hosp_admsn_time is between '2025-01-01' and '2025-12-31'
+    Technical: hosp_admsn_time BETWEEN '2025-01-01' AND '2025-12-31'
+
+  filter:where:ADT_PAT_CLASS_C
+    Filter: only include records where adt_pat_class_c IN (1, 2, 3)
+    Technical: adt_pat_class_c IN (1, 2, 3)
+
+  filter:where:DEPARTMENT_ID
+    Filter: only include records where not (department_id IN (100, 200))
+    Technical: NOT department_id IN (100, 200)
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_ENC_CSN_ID (passthrough)
+    Resolved: PAT_ENC_HSP.PAT_ENC_CSN_ID
+    Base columns: PAT_ENC_HSP.PAT_ENC_CSN_ID
+    Base tables: PAT_ENC_HSP
+    Filter: HOSP_ADMSN_TIME BETWEEN '2025-01-01' AND '2025-12-31'
+    Filter: ADT_PAT_CLASS_C IN (1, 2, 3)
+    Filter: NOT DEPARTMENT_ID IN (100, 200)

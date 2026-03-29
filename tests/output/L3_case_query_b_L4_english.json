@@ -1,0 +1,11 @@
+{
+  "definitions": [
+    {
+      "name": "cost_category",
+      "business_description": "Classified as:\n  - 'Low' when total_charges is at most 5000\n  - 'Medium' when total_charges is at most 20000\n  - 'High' otherwise",
+      "category": "classification",
+      "subcategory": "value_mapping",
+      "technical_expression": "CASE WHEN total_charges <= 5000 THEN 'Low' WHEN total_charges <= 20000 THEN 'Medium' ELSE 'High' END"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+======================================================================
+  L2_09_conditional_count
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  COUNT(CASE WHEN DISCH_DISPOSITION_C = 1 THEN 1 END) AS discharged_home
+FROM PAT_ENC_HSP
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  discharged_home
+    Conditional count of records where disch_disposition_c equals 1
+    Technical: COUNT(CASE WHEN disch_disposition_c = 1 THEN 1 END)
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  discharged_home (aggregate)
+    Resolved: COUNT(CASE WHEN DISCH_DISPOSITION_C = 1 THEN 1 END)
+    Base columns: PAT_ENC_HSP.DISCH_DISPOSITION_C
+    Base tables: PAT_ENC_HSP

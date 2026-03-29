@@ -1,0 +1,22 @@
+======================================================================
+  L2_11_window_lag
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME) AS prev_discharge
+FROM PAT_ENC_HSP
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  prev_discharge
+    Previous/next value comparison using PAT_ID, HOSP_DISCH_TIME, HOSP_ADMSN_TIME
+    Technical: LAG(hosp_disch_time) OVER (PARTITION BY pat_id ORDER BY hosp_admsn_time)
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  prev_discharge (window)
+    Resolved: LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME)
+    Base columns: PAT_ENC_HSP.PAT_ID, PAT_ENC_HSP.HOSP_DISCH_TIME, PAT_ENC_HSP.HOSP_ADMSN_TIME
+    Base tables: PAT_ENC_HSP

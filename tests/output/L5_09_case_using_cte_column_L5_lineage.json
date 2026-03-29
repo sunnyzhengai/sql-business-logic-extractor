@@ -1,0 +1,101 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "PAT_ID",
+          "expression": "PAT_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "flagged",
+          "name": "PAT_ID",
+          "expression": "PAT_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base",
+          "name": "PAT_ID",
+          "expression": "e.PAT_ID",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "los_days",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)",
+      "base_columns": [
+        "PAT_ENC_HSP.DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "los_days",
+          "expression": "los_days",
+          "type": "passthrough"
+        },
+        {
+          "scope": "flagged",
+          "name": "los_days",
+          "expression": "los_days",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base",
+          "name": "los_days",
+          "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+          "type": "calculated"
+        }
+      ]
+    },
+    {
+      "name": "los_category",
+      "type": "case",
+      "resolved_expression": "CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END",
+      "base_columns": [
+        "PAT_ENC_HSP.DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "los_category",
+          "expression": "los_category",
+          "type": "passthrough"
+        },
+        {
+          "scope": "flagged",
+          "name": "los_category",
+          "expression": "CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END AS los_category",
+          "type": "case"
+        },
+        {
+          "scope": "base",
+          "name": "los_days",
+          "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+          "type": "calculated"
+        }
+      ]
+    }
+  ]
+}

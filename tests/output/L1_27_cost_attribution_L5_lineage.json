@@ -1,0 +1,197 @@
+{
+  "columns": [
+    {
+      "name": "PAT_MRN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_MRN_ID",
+      "direct_expression": "p.PAT_MRN_ID",
+      "base_columns": [
+        "PATIENT.PAT_MRN_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1",
+        "e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      ]
+    },
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+      "direct_expression": "e.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1",
+        "e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      ]
+    },
+    {
+      "name": "DEPARTMENT_NAME",
+      "type": "passthrough",
+      "resolved_expression": "CLARITY_DEP.DEPARTMENT_NAME",
+      "direct_expression": "dep.DEPARTMENT_NAME",
+      "base_columns": [
+        "CLARITY_DEP.DEPARTMENT_NAME"
+      ],
+      "base_tables": [
+        "CLARITY_DEP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1",
+        "e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      ]
+    },
+    {
+      "name": "attending_name",
+      "type": "passthrough",
+      "resolved_expression": "CLARITY_SER.PROV_NAME",
+      "direct_expression": "ser.PROV_NAME AS attending_name",
+      "base_columns": [
+        "CLARITY_SER.PROV_NAME"
+      ],
+      "base_tables": [
+        "CLARITY_SER"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1",
+        "e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      ]
+    },
+    {
+      "name": "primary_dx",
+      "type": "passthrough",
+      "resolved_expression": "CLARITY_EDG.DX_NAME",
+      "direct_expression": "dx.DX_NAME AS primary_dx",
+      "base_columns": [
+        "CLARITY_EDG.DX_NAME"
+      ],
+      "base_tables": [
+        "CLARITY_EDG"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1",
+        "e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      ]
+    },
+    {
+      "name": "los_days",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)",
+      "direct_expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+      "base_columns": [
+        "PAT_ENC_HSP.DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1",
+        "e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      ]
+    },
+    {
+      "name": "total_charges",
+      "type": "passthrough",
+      "resolved_expression": "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges",
+      "direct_expression": "t.total_charges",
+      "base_columns": [
+        "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges"
+      ],
+      "base_tables": [
+        "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1",
+        "e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      ]
+    },
+    {
+      "name": "total_payments",
+      "type": "passthrough",
+      "resolved_expression": "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_payments",
+      "direct_expression": "t.total_payments",
+      "base_columns": [
+        "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_payments"
+      ],
+      "base_tables": [
+        "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1",
+        "e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      ]
+    },
+    {
+      "name": "balance",
+      "type": "calculated",
+      "resolved_expression": "t.total_charges - t.total_payments",
+      "direct_expression": "t.total_charges - t.total_payments AS balance",
+      "base_columns": [
+        "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges",
+        "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_payments"
+      ],
+      "base_tables": [
+        "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1",
+        "e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      ]
+    },
+    {
+      "name": "collection_rate_pct",
+      "type": "case",
+      "resolved_expression": "CASE WHEN t.total_charges = 0 THEN 0 ELSE ROUND(t.total_payments / t.total_charges * 100, 1) END",
+      "direct_expression": "CASE WHEN t.total_charges = 0 THEN 0 ELSE ROUND(t.total_payments / t.total_charges * 100, 1) END AS collection_rate_pct",
+      "base_columns": [
+        "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges",
+        "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_payments"
+      ],
+      "base_tables": [
+        "SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1",
+        "e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      ]
+    },
+    {
+      "name": "los_category",
+      "type": "case",
+      "resolved_expression": "CASE WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 2 THEN 'Short' WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 5 THEN 'Medium' WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 10 THEN 'Long' ELSE 'Extended' END",
+      "direct_expression": "CASE WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 2 THEN 'Short' WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 5 THEN 'Medium' WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 10 THEN 'Long' ELSE 'Extended' END AS los_category",
+      "base_columns": [
+        "PAT_ENC_HSP.DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1",
+        "e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      ]
+    }
+  ]
+}

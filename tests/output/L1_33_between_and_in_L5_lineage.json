@@ -1,0 +1,21 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+      "direct_expression": "PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "HOSP_ADMSN_TIME BETWEEN '2025-01-01' AND '2025-12-31'",
+        "ADT_PAT_CLASS_C IN (1, 2, 3)",
+        "NOT DEPARTMENT_ID IN (100, 200)"
+      ]
+    }
+  ]
+}

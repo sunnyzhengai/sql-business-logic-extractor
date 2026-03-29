@@ -1,0 +1,192 @@
+======================================================================
+  L1_27_cost_attribution
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  p.PAT_MRN_ID,
+  e.PAT_ENC_CSN_ID,
+  dep.DEPARTMENT_NAME,
+  ser.PROV_NAME AS attending_name,
+  dx.DX_NAME AS primary_dx,
+  DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days,
+  t.total_charges,
+  t.total_payments,
+  t.total_charges - t.total_payments AS balance,
+  CASE
+    WHEN t.total_charges = 0
+    THEN 0
+    ELSE ROUND(t.total_payments / t.total_charges * 100, 1)
+  END AS collection_rate_pct,
+  CASE
+    WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 2
+    THEN 'Short'
+    WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 5
+    THEN 'Medium'
+    WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 10
+    THEN 'Long'
+    ELSE 'Extended'
+  END AS los_category
+FROM PAT_ENC_HSP AS e
+JOIN PATIENT AS p
+  ON e.PAT_ID = p.PAT_ID
+JOIN CLARITY_DEP AS dep
+  ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID
+JOIN CLARITY_SER AS ser
+  ON e.ATTENDING_PROV_ID = ser.PROV_ID
+LEFT JOIN HSP_ACCT_DX_LIST AS dl
+  ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID AND dl.LINE = 1
+LEFT JOIN CLARITY_EDG AS dx
+  ON dl.DX_ID = dx.DX_ID
+LEFT JOIN (
+  SELECT
+    HSP_ACCOUNT_ID,
+    SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges,
+    SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments
+  FROM HSP_TRANSACTIONS
+  GROUP BY
+    HSP_ACCOUNT_ID
+) AS t
+  ON e.HSP_ACCOUNT_ID = t.HSP_ACCOUNT_ID
+WHERE
+  NOT e.HOSP_DISCH_TIME IS NULL
+  AND e.ADT_PAT_CLASS_C = 1
+  AND e.HOSP_ADMSN_TIME >= '2025-01-01'
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  los_days
+    The number of days between Hospital admission date and time and Hospital discharge date and time
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Condition: Hospital discharge date and time is not null
+    Condition: Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Condition: Hospital admission date and time is at least '2025-01-01'
+    Technical: DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)
+
+  balance
+    SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges minus SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_payments
+    Source: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID
+    Technical: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges - SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_payments AS balance
+
+  collection_rate_pct
+    Conditional classification
+    Source: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID
+    Technical: CASE WHEN SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges = 0 THEN 0 ELSE ROUND(SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_payments / SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges * 100, 1) END AS collection_rate_pct
+
+  los_category
+    Classified as:
+  - 'Short' when DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time) is at most 2
+  - 'Medium' when DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time) is at most 5
+  - 'Long' when DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time) is at most 10
+  - 'Extended' otherwise
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Condition: Hospital discharge date and time is not null
+    Condition: Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Condition: Hospital admission date and time is at least '2025-01-01'
+    Technical: CASE WHEN DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time) <= 2 THEN 'Short' WHEN DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time) <= 5 THEN 'Medium' WHEN DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time) <= 10 THEN 'Long' ELSE 'Extended' END
+
+  filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME
+    Filter: only include records where Hospital discharge date and time is not null
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: NOT pat_enc_hsp.hosp_disch_time IS NULL
+
+  filter:where:PAT_ENC_HSP.ADT_PAT_CLASS_C
+    Filter: only include records where Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: pat_enc_hsp.adt_pat_class_c = 1
+
+  filter:where:PAT_ENC_HSP.HOSP_ADMSN_TIME
+    Filter: only include records where Hospital admission date and time is at least '2025-01-01'
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: pat_enc_hsp.hosp_admsn_time >= '2025-01-01'
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_MRN_ID (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+
+  PAT_ENC_CSN_ID (passthrough)
+    Resolved: PAT_ENC_HSP.PAT_ENC_CSN_ID
+    Base columns: PAT_ENC_HSP.PAT_ENC_CSN_ID
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+
+  DEPARTMENT_NAME (passthrough)
+    Resolved: CLARITY_DEP.DEPARTMENT_NAME
+    Base columns: CLARITY_DEP.DEPARTMENT_NAME
+    Base tables: CLARITY_DEP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+
+  attending_name (passthrough)
+    Resolved: CLARITY_SER.PROV_NAME
+    Base columns: CLARITY_SER.PROV_NAME
+    Base tables: CLARITY_SER
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+
+  primary_dx (passthrough)
+    Resolved: CLARITY_EDG.DX_NAME
+    Base columns: CLARITY_EDG.DX_NAME
+    Base tables: CLARITY_EDG
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+
+  los_days (calculated)
+    Resolved: DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)
+    Base columns: PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+
+  total_charges (passthrough)
+    Resolved: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges
+    Base columns: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges
+    Base tables: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+
+  total_payments (passthrough)
+    Resolved: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_payments
+    Base columns: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_payments
+    Base tables: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+
+  balance (calculated)
+    Resolved: t.total_charges - t.total_payments
+    Base columns: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges, SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_payments
+    Base tables: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+
+  collection_rate_pct (case)
+    Resolved: CASE WHEN t.total_charges = 0 THEN 0 ELSE ROUND(t.total_payments / t.total_charges * 100, 1) END
+    Base columns: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_charges, SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID.total_payments
+    Base tables: SELECT HSP_ACCOUNT_ID, SUM(CASE WHEN TX_TYPE_C = 1 THEN TX_AMOUNT ELSE 0 END) AS total_charges, SUM(CASE WHEN TX_TYPE_C = 2 THEN TX_AMOUNT ELSE 0 END) AS total_payments FROM HSP_TRANSACTIONS GROUP BY HSP_ACCOUNT_ID
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+
+  los_category (case)
+    Resolved: CASE WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 2 THEN 'Short' WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 5 THEN 'Medium' WHEN DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) <= 10 THEN 'Long' ELSE 'Extended' END
+    Base columns: PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'

@@ -1,0 +1,109 @@
+{
+  "definitions": [
+    {
+      "name": "total_admins",
+      "business_description": "Count of records",
+      "category": "aggregation",
+      "subcategory": "count",
+      "technical_expression": "COUNT(*)"
+    },
+    {
+      "name": "avg_delay_min",
+      "business_description": "Average of delay_minutes",
+      "category": "aggregation",
+      "subcategory": "average",
+      "technical_expression": "AVG(delay_minutes)"
+    },
+    {
+      "name": "late_admins",
+      "business_description": "Conditional count of records where delay_minutes is greater than 60",
+      "category": "aggregation",
+      "subcategory": "conditional_count",
+      "technical_expression": "COUNT(CASE WHEN delay_minutes > 60 THEN 1 END)"
+    },
+    {
+      "name": "late_pct",
+      "business_description": "Conditional count of records where delay_minutes is greater than 60",
+      "category": "aggregation",
+      "subcategory": "conditional_count",
+      "technical_expression": "CAST(COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS FLOAT) / COUNT(*) * 100"
+    },
+    {
+      "name": "timing_category",
+      "business_description": "Average of delay_minutes, delay_minutes",
+      "category": "aggregation",
+      "subcategory": "average",
+      "technical_expression": "CASE WHEN AVG(delay_minutes) <= 15 THEN 'On Time' WHEN AVG(delay_minutes) <= 60 THEN 'Slightly Delayed' ELSE 'Significantly Delayed' END"
+    },
+    {
+      "name": "filter:where:MAR_ADMIN_INFO.MAR_ACTION_C",
+      "business_description": "Filter: only include records where Administration action (1=Given, 2=Held, 3=Refused) is Given",
+      "category": "equality_filter",
+      "source": "MAR_ADMIN_INFO (Medication administration records)",
+      "technical_expression": "mar_admin_info.mar_action_c = 1"
+    },
+    {
+      "name": "filter:where:MAR_ADMIN_INFO.TAKEN_TIME",
+      "business_description": "Filter: only include records where Time the medication was actually administered is not null",
+      "category": "null_check",
+      "source": "MAR_ADMIN_INFO (Medication administration records)",
+      "technical_expression": "NOT mar_admin_info.taken_time IS NULL"
+    },
+    {
+      "name": "filter:having:unknown",
+      "business_description": "Filter: only include records where COUNT(*) is at least 20",
+      "category": "post_aggregation_filter",
+      "technical_expression": "COUNT(*) >= 20"
+    },
+    {
+      "name": "delay_minutes",
+      "business_description": "The number of minutes between Time the medication was scheduled to be given and Time the medication was actually administered",
+      "category": "date_calculation",
+      "subcategory": "date_difference",
+      "source": "MAR_ADMIN_INFO (Medication administration records)",
+      "conditions": [
+        "Administration action (1=Given, 2=Held, 3=Refused) is Given",
+        "Time the medication was actually administered is not null"
+      ],
+      "technical_expression": "DATEDIFF(minute, mar_admin_info.scheduled_time, mar_admin_info.taken_time)"
+    },
+    {
+      "name": "admin_seq",
+      "business_description": "Row ranking (used for deduplication or ordering)",
+      "category": "window_function",
+      "subcategory": "ranking",
+      "source": "MAR_ADMIN_INFO (Medication administration records), ORDER_MED (Medication orders)",
+      "conditions": [
+        "Administration action (1=Given, 2=Held, 3=Refused) is Given",
+        "Time the medication was actually administered is not null"
+      ],
+      "technical_expression": "ROW_NUMBER() OVER (PARTITION BY order_med.pat_enc_csn_id, order_med.order_med_id ORDER BY mar_admin_info.taken_time)"
+    },
+    {
+      "name": "prev_admin_time",
+      "business_description": "Row ranking (used for deduplication or ordering)",
+      "category": "window_function",
+      "subcategory": "ranking",
+      "source": "MAR_ADMIN_INFO (Medication administration records), ORDER_MED (Medication orders)",
+      "conditions": [
+        "Administration action (1=Given, 2=Held, 3=Refused) is Given",
+        "Time the medication was actually administered is not null"
+      ],
+      "technical_expression": "LAG(mar_admin_info.taken_time) OVER (PARTITION BY order_med.pat_enc_csn_id, order_med.order_med_id ORDER BY mar_admin_info.taken_time)"
+    },
+    {
+      "name": "filter:where:MAR_ADMIN_INFO.MAR_ACTION_C",
+      "business_description": "Filter: only include records where Administration action (1=Given, 2=Held, 3=Refused) is Given",
+      "category": "equality_filter",
+      "source": "MAR_ADMIN_INFO (Medication administration records)",
+      "technical_expression": "mar_admin_info.mar_action_c = 1"
+    },
+    {
+      "name": "filter:where:MAR_ADMIN_INFO.TAKEN_TIME",
+      "business_description": "Filter: only include records where Time the medication was actually administered is not null",
+      "category": "null_check",
+      "source": "MAR_ADMIN_INFO (Medication administration records)",
+      "technical_expression": "NOT mar_admin_info.taken_time IS NULL"
+    }
+  ]
+}

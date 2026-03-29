@@ -1,0 +1,23 @@
+======================================================================
+  L3_los_query_b
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  DATEDIFF(DAY, enc.HOSP_ADMSN_TIME, enc.HOSP_DISCH_TIME) AS length_of_stay
+FROM PAT_ENC_HSP AS enc
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  length_of_stay
+    The number of days between Hospital admission date and time and Hospital discharge date and time
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  length_of_stay (calculated)
+    Resolved: DATEDIFF(DAY, enc.HOSP_ADMSN_TIME, enc.HOSP_DISCH_TIME)
+    Base columns: PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base tables: PAT_ENC_HSP

@@ -1,0 +1,187 @@
+{
+  "columns": [
+    {
+      "name": "med_name",
+      "type": "passthrough",
+      "resolved_expression": "ORDER_MED.DESCRIPTION",
+      "base_columns": [
+        "ORDER_MED.DESCRIPTION"
+      ],
+      "base_tables": [
+        "ORDER_MED"
+      ],
+      "filters": [
+        "ma.MAR_ACTION_C = 1",
+        "NOT ma.TAKEN_TIME IS NULL",
+        "COUNT(*) >= 20"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "med_name",
+          "expression": "med_name",
+          "type": "passthrough"
+        },
+        {
+          "scope": "med_events",
+          "name": "med_name",
+          "expression": "om.DESCRIPTION AS med_name",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "total_admins",
+      "type": "aggregate",
+      "resolved_expression": "COUNT(*)",
+      "direct_expression": "COUNT(*) AS total_admins",
+      "filters": [
+        "ma.MAR_ACTION_C = 1",
+        "NOT ma.TAKEN_TIME IS NULL",
+        "COUNT(*) >= 20"
+      ]
+    },
+    {
+      "name": "avg_delay_min",
+      "type": "aggregate",
+      "resolved_expression": "AVG(DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME))",
+      "direct_expression": "AVG(delay_minutes) AS avg_delay_min",
+      "base_columns": [
+        "ORDER_MED.MINUTE",
+        "MAR_ADMIN_INFO.SCHEDULED_TIME",
+        "MAR_ADMIN_INFO.TAKEN_TIME"
+      ],
+      "base_tables": [
+        "ORDER_MED",
+        "MAR_ADMIN_INFO"
+      ],
+      "filters": [
+        "ma.MAR_ACTION_C = 1",
+        "NOT ma.TAKEN_TIME IS NULL",
+        "COUNT(*) >= 20"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "avg_delay_min",
+          "expression": "AVG(delay_minutes) AS avg_delay_min",
+          "type": "aggregate"
+        },
+        {
+          "scope": "med_events",
+          "name": "delay_minutes",
+          "expression": "DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes",
+          "type": "calculated"
+        }
+      ]
+    },
+    {
+      "name": "late_admins",
+      "type": "aggregate",
+      "resolved_expression": "COUNT(CASE WHEN DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) > 60 THEN 1 END)",
+      "direct_expression": "COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS late_admins",
+      "base_columns": [
+        "ORDER_MED.MINUTE",
+        "MAR_ADMIN_INFO.SCHEDULED_TIME",
+        "MAR_ADMIN_INFO.TAKEN_TIME"
+      ],
+      "base_tables": [
+        "ORDER_MED",
+        "MAR_ADMIN_INFO"
+      ],
+      "filters": [
+        "ma.MAR_ACTION_C = 1",
+        "NOT ma.TAKEN_TIME IS NULL",
+        "COUNT(*) >= 20"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "late_admins",
+          "expression": "COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS late_admins",
+          "type": "aggregate"
+        },
+        {
+          "scope": "med_events",
+          "name": "delay_minutes",
+          "expression": "DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes",
+          "type": "calculated"
+        }
+      ]
+    },
+    {
+      "name": "late_pct",
+      "type": "aggregate",
+      "resolved_expression": "CAST(COUNT(CASE WHEN DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) > 60 THEN 1 END) AS FLOAT) / COUNT(*) * 100",
+      "direct_expression": "CAST(COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS FLOAT) / COUNT(*) * 100 AS late_pct",
+      "base_columns": [
+        "ORDER_MED.MINUTE",
+        "MAR_ADMIN_INFO.SCHEDULED_TIME",
+        "MAR_ADMIN_INFO.TAKEN_TIME"
+      ],
+      "base_tables": [
+        "ORDER_MED",
+        "MAR_ADMIN_INFO"
+      ],
+      "filters": [
+        "ma.MAR_ACTION_C = 1",
+        "NOT ma.TAKEN_TIME IS NULL",
+        "COUNT(*) >= 20"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "late_pct",
+          "expression": "CAST(COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS FLOAT) / COUNT(*) * 100 AS late_pct",
+          "type": "aggregate"
+        },
+        {
+          "scope": "med_events",
+          "name": "delay_minutes",
+          "expression": "DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes",
+          "type": "calculated"
+        }
+      ]
+    },
+    {
+      "name": "timing_category",
+      "type": "aggregate",
+      "resolved_expression": "CASE WHEN AVG(DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME)) <= 15 THEN 'On Time' WHEN AVG(DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME)) <= 60 THEN 'Slightly Delayed' ELSE 'Significantly Delayed' END",
+      "direct_expression": "CASE WHEN AVG(delay_minutes) <= 15 THEN 'On Time' WHEN AVG(delay_minutes) <= 60 THEN 'Slightly Delayed' ELSE 'Significantly Delayed' END AS timing_category",
+      "base_columns": [
+        "ORDER_MED.MINUTE",
+        "MAR_ADMIN_INFO.SCHEDULED_TIME",
+        "MAR_ADMIN_INFO.TAKEN_TIME"
+      ],
+      "base_tables": [
+        "ORDER_MED",
+        "MAR_ADMIN_INFO"
+      ],
+      "filters": [
+        "ma.MAR_ACTION_C = 1",
+        "NOT ma.TAKEN_TIME IS NULL",
+        "COUNT(*) >= 20"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "timing_category",
+          "expression": "CASE WHEN AVG(delay_minutes) <= 15 THEN 'On Time' WHEN AVG(delay_minutes) <= 60 THEN 'Slightly Delayed' ELSE 'Significantly Delayed' END AS timing_category",
+          "type": "aggregate"
+        },
+        {
+          "scope": "med_events",
+          "name": "delay_minutes",
+          "expression": "DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes",
+          "type": "calculated"
+        },
+        {
+          "scope": "med_events",
+          "name": "delay_minutes",
+          "expression": "DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes",
+          "type": "calculated"
+        }
+      ]
+    }
+  ]
+}

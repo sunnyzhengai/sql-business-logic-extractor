@@ -1,0 +1,274 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "e",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "PATIENT",
+      "alias": "p",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "CLARITY_DEP",
+      "alias": "dep",
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_MRN_ID",
+      "expression": "p.PAT_MRN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_MRN_ID",
+          "table": "p",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "expression": "e.PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ENC_CSN_ID",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "DEPARTMENT_NAME",
+      "expression": "dep.DEPARTMENT_NAME",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "DEPARTMENT_NAME",
+          "table": "dep",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "los_days",
+      "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+      "type": "calculated",
+      "source_columns": [
+        {
+          "column": "DAY",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "total_cost",
+      "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) * dep.COST_PER_DAY AS total_cost",
+      "type": "calculated",
+      "source_columns": [
+        {
+          "column": "COST_PER_DAY",
+          "table": "dep",
+          "schema": null
+        },
+        {
+          "column": "DAY",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "e.PAT_ID = p.PAT_ID",
+      "scope": "join",
+      "columns": [
+        {
+          "column": "PAT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "PAT_ID",
+          "table": "p",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "e.DEPARTMENT_ID = dep.DEPARTMENT_ID",
+      "scope": "join",
+      "columns": [
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "dep",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "NOT e.HOSP_DISCH_TIME IS NULL",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "e.ADT_PAT_CLASS_C = 1",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "ADT_PAT_CLASS_C",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "joins": [
+    {
+      "join_type": "JOIN",
+      "right_table": "PATIENT",
+      "right_alias": "p",
+      "on_expression": "e.PAT_ID = p.PAT_ID",
+      "columns": [
+        {
+          "column": "PAT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "PAT_ID",
+          "table": "p",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "join_type": "JOIN",
+      "right_table": "CLARITY_DEP",
+      "right_alias": "dep",
+      "on_expression": "e.DEPARTMENT_ID = dep.DEPARTMENT_ID",
+      "columns": [
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "dep",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_MRN_ID",
+      "expression": "p.PAT_MRN_ID",
+      "depends_on": [
+        "p.PAT_MRN_ID"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "PAT_ENC_CSN_ID",
+      "expression": "e.PAT_ENC_CSN_ID",
+      "depends_on": [
+        "e.PAT_ENC_CSN_ID"
+      ],
+      "filtered_by": {
+        "e.PAT_ENC_CSN_ID": [
+          "e.ADT_PAT_CLASS_C = 1",
+          "NOT e.HOSP_DISCH_TIME IS NULL"
+        ]
+      }
+    },
+    {
+      "output": "DEPARTMENT_NAME",
+      "expression": "dep.DEPARTMENT_NAME",
+      "depends_on": [
+        "dep.DEPARTMENT_NAME"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "los_days",
+      "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+      "depends_on": [
+        "DAY",
+        "e.HOSP_ADMSN_TIME",
+        "e.HOSP_DISCH_TIME"
+      ],
+      "filtered_by": {
+        "e.HOSP_ADMSN_TIME": [
+          "e.ADT_PAT_CLASS_C = 1",
+          "NOT e.HOSP_DISCH_TIME IS NULL"
+        ],
+        "e.HOSP_DISCH_TIME": [
+          "e.ADT_PAT_CLASS_C = 1",
+          "NOT e.HOSP_DISCH_TIME IS NULL"
+        ]
+      }
+    },
+    {
+      "output": "total_cost",
+      "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) * dep.COST_PER_DAY AS total_cost",
+      "depends_on": [
+        "dep.COST_PER_DAY",
+        "DAY",
+        "e.HOSP_ADMSN_TIME",
+        "e.HOSP_DISCH_TIME"
+      ],
+      "filtered_by": {
+        "e.HOSP_ADMSN_TIME": [
+          "e.ADT_PAT_CLASS_C = 1",
+          "NOT e.HOSP_DISCH_TIME IS NULL"
+        ],
+        "e.HOSP_DISCH_TIME": [
+          "e.ADT_PAT_CLASS_C = 1",
+          "NOT e.HOSP_DISCH_TIME IS NULL"
+        ]
+      }
+    }
+  ],
+  "raw_sql": "SELECT p.PAT_MRN_ID, e.PAT_ENC_CSN_ID, dep.DEPARTMENT_NAME,\n               DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days,\n               DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) * dep.COST_PER_DAY AS total_cost\n        FROM PAT_ENC_HSP e\n        JOIN PATIENT p ON e.PAT_ID = p.PAT_ID\n        JOIN CLARITY_DEP dep ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID\n        WHERE e.HOSP_DISCH_TIME IS NOT NULL AND e.ADT_PAT_CLASS_C = 1"
+}

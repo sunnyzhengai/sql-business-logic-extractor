@@ -1,0 +1,25 @@
+======================================================================
+  L1_31_or_conditions
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  PAT_MRN_ID
+FROM PATIENT
+WHERE
+  PAT_STATUS = 'Active' OR PAT_STATUS = 'Inactive'
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  filter:where:PAT_STATUS
+    Filter: only include records where pat_status equals 'Active' or pat_status equals 'Inactive'
+    Technical: pat_status = 'Active' OR pat_status = 'Inactive'
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_MRN_ID (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+    Filter: PAT_STATUS = 'Active' OR PAT_STATUS = 'Inactive'

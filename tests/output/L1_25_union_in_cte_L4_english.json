@@ -1,0 +1,23 @@
+{
+  "definitions": [
+    {
+      "name": "cnt",
+      "business_description": "Count of records",
+      "category": "aggregation",
+      "subcategory": "count",
+      "technical_expression": "COUNT(*)"
+    },
+    {
+      "name": "filter:where:ADT_PAT_CLASS_C",
+      "business_description": "Filter: only include records where adt_pat_class_c equals 3",
+      "category": "equality_filter",
+      "technical_expression": "adt_pat_class_c = 3"
+    },
+    {
+      "name": "enc_type",
+      "business_description": "Fixed value",
+      "category": "constant",
+      "technical_expression": "'ED'"
+    }
+  ]
+}

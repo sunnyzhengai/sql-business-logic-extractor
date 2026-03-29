@@ -1,0 +1,63 @@
+======================================================================
+  L1_14_conditional_aggregation
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  dep.DEPARTMENT_NAME,
+  COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 1 END) AS discharged_home,
+  COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 2 THEN 1 END) AS transferred,
+  COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 20 THEN 1 END) AS expired,
+  COUNT(*) AS total
+FROM PAT_ENC_HSP AS e
+JOIN CLARITY_DEP AS dep
+  ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID
+GROUP BY
+  dep.DEPARTMENT_NAME
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  discharged_home
+    Conditional count of records where Discharge disposition (1=Home, 2=Transfer, 20=Expired) is Home
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: COUNT(CASE WHEN pat_enc_hsp.disch_disposition_c = 1 THEN 1 END)
+
+  transferred
+    Conditional count of records where Discharge disposition (1=Home, 2=Transfer, 20=Expired) is Transfer to another facility
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: COUNT(CASE WHEN pat_enc_hsp.disch_disposition_c = 2 THEN 1 END)
+
+  expired
+    Conditional count of records where Discharge disposition (1=Home, 2=Transfer, 20=Expired) is Expired (deceased)
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: COUNT(CASE WHEN pat_enc_hsp.disch_disposition_c = 20 THEN 1 END)
+
+  total
+    Count of records
+    Technical: COUNT(*)
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  DEPARTMENT_NAME (passthrough)
+    Resolved: CLARITY_DEP.DEPARTMENT_NAME
+    Base columns: CLARITY_DEP.DEPARTMENT_NAME
+    Base tables: CLARITY_DEP
+
+  discharged_home (aggregate)
+    Resolved: COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 1 END)
+    Base columns: PAT_ENC_HSP.DISCH_DISPOSITION_C
+    Base tables: PAT_ENC_HSP
+
+  transferred (aggregate)
+    Resolved: COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 2 THEN 1 END)
+    Base columns: PAT_ENC_HSP.DISCH_DISPOSITION_C
+    Base tables: PAT_ENC_HSP
+
+  expired (aggregate)
+    Resolved: COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 20 THEN 1 END)
+    Base columns: PAT_ENC_HSP.DISCH_DISPOSITION_C
+    Base tables: PAT_ENC_HSP
+
+  total (aggregate)
+    Resolved: COUNT(*)

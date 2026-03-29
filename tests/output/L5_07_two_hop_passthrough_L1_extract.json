@@ -1,0 +1,127 @@
+{
+  "sources": [
+    {
+      "name": "b",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "a",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_ID",
+      "expression": "PAT_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "ctes": [
+    {
+      "name": "a",
+      "query": "SELECT PAT_ID FROM PAT_ENC_HSP",
+      "logic": {
+        "sources": [
+          {
+            "name": "PAT_ENC_HSP",
+            "alias": null,
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "PAT_ID",
+            "expression": "PAT_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": null,
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "PAT_ID",
+            "expression": "PAT_ID",
+            "depends_on": [
+              "PAT_ID"
+            ],
+            "filtered_by": {}
+          }
+        ],
+        "raw_sql": "SELECT PAT_ID FROM PAT_ENC_HSP"
+      }
+    },
+    {
+      "name": "b",
+      "query": "SELECT PAT_ID FROM a",
+      "logic": {
+        "sources": [
+          {
+            "name": "a",
+            "alias": null,
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "PAT_ID",
+            "expression": "PAT_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": null,
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "PAT_ID",
+            "expression": "PAT_ID",
+            "depends_on": [
+              "PAT_ID"
+            ],
+            "filtered_by": {}
+          }
+        ],
+        "raw_sql": "SELECT PAT_ID FROM a"
+      }
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_ID",
+      "expression": "PAT_ID",
+      "depends_on": [
+        "PAT_ID"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "WITH a AS (SELECT PAT_ID FROM PAT_ENC_HSP),\n             b AS (SELECT PAT_ID FROM a)\n        SELECT PAT_ID FROM b"
+}

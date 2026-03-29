@@ -1,0 +1,36 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_ID",
+      "expression": "PAT_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_ID",
+      "expression": "PAT_ID",
+      "depends_on": [
+        "PAT_ID"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "distinct": true,
+  "raw_sql": "SELECT DISTINCT PAT_ID FROM PAT_ENC_HSP"
+}

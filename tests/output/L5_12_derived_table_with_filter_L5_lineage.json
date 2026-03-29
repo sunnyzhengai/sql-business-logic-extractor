@@ -1,0 +1,33 @@
+{
+  "columns": [
+    {
+      "name": "total_charges",
+      "type": "aggregate",
+      "resolved_expression": "SUM(TX_AMOUNT)",
+      "base_columns": [
+        "HSP_TRANSACTIONS.TX_AMOUNT"
+      ],
+      "base_tables": [
+        "HSP_TRANSACTIONS"
+      ],
+      "filters": [
+        "s.total_charges > 1000",
+        "TX_TYPE_C = 1"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "total_charges",
+          "expression": "s.total_charges",
+          "type": "passthrough"
+        },
+        {
+          "scope": "s",
+          "name": "total_charges",
+          "expression": "SUM(TX_AMOUNT) AS total_charges",
+          "type": "aggregate"
+        }
+      ]
+    }
+  ]
+}

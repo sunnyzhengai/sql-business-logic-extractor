@@ -1,9 +1,0 @@
-PAT_MRN_ID (passthrough)
-  Resolved: PATIENT.PAT_MRN_ID
-  Base columns: PATIENT.PAT_MRN_ID
-  Base tables: PATIENT
-
-age (calculated)
-  Resolved: DATEDIFF(YEAR, BIRTH_DATE, GETDATE())
-  Base columns: PATIENT.YEAR, PATIENT.BIRTH_DATE
-  Base tables: PATIENT

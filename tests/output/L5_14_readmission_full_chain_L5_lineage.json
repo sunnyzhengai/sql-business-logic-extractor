@@ -1,0 +1,99 @@
+{
+  "columns": [
+    {
+      "name": "disch_status",
+      "type": "case",
+      "resolved_expression": "CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 'Home' WHEN e.DISCH_DISPOSITION_C = 20 THEN 'Expired' ELSE 'Other' END",
+      "base_columns": [
+        "PAT_ENC_HSP.DISCH_DISPOSITION_C"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "disch_status",
+          "expression": "disch_status",
+          "type": "passthrough"
+        },
+        {
+          "scope": "summary",
+          "name": "disch_status",
+          "expression": "disch_status",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base",
+          "name": "disch_status",
+          "expression": "CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 'Home' WHEN e.DISCH_DISPOSITION_C = 20 THEN 'Expired' ELSE 'Other' END AS disch_status",
+          "type": "case"
+        }
+      ]
+    },
+    {
+      "name": "discharges",
+      "type": "aggregate",
+      "resolved_expression": "COUNT(*)",
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "discharges",
+          "expression": "discharges",
+          "type": "passthrough"
+        },
+        {
+          "scope": "summary",
+          "name": "discharges",
+          "expression": "COUNT(*) AS discharges",
+          "type": "aggregate"
+        }
+      ]
+    },
+    {
+      "name": "avg_los",
+      "type": "aggregate",
+      "resolved_expression": "AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME))",
+      "base_columns": [
+        "PAT_ENC_HSP.DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT e.HOSP_DISCH_TIME IS NULL",
+        "e.ADT_PAT_CLASS_C = 1"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "avg_los",
+          "expression": "avg_los",
+          "type": "passthrough"
+        },
+        {
+          "scope": "summary",
+          "name": "avg_los",
+          "expression": "AVG(los_days) AS avg_los",
+          "type": "aggregate"
+        },
+        {
+          "scope": "base",
+          "name": "los_days",
+          "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+          "type": "calculated"
+        }
+      ]
+    }
+  ]
+}

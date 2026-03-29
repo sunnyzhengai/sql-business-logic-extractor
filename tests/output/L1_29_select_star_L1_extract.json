@@ -1,0 +1,40 @@
+{
+  "sources": [
+    {
+      "name": "PATIENT",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "*",
+      "expression": "*",
+      "type": "star",
+      "source_columns": []
+    }
+  ],
+  "filters": [
+    {
+      "expression": "PAT_STATUS = 'Active'",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "PAT_STATUS",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "*",
+      "expression": "*",
+      "depends_on": [],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT * FROM PATIENT WHERE PAT_STATUS = 'Active'"
+}

@@ -1,0 +1,116 @@
+======================================================================
+  L5_14_readmission_full_chain
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+WITH base AS (
+  SELECT
+    e.PAT_ID,
+    e.PAT_ENC_CSN_ID,
+    e.HOSP_ADMSN_TIME,
+    e.HOSP_DISCH_TIME,
+    DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days,
+    CASE
+      WHEN e.DISCH_DISPOSITION_C = 1
+      THEN 'Home'
+      WHEN e.DISCH_DISPOSITION_C = 20
+      THEN 'Expired'
+      ELSE 'Other'
+    END AS disch_status
+  FROM PAT_ENC_HSP AS e
+  WHERE
+    NOT e.HOSP_DISCH_TIME IS NULL AND e.ADT_PAT_CLASS_C = 1
+), summary AS (
+  SELECT
+    disch_status,
+    COUNT(*) AS discharges,
+    AVG(los_days) AS avg_los
+  FROM base
+  GROUP BY
+    disch_status
+)
+SELECT
+  disch_status,
+  discharges,
+  avg_los
+FROM summary
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME
+    Filter: only include records where Hospital discharge date and time is not null
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: NOT pat_enc_hsp.hosp_disch_time IS NULL
+
+  filter:where:PAT_ENC_HSP.ADT_PAT_CLASS_C
+    Filter: only include records where Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: pat_enc_hsp.adt_pat_class_c = 1
+
+  los_days
+    The number of days between Hospital admission date and time and Hospital discharge date and time
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Condition: Hospital discharge date and time is not null
+    Condition: Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Technical: DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)
+
+  disch_status
+    Classified as:
+  - 'Home' when Discharge disposition (1=Home, 2=Transfer, 20=Expired) is Home
+  - 'Expired' when Discharge disposition (1=Home, 2=Transfer, 20=Expired) is Expired (deceased)
+  - 'Other' otherwise
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Condition: Hospital discharge date and time is not null
+    Condition: Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Technical: CASE WHEN pat_enc_hsp.disch_disposition_c = 1 THEN 'Home' WHEN pat_enc_hsp.disch_disposition_c = 20 THEN 'Expired' ELSE 'Other' END
+
+  filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME
+    Filter: only include records where Hospital discharge date and time is not null
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: NOT pat_enc_hsp.hosp_disch_time IS NULL
+
+  filter:where:PAT_ENC_HSP.ADT_PAT_CLASS_C
+    Filter: only include records where Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: pat_enc_hsp.adt_pat_class_c = 1
+
+  discharges
+    Count of records
+    Technical: COUNT(*)
+
+  avg_los
+    Average of los_days
+    Technical: AVG(los_days)
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  disch_status (case)
+    Resolved: CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 'Home' WHEN e.DISCH_DISPOSITION_C = 20 THEN 'Expired' ELSE 'Other' END
+    Base columns: PAT_ENC_HSP.DISCH_DISPOSITION_C
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Chain:
+      -> query.disch_status (passthrough)
+        -> summary.disch_status (passthrough)
+          -> base.disch_status = CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 'Home' WHEN e.DISCH_DISPOSITION_C = 20 THEN 'Expired' ELSE 'Other' END AS disch_status (case)
+
+  discharges (aggregate)
+    Resolved: COUNT(*)
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Chain:
+      -> query.discharges (passthrough)
+        -> summary.discharges = COUNT(*) AS discharges (aggregate)
+
+  avg_los (aggregate)
+    Resolved: AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME))
+    Base columns: PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Chain:
+      -> query.avg_los (passthrough)
+        -> summary.avg_los = AVG(los_days) AS avg_los (aggregate)
+          -> base.los_days = DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days (calculated)

@@ -1,0 +1,19 @@
+{
+  "definitions": [
+    {
+      "id": "L2_10_window_ranking:def-001",
+      "name": "rn",
+      "category": "window_function",
+      "subcategory": "ranking",
+      "pattern": "ROW_NUMBER OVER ( PARTITION BY <cols> ORDER BY <cols> )",
+      "normalized_expression": "ROW_NUMBER() OVER (PARTITION BY pat_id ORDER BY hosp_admsn_time DESC)",
+      "signature": "486df8f57b6fde4e",
+      "structural_signature": "790c8d22b7ec7237",
+      "source_columns": [
+        "PAT_ID",
+        "HOSP_ADMSN_TIME"
+      ],
+      "query_label": "L2_10_window_ranking"
+    }
+  ]
+}

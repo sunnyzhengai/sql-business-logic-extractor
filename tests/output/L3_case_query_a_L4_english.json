@@ -1,0 +1,11 @@
+{
+  "definitions": [
+    {
+      "name": "los_category",
+      "business_description": "Classified as:\n  - 'Short' when los_days is at most 3\n  - 'Medium' when los_days is at most 7\n  - 'Long' otherwise",
+      "category": "classification",
+      "subcategory": "value_mapping",
+      "technical_expression": "CASE WHEN los_days <= 3 THEN 'Short' WHEN los_days <= 7 THEN 'Medium' ELSE 'Long' END"
+    }
+  ]
+}

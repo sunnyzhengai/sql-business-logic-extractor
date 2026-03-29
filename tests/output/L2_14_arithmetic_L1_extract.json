@@ -1,0 +1,41 @@
+{
+  "sources": [
+    {
+      "name": "HSP_TRANSACTIONS",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "balance",
+      "expression": "total_charges - total_payments AS balance",
+      "type": "calculated",
+      "source_columns": [
+        {
+          "column": "total_charges",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "total_payments",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "balance",
+      "expression": "total_charges - total_payments AS balance",
+      "depends_on": [
+        "total_charges",
+        "total_payments"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT total_charges - total_payments AS balance FROM HSP_TRANSACTIONS"
+}

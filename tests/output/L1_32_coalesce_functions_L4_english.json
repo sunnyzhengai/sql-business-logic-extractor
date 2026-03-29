@@ -1,0 +1,25 @@
+{
+  "definitions": [
+    {
+      "name": "first_name",
+      "business_description": "Default value when PAT_FIRST_NAME is missing",
+      "category": "null_handling",
+      "subcategory": "default_value",
+      "technical_expression": "COALESCE(pat_first_name, 'Unknown')"
+    },
+    {
+      "name": "last_name_upper",
+      "business_description": "Text transformation of PAT_LAST_NAME",
+      "category": "string_operation",
+      "subcategory": "transformation",
+      "technical_expression": "UPPER(pat_last_name)"
+    },
+    {
+      "name": "full_name",
+      "business_description": "Combined text from PAT_FIRST_NAME, PAT_LAST_NAME",
+      "category": "string_operation",
+      "subcategory": "concatenation",
+      "technical_expression": "CONCAT(pat_first_name, ' ', pat_last_name)"
+    }
+  ]
+}

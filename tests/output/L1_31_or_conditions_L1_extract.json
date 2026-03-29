@@ -1,0 +1,57 @@
+{
+  "sources": [
+    {
+      "name": "PATIENT",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_MRN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "PAT_STATUS = 'Active' OR PAT_STATUS = 'Inactive'",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "PAT_STATUS",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "PAT_STATUS",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "depends_on": [
+        "PAT_MRN_ID"
+      ],
+      "filtered_by": {
+        "PAT_MRN_ID": [
+          "PAT_STATUS = 'Active' OR PAT_STATUS = 'Inactive'"
+        ]
+      }
+    }
+  ],
+  "raw_sql": "SELECT PAT_MRN_ID FROM PATIENT WHERE PAT_STATUS = 'Active' OR PAT_STATUS = 'Inactive'"
+}

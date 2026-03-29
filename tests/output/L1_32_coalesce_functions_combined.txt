@@ -1,0 +1,48 @@
+======================================================================
+  L1_32_coalesce_functions
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  PAT_MRN_ID,
+  COALESCE(PAT_FIRST_NAME, 'Unknown') AS first_name,
+  UPPER(PAT_LAST_NAME) AS last_name_upper,
+  CONCAT(PAT_FIRST_NAME, ' ', PAT_LAST_NAME) AS full_name
+FROM PATIENT
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  first_name
+    Default value when PAT_FIRST_NAME is missing
+    Technical: COALESCE(pat_first_name, 'Unknown')
+
+  last_name_upper
+    Text transformation of PAT_LAST_NAME
+    Technical: UPPER(pat_last_name)
+
+  full_name
+    Combined text from PAT_FIRST_NAME, PAT_LAST_NAME
+    Technical: CONCAT(pat_first_name, ' ', pat_last_name)
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_MRN_ID (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+
+  first_name (calculated)
+    Resolved: COALESCE(PAT_FIRST_NAME, 'Unknown')
+    Base columns: PATIENT.PAT_FIRST_NAME
+    Base tables: PATIENT
+
+  last_name_upper (calculated)
+    Resolved: UPPER(PAT_LAST_NAME)
+    Base columns: PATIENT.PAT_LAST_NAME
+    Base tables: PATIENT
+
+  full_name (calculated)
+    Resolved: CONCAT(PAT_FIRST_NAME, ' ', PAT_LAST_NAME)
+    Base columns: PATIENT.PAT_FIRST_NAME, PATIENT.PAT_LAST_NAME
+    Base tables: PATIENT

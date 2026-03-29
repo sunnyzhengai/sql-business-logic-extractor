@@ -1,0 +1,24 @@
+{
+  "definitions": [
+    {
+      "name": "filter:where:s.total_charges",
+      "business_description": "Filter: only include records where s.total_charges is greater than 1000",
+      "category": "comparison_filter",
+      "source": "s",
+      "technical_expression": "s.total_charges > 1000"
+    },
+    {
+      "name": "total_charges",
+      "business_description": "Sum of TX_AMOUNT",
+      "category": "aggregation",
+      "subcategory": "sum",
+      "technical_expression": "SUM(tx_amount)"
+    },
+    {
+      "name": "filter:where:TX_TYPE_C",
+      "business_description": "Filter: only include records where tx_type_c equals 1",
+      "category": "equality_filter",
+      "technical_expression": "tx_type_c = 1"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "definitions": [
+    {
+      "id": "L1_32_coalesce_functions:def-001",
+      "name": "first_name",
+      "category": "null_handling",
+      "subcategory": "default_value",
+      "pattern": "COALESCE(<col>, <val>)",
+      "normalized_expression": "COALESCE(pat_first_name, 'Unknown')",
+      "signature": "2e9f004ef6855100",
+      "structural_signature": "5dcdde83e1351029",
+      "source_columns": [
+        "PAT_FIRST_NAME"
+      ],
+      "query_label": "L1_32_coalesce_functions"
+    },
+    {
+      "id": "L1_32_coalesce_functions:def-002",
+      "name": "last_name_upper",
+      "category": "string_operation",
+      "subcategory": "transformation",
+      "pattern": "UPPER(<col>)",
+      "normalized_expression": "UPPER(pat_last_name)",
+      "signature": "b897a7ed4a1a4447",
+      "structural_signature": "33fd31ac24baa93b",
+      "source_columns": [
+        "PAT_LAST_NAME"
+      ],
+      "query_label": "L1_32_coalesce_functions"
+    },
+    {
+      "id": "L1_32_coalesce_functions:def-003",
+      "name": "full_name",
+      "category": "string_operation",
+      "subcategory": "concatenation",
+      "pattern": "CONCAT(<col>, <val>, <col>)",
+      "normalized_expression": "CONCAT(pat_first_name, ' ', pat_last_name)",
+      "signature": "a19dd7733815e665",
+      "structural_signature": "bae7f7c491174233",
+      "source_columns": [
+        "PAT_FIRST_NAME",
+        "PAT_LAST_NAME"
+      ],
+      "query_label": "L1_32_coalesce_functions"
+    }
+  ]
+}

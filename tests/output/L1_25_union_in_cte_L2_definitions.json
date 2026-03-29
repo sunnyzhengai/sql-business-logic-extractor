@@ -1,0 +1,38 @@
+{
+  "definitions": [
+    {
+      "id": "L1_25_union_in_cte:def-001",
+      "name": "cnt",
+      "category": "aggregation",
+      "subcategory": "count",
+      "pattern": "COUNT(*)",
+      "normalized_expression": "COUNT(*)",
+      "signature": "ee8d27fcde4b2f3a",
+      "structural_signature": "ee8d27fcde4b2f3a",
+      "query_label": "L1_25_union_in_cte"
+    },
+    {
+      "id": "L1_25_union_in_cte:def-002",
+      "name": "filter:where:ADT_PAT_CLASS_C",
+      "category": "equality_filter",
+      "pattern": "<col> = <val>",
+      "normalized_expression": "adt_pat_class_c = 3",
+      "signature": "fc18aefdf324af53",
+      "structural_signature": "417a62addcceec03",
+      "source_columns": [
+        "ADT_PAT_CLASS_C"
+      ],
+      "query_label": "L1_25_union_in_cte"
+    },
+    {
+      "id": "L1_25_union_in_cte:CTE:all_encounters:def-003",
+      "name": "enc_type",
+      "category": "constant",
+      "pattern": "<val>",
+      "normalized_expression": "'ED'",
+      "signature": "f0c3fd9a22c59463",
+      "structural_signature": "cb7b109b4d64a10f",
+      "query_label": "L1_25_union_in_cte:CTE:all_encounters"
+    }
+  ]
+}

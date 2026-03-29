@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "id": "L1_13_having_filter:def-001",
+      "name": "patient_count",
+      "category": "aggregation",
+      "subcategory": "count",
+      "pattern": "COUNT(*)",
+      "normalized_expression": "COUNT(*)",
+      "signature": "ee8d27fcde4b2f3a",
+      "structural_signature": "ee8d27fcde4b2f3a",
+      "query_label": "L1_13_having_filter"
+    },
+    {
+      "id": "L1_13_having_filter:def-002",
+      "name": "avg_charges",
+      "category": "aggregation",
+      "subcategory": "average",
+      "pattern": "AVG(<col>)",
+      "normalized_expression": "AVG(pat_enc_hsp.total_charges)",
+      "signature": "061b4e4e0aa6d1dd",
+      "structural_signature": "f1175d6e9617e236",
+      "source_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "PAT_ENC_HSP.TOTAL_CHARGES"
+      ],
+      "filters_context": [
+        "AVG(pat_enc_hsp.total_charges) > 5000"
+      ],
+      "query_label": "L1_13_having_filter"
+    },
+    {
+      "id": "L1_13_having_filter:def-003",
+      "name": "filter:having:unknown",
+      "category": "post_aggregation_filter",
+      "pattern": "COUNT(*) >= <val>",
+      "normalized_expression": "COUNT(*) >= 10",
+      "signature": "4d487a3ea3d47e8e",
+      "structural_signature": "e80528152fcc6a65",
+      "query_label": "L1_13_having_filter"
+    },
+    {
+      "id": "L1_13_having_filter:def-004",
+      "name": "filter:having:PAT_ENC_HSP.TOTAL_CHARGES",
+      "category": "post_aggregation_filter",
+      "pattern": "AVG(<col>) > <val>",
+      "normalized_expression": "AVG(pat_enc_hsp.total_charges) > 5000",
+      "signature": "b5e027a13e3df082",
+      "structural_signature": "cb0bbbee745a0123",
+      "source_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "PAT_ENC_HSP.TOTAL_CHARGES"
+      ],
+      "query_label": "L1_13_having_filter"
+    }
+  ]
+}

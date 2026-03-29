@@ -1,0 +1,25 @@
+======================================================================
+  L3_case_query_a
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  CASE WHEN LOS_DAYS <= 3 THEN 'Short' WHEN LOS_DAYS <= 7 THEN 'Medium' ELSE 'Long' END AS los_category
+FROM PAT_ENC_HSP
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  los_category
+    Classified as:
+  - 'Short' when los_days is at most 3
+  - 'Medium' when los_days is at most 7
+  - 'Long' otherwise
+    Technical: CASE WHEN los_days <= 3 THEN 'Short' WHEN los_days <= 7 THEN 'Medium' ELSE 'Long' END
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  los_category (case)
+    Resolved: CASE WHEN LOS_DAYS <= 3 THEN 'Short' WHEN LOS_DAYS <= 7 THEN 'Medium' ELSE 'Long' END
+    Base columns: PAT_ENC_HSP.LOS_DAYS
+    Base tables: PAT_ENC_HSP

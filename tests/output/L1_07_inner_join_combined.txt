@@ -1,0 +1,49 @@
+======================================================================
+  L1_07_inner_join
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  p.PAT_MRN_ID,
+  e.PAT_ENC_CSN_ID,
+  e.HOSP_ADMSN_TIME,
+  e.HOSP_DISCH_TIME
+FROM PAT_ENC_HSP AS e
+JOIN PATIENT AS p
+  ON e.PAT_ID = p.PAT_ID
+WHERE
+  NOT e.HOSP_DISCH_TIME IS NULL
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME
+    Filter: only include records where Hospital discharge date and time is not null
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: NOT pat_enc_hsp.hosp_disch_time IS NULL
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_MRN_ID (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+
+  PAT_ENC_CSN_ID (passthrough)
+    Resolved: PAT_ENC_HSP.PAT_ENC_CSN_ID
+    Base columns: PAT_ENC_HSP.PAT_ENC_CSN_ID
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+
+  HOSP_ADMSN_TIME (passthrough)
+    Resolved: PAT_ENC_HSP.HOSP_ADMSN_TIME
+    Base columns: PAT_ENC_HSP.HOSP_ADMSN_TIME
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+
+  HOSP_DISCH_TIME (passthrough)
+    Resolved: PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base columns: PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL

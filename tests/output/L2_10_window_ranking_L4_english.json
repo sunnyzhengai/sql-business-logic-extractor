@@ -1,0 +1,11 @@
+{
+  "definitions": [
+    {
+      "name": "rn",
+      "business_description": "Row ranking (used for deduplication or ordering)",
+      "category": "window_function",
+      "subcategory": "ranking",
+      "technical_expression": "ROW_NUMBER() OVER (PARTITION BY pat_id ORDER BY hosp_admsn_time DESC)"
+    }
+  ]
+}

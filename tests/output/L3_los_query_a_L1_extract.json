@@ -1,0 +1,47 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "e",
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "los_days",
+      "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+      "type": "calculated",
+      "source_columns": [
+        {
+          "column": "DAY",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "los_days",
+      "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+      "depends_on": [
+        "DAY",
+        "e.HOSP_ADMSN_TIME",
+        "e.HOSP_DISCH_TIME"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days FROM PAT_ENC_HSP e"
+}

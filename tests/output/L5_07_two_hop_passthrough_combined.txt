@@ -1,0 +1,31 @@
+======================================================================
+  L5_07_two_hop_passthrough
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+WITH a AS (
+  SELECT
+    PAT_ID
+  FROM PAT_ENC_HSP
+), b AS (
+  SELECT
+    PAT_ID
+  FROM a
+)
+SELECT
+  PAT_ID
+FROM b
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_ID (passthrough)
+    Resolved: PAT_ENC_HSP.PAT_ID
+    Base columns: PAT_ENC_HSP.PAT_ID
+    Base tables: PAT_ENC_HSP
+    Chain:
+      -> query.PAT_ID (passthrough)
+        -> b.PAT_ID (passthrough)
+          -> a.PAT_ID (passthrough)

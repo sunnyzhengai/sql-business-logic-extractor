@@ -1,0 +1,18 @@
+{
+  "definitions": [
+    {
+      "id": "L2_09_conditional_count:def-001",
+      "name": "discharged_home",
+      "category": "aggregation",
+      "subcategory": "conditional_count",
+      "pattern": "COUNT(CASE(IF(<col> = <val>, <val>)))",
+      "normalized_expression": "COUNT(CASE WHEN disch_disposition_c = 1 THEN 1 END)",
+      "signature": "90be6e90d9b64349",
+      "structural_signature": "a190dba7f69f8afb",
+      "source_columns": [
+        "DISCH_DISPOSITION_C"
+      ],
+      "query_label": "L2_09_conditional_count"
+    }
+  ]
+}

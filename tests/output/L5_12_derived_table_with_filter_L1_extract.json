@@ -1,0 +1,157 @@
+{
+  "sources": [
+    {
+      "name": "HSP_TRANSACTIONS",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "SELECT HSP_ACCOUNT_ID, SUM(TX_AMOUNT) AS total_charges FROM HSP_TRANSACTIONS WHERE TX_TYPE_C = 1 GROUP BY HSP_ACCOUNT_ID",
+      "alias": "s",
+      "schema": null,
+      "type": "subquery"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "total_charges",
+      "expression": "s.total_charges",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "total_charges",
+          "table": "s",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "s.total_charges > 1000",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "total_charges",
+          "table": "s",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "subqueries": [
+    {
+      "context": "from",
+      "expression": "SELECT HSP_ACCOUNT_ID, SUM(TX_AMOUNT) AS total_charges FROM HSP_TRANSACTIONS WHERE TX_TYPE_C = 1 GROUP BY HSP_ACCOUNT_ID",
+      "alias": "s",
+      "logic": {
+        "sources": [
+          {
+            "name": "HSP_TRANSACTIONS",
+            "alias": null,
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "HSP_ACCOUNT_ID",
+            "expression": "HSP_ACCOUNT_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "HSP_ACCOUNT_ID",
+                "table": null,
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "total_charges",
+            "expression": "SUM(TX_AMOUNT) AS total_charges",
+            "type": "aggregate",
+            "source_columns": [
+              {
+                "column": "TX_AMOUNT",
+                "table": null,
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "filters": [
+          {
+            "expression": "TX_TYPE_C = 1",
+            "scope": "where",
+            "columns": [
+              {
+                "column": "TX_TYPE_C",
+                "table": null,
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "aggregations": [
+          {
+            "function": "SUM",
+            "expression": "SUM(TX_AMOUNT)",
+            "source_columns": [
+              {
+                "column": "TX_AMOUNT",
+                "table": null,
+                "schema": null
+              }
+            ],
+            "group_by": [
+              "HSP_ACCOUNT_ID"
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "HSP_ACCOUNT_ID",
+            "expression": "HSP_ACCOUNT_ID",
+            "depends_on": [
+              "HSP_ACCOUNT_ID"
+            ],
+            "filtered_by": {
+              "HSP_ACCOUNT_ID": [
+                "TX_TYPE_C = 1"
+              ]
+            }
+          },
+          {
+            "output": "total_charges",
+            "expression": "SUM(TX_AMOUNT) AS total_charges",
+            "depends_on": [
+              "TX_AMOUNT"
+            ],
+            "filtered_by": {
+              "TX_AMOUNT": [
+                "TX_TYPE_C = 1"
+              ]
+            }
+          }
+        ],
+        "raw_sql": "SELECT HSP_ACCOUNT_ID, SUM(TX_AMOUNT) AS total_charges FROM HSP_TRANSACTIONS WHERE TX_TYPE_C = 1 GROUP BY HSP_ACCOUNT_ID"
+      }
+    }
+  ],
+  "lineage": [
+    {
+      "output": "total_charges",
+      "expression": "s.total_charges",
+      "depends_on": [
+        "s.total_charges"
+      ],
+      "filtered_by": {
+        "s.total_charges": [
+          "s.total_charges > 1000"
+        ]
+      }
+    }
+  ],
+  "raw_sql": "SELECT s.total_charges\n        FROM (\n            SELECT HSP_ACCOUNT_ID, SUM(TX_AMOUNT) AS total_charges\n            FROM HSP_TRANSACTIONS WHERE TX_TYPE_C = 1\n            GROUP BY HSP_ACCOUNT_ID\n        ) s\n        WHERE s.total_charges > 1000"
+}

@@ -1,0 +1,43 @@
+{
+  "definitions": [
+    {
+      "id": "L1_04_multiple_where:def-001",
+      "name": "filter:where:PAT_STATUS",
+      "category": "equality_filter",
+      "pattern": "<col> = <val>",
+      "normalized_expression": "pat_status = 'Active'",
+      "signature": "8a60a3dfb9726852",
+      "structural_signature": "417a62addcceec03",
+      "source_columns": [
+        "PAT_STATUS"
+      ],
+      "query_label": "L1_04_multiple_where"
+    },
+    {
+      "id": "L1_04_multiple_where:def-002",
+      "name": "filter:where:BIRTH_DATE",
+      "category": "comparison_filter",
+      "pattern": "<col> > <val>",
+      "normalized_expression": "birth_date > '1950-01-01'",
+      "signature": "8bab9e1f35316791",
+      "structural_signature": "2b184d69b657e055",
+      "source_columns": [
+        "BIRTH_DATE"
+      ],
+      "query_label": "L1_04_multiple_where"
+    },
+    {
+      "id": "L1_04_multiple_where:def-003",
+      "name": "filter:where:STATE_ABBR",
+      "category": "equality_filter",
+      "pattern": "<col> = <val>",
+      "normalized_expression": "state_abbr = 'TX'",
+      "signature": "6eeee41fc2dbf16f",
+      "structural_signature": "417a62addcceec03",
+      "source_columns": [
+        "STATE_ABBR"
+      ],
+      "query_label": "L1_04_multiple_where"
+    }
+  ]
+}

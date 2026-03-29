@@ -1,0 +1,69 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "discharged_home",
+      "expression": "COUNT(CASE WHEN DISCH_DISPOSITION_C = 1 THEN 1 END) AS discharged_home",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "aggregations": [
+    {
+      "function": "COUNT",
+      "expression": "COUNT(CASE WHEN DISCH_DISPOSITION_C = 1 THEN 1 END)",
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": null,
+          "schema": null
+        }
+      ],
+      "group_by": []
+    }
+  ],
+  "case_expressions": [
+    {
+      "output_name": "discharged_home",
+      "expression": "CASE WHEN DISCH_DISPOSITION_C = 1 THEN 1 END",
+      "branches": [
+        {
+          "condition": "DISCH_DISPOSITION_C = 1",
+          "result": "1"
+        }
+      ],
+      "else_result": null,
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "discharged_home",
+      "expression": "COUNT(CASE WHEN DISCH_DISPOSITION_C = 1 THEN 1 END) AS discharged_home",
+      "depends_on": [
+        "DISCH_DISPOSITION_C"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT COUNT(CASE WHEN DISCH_DISPOSITION_C = 1 THEN 1 END) AS discharged_home FROM PAT_ENC_HSP"
+}

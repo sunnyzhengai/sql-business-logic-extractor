@@ -1,0 +1,173 @@
+======================================================================
+  L1_28_medication_timing
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+WITH med_events AS (
+  SELECT
+    om.PAT_ENC_CSN_ID,
+    om.ORDER_MED_ID,
+    om.DESCRIPTION AS med_name,
+    ma.TAKEN_TIME,
+    ma.SCHEDULED_TIME,
+    DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes,
+    ROW_NUMBER() OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS admin_seq,
+    LAG(ma.TAKEN_TIME) OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS prev_admin_time
+  FROM ORDER_MED AS om
+  JOIN MAR_ADMIN_INFO AS ma
+    ON om.ORDER_MED_ID = ma.ORDER_MED_ID
+  WHERE
+    ma.MAR_ACTION_C = 1 AND NOT ma.TAKEN_TIME IS NULL
+)
+SELECT
+  med_name,
+  COUNT(*) AS total_admins,
+  AVG(delay_minutes) AS avg_delay_min,
+  COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS late_admins,
+  CAST(COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS FLOAT) / COUNT(*) * 100 AS late_pct,
+  CASE
+    WHEN AVG(delay_minutes) <= 15
+    THEN 'On Time'
+    WHEN AVG(delay_minutes) <= 60
+    THEN 'Slightly Delayed'
+    ELSE 'Significantly Delayed'
+  END AS timing_category
+FROM med_events
+GROUP BY
+  med_name
+HAVING
+  COUNT(*) >= 20
+ORDER BY
+  avg_delay_min DESC
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  total_admins
+    Count of records
+    Technical: COUNT(*)
+
+  avg_delay_min
+    Average of delay_minutes
+    Technical: AVG(delay_minutes)
+
+  late_admins
+    Conditional count of records where delay_minutes is greater than 60
+    Technical: COUNT(CASE WHEN delay_minutes > 60 THEN 1 END)
+
+  late_pct
+    Conditional count of records where delay_minutes is greater than 60
+    Technical: CAST(COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS FLOAT) / COUNT(*) * 100
+
+  timing_category
+    Average of delay_minutes, delay_minutes
+    Technical: CASE WHEN AVG(delay_minutes) <= 15 THEN 'On Time' WHEN AVG(delay_minutes) <= 60 THEN 'Slightly Delayed' ELSE 'Significantly Delayed' END
+
+  filter:where:MAR_ADMIN_INFO.MAR_ACTION_C
+    Filter: only include records where Administration action (1=Given, 2=Held, 3=Refused) is Given
+    Source: MAR_ADMIN_INFO (Medication administration records)
+    Technical: mar_admin_info.mar_action_c = 1
+
+  filter:where:MAR_ADMIN_INFO.TAKEN_TIME
+    Filter: only include records where Time the medication was actually administered is not null
+    Source: MAR_ADMIN_INFO (Medication administration records)
+    Technical: NOT mar_admin_info.taken_time IS NULL
+
+  filter:having:unknown
+    Filter: only include records where COUNT(*) is at least 20
+    Technical: COUNT(*) >= 20
+
+  delay_minutes
+    The number of minutes between Time the medication was scheduled to be given and Time the medication was actually administered
+    Source: MAR_ADMIN_INFO (Medication administration records)
+    Condition: Administration action (1=Given, 2=Held, 3=Refused) is Given
+    Condition: Time the medication was actually administered is not null
+    Technical: DATEDIFF(minute, mar_admin_info.scheduled_time, mar_admin_info.taken_time)
+
+  admin_seq
+    Row ranking (used for deduplication or ordering)
+    Source: MAR_ADMIN_INFO (Medication administration records), ORDER_MED (Medication orders)
+    Condition: Administration action (1=Given, 2=Held, 3=Refused) is Given
+    Condition: Time the medication was actually administered is not null
+    Technical: ROW_NUMBER() OVER (PARTITION BY order_med.pat_enc_csn_id, order_med.order_med_id ORDER BY mar_admin_info.taken_time)
+
+  prev_admin_time
+    Row ranking (used for deduplication or ordering)
+    Source: MAR_ADMIN_INFO (Medication administration records), ORDER_MED (Medication orders)
+    Condition: Administration action (1=Given, 2=Held, 3=Refused) is Given
+    Condition: Time the medication was actually administered is not null
+    Technical: LAG(mar_admin_info.taken_time) OVER (PARTITION BY order_med.pat_enc_csn_id, order_med.order_med_id ORDER BY mar_admin_info.taken_time)
+
+  filter:where:MAR_ADMIN_INFO.MAR_ACTION_C
+    Filter: only include records where Administration action (1=Given, 2=Held, 3=Refused) is Given
+    Source: MAR_ADMIN_INFO (Medication administration records)
+    Technical: mar_admin_info.mar_action_c = 1
+
+  filter:where:MAR_ADMIN_INFO.TAKEN_TIME
+    Filter: only include records where Time the medication was actually administered is not null
+    Source: MAR_ADMIN_INFO (Medication administration records)
+    Technical: NOT mar_admin_info.taken_time IS NULL
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  med_name (passthrough)
+    Resolved: ORDER_MED.DESCRIPTION
+    Base columns: ORDER_MED.DESCRIPTION
+    Base tables: ORDER_MED
+    Filter: ma.MAR_ACTION_C = 1
+    Filter: NOT ma.TAKEN_TIME IS NULL
+    Filter: COUNT(*) >= 20
+    Chain:
+      -> query.med_name (passthrough)
+        -> med_events.med_name (passthrough)
+
+  total_admins (aggregate)
+    Resolved: COUNT(*)
+    Filter: ma.MAR_ACTION_C = 1
+    Filter: NOT ma.TAKEN_TIME IS NULL
+    Filter: COUNT(*) >= 20
+
+  avg_delay_min (aggregate)
+    Resolved: AVG(DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME))
+    Base columns: ORDER_MED.MINUTE, MAR_ADMIN_INFO.SCHEDULED_TIME, MAR_ADMIN_INFO.TAKEN_TIME
+    Base tables: ORDER_MED, MAR_ADMIN_INFO
+    Filter: ma.MAR_ACTION_C = 1
+    Filter: NOT ma.TAKEN_TIME IS NULL
+    Filter: COUNT(*) >= 20
+    Chain:
+      -> query.avg_delay_min = AVG(delay_minutes) AS avg_delay_min (aggregate)
+        -> med_events.delay_minutes = DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes (calculated)
+
+  late_admins (aggregate)
+    Resolved: COUNT(CASE WHEN DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) > 60 THEN 1 END)
+    Base columns: ORDER_MED.MINUTE, MAR_ADMIN_INFO.SCHEDULED_TIME, MAR_ADMIN_INFO.TAKEN_TIME
+    Base tables: ORDER_MED, MAR_ADMIN_INFO
+    Filter: ma.MAR_ACTION_C = 1
+    Filter: NOT ma.TAKEN_TIME IS NULL
+    Filter: COUNT(*) >= 20
+    Chain:
+      -> query.late_admins = COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS late_admins (aggregate)
+        -> med_events.delay_minutes = DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes (calculated)
+
+  late_pct (aggregate)
+    Resolved: CAST(COUNT(CASE WHEN DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) > 60 THEN 1 END) AS FLOAT) / COUNT(*) * 100
+    Base columns: ORDER_MED.MINUTE, MAR_ADMIN_INFO.SCHEDULED_TIME, MAR_ADMIN_INFO.TAKEN_TIME
+    Base tables: ORDER_MED, MAR_ADMIN_INFO
+    Filter: ma.MAR_ACTION_C = 1
+    Filter: NOT ma.TAKEN_TIME IS NULL
+    Filter: COUNT(*) >= 20
+    Chain:
+      -> query.late_pct = CAST(COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS FLOAT) / COUNT(*) * 100 AS late_pct (aggregate)
+        -> med_events.delay_minutes = DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes (calculated)
+
+  timing_category (aggregate)
+    Resolved: CASE WHEN AVG(DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME)) <= 15 THEN 'On Time' WHEN AVG(DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME)) <= 60 THEN 'Slightly Delayed' ELSE 'Significantly Delayed' END
+    Base columns: ORDER_MED.MINUTE, MAR_ADMIN_INFO.SCHEDULED_TIME, MAR_ADMIN_INFO.TAKEN_TIME
+    Base tables: ORDER_MED, MAR_ADMIN_INFO
+    Filter: ma.MAR_ACTION_C = 1
+    Filter: NOT ma.TAKEN_TIME IS NULL
+    Filter: COUNT(*) >= 20
+    Chain:
+      -> query.timing_category = CASE WHEN AVG(delay_minutes) <= 15 THEN 'On Time' WHEN AVG(delay_minutes) <= 60 THEN 'Slightly Delayed' ELSE 'Significantly Delayed' END AS timing_category (aggregate)
+        -> med_events.delay_minutes = DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes (calculated)
+          -> med_events.delay_minutes = DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes (calculated)

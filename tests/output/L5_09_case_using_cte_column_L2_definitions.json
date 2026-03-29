@@ -1,0 +1,37 @@
+{
+  "definitions": [
+    {
+      "id": "L5_09_case_using_cte_column:CTE:base:def-001",
+      "name": "los_days",
+      "category": "date_calculation",
+      "subcategory": "date_difference",
+      "pattern": "DATEDIFF(<col>, <col>, <col>)",
+      "normalized_expression": "DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)",
+      "signature": "c6883212f8bf1f0b",
+      "structural_signature": "af563ea968d2d5e6",
+      "source_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "query_label": "L5_09_case_using_cte_column:CTE:base"
+    },
+    {
+      "id": "L5_09_case_using_cte_column:CTE:flagged:def-002",
+      "name": "los_category",
+      "category": "classification",
+      "subcategory": "conditional_logic",
+      "pattern": "CASE(IF(<col> > <val>, <val>), <val>)",
+      "normalized_expression": "CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END",
+      "signature": "5b12e792507482ae",
+      "structural_signature": "62f8b7f8d9ace4d6",
+      "source_columns": [
+        "los_days"
+      ],
+      "query_label": "L5_09_case_using_cte_column:CTE:flagged"
+    }
+  ]
+}

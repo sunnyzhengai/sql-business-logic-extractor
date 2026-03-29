@@ -1,0 +1,19 @@
+{
+  "definitions": [
+    {
+      "id": "L3_case_query_a:def-001",
+      "name": "los_category",
+      "category": "classification",
+      "subcategory": "value_mapping",
+      "pattern": "CASE(IF(<col> <= <val>, <val>), IF(<col> <= <val>, <val>), <val>)",
+      "normalized_expression": "CASE WHEN los_days <= 3 THEN 'Short' WHEN los_days <= 7 THEN 'Medium' ELSE 'Long' END",
+      "signature": "91fe1f4337cdcdf9",
+      "structural_signature": "594dee6bb052500a",
+      "source_columns": [
+        "LOS_DAYS",
+        "LOS_DAYS"
+      ],
+      "query_label": "L3_case_query_a"
+    }
+  ]
+}

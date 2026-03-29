@@ -1,0 +1,53 @@
+{
+  "columns": [
+    {
+      "name": "PAT_MRN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_MRN_ID",
+      "direct_expression": "PAT_MRN_ID",
+      "base_columns": [
+        "PATIENT.PAT_MRN_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    },
+    {
+      "name": "first_name",
+      "type": "calculated",
+      "resolved_expression": "COALESCE(PAT_FIRST_NAME, 'Unknown')",
+      "direct_expression": "COALESCE(PAT_FIRST_NAME, 'Unknown') AS first_name",
+      "base_columns": [
+        "PATIENT.PAT_FIRST_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    },
+    {
+      "name": "last_name_upper",
+      "type": "calculated",
+      "resolved_expression": "UPPER(PAT_LAST_NAME)",
+      "direct_expression": "UPPER(PAT_LAST_NAME) AS last_name_upper",
+      "base_columns": [
+        "PATIENT.PAT_LAST_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    },
+    {
+      "name": "full_name",
+      "type": "calculated",
+      "resolved_expression": "CONCAT(PAT_FIRST_NAME, ' ', PAT_LAST_NAME)",
+      "direct_expression": "CONCAT(PAT_FIRST_NAME, ' ', PAT_LAST_NAME) AS full_name",
+      "base_columns": [
+        "PATIENT.PAT_FIRST_NAME",
+        "PATIENT.PAT_LAST_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ]
+    }
+  ]
+}

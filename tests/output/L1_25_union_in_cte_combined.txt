@@ -1,0 +1,74 @@
+======================================================================
+  L1_25_union_in_cte
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+WITH all_encounters AS (
+  SELECT
+    PAT_ID,
+    PAT_ENC_CSN_ID,
+    'IP' AS enc_type
+  FROM PAT_ENC_HSP
+  WHERE
+    ADT_PAT_CLASS_C = 1
+  UNION ALL
+  SELECT
+    PAT_ID,
+    PAT_ENC_CSN_ID,
+    'OP' AS enc_type
+  FROM PAT_ENC
+  WHERE
+    ENC_TYPE_C = 101
+  UNION ALL
+  SELECT
+    PAT_ID,
+    PAT_ENC_CSN_ID,
+    'ED' AS enc_type
+  FROM PAT_ENC_HSP
+  WHERE
+    ADT_PAT_CLASS_C = 3
+)
+SELECT
+  p.PAT_MRN_ID,
+  ae.enc_type,
+  COUNT(*) AS cnt
+FROM all_encounters AS ae
+JOIN PATIENT AS p
+  ON ae.PAT_ID = p.PAT_ID
+GROUP BY
+  p.PAT_MRN_ID,
+  ae.enc_type
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  cnt
+    Count of records
+    Technical: COUNT(*)
+
+  filter:where:ADT_PAT_CLASS_C
+    Filter: only include records where adt_pat_class_c equals 3
+    Technical: adt_pat_class_c = 3
+
+  enc_type
+    Fixed value
+    Technical: 'ED'
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_MRN_ID (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+    Filter: ADT_PAT_CLASS_C = 3
+
+  enc_type (literal)
+    Resolved: 'ED'
+    Filter: ADT_PAT_CLASS_C = 3
+    Chain:
+      -> query.enc_type (passthrough)
+        -> all_encounters.enc_type = 'ED' AS enc_type (literal)
+
+  cnt (aggregate)
+    Resolved: COUNT(*)
+    Filter: ADT_PAT_CLASS_C = 3

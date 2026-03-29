@@ -1,0 +1,18 @@
+{
+  "columns": [
+    {
+      "name": "length_of_stay",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(DAY, enc.HOSP_ADMSN_TIME, enc.HOSP_DISCH_TIME)",
+      "direct_expression": "DATEDIFF(DAY, enc.HOSP_ADMSN_TIME, enc.HOSP_DISCH_TIME) AS length_of_stay",
+      "base_columns": [
+        "PAT_ENC_HSP.DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    }
+  ]
+}

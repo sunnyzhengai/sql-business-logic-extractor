@@ -1,0 +1,31 @@
+======================================================================
+  L3_case_query_b
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  CASE
+    WHEN TOTAL_CHARGES <= 5000
+    THEN 'Low'
+    WHEN TOTAL_CHARGES <= 20000
+    THEN 'Medium'
+    ELSE 'High'
+  END AS cost_category
+FROM HSP_TRANSACTIONS
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  cost_category
+    Classified as:
+  - 'Low' when total_charges is at most 5000
+  - 'Medium' when total_charges is at most 20000
+  - 'High' otherwise
+    Technical: CASE WHEN total_charges <= 5000 THEN 'Low' WHEN total_charges <= 20000 THEN 'Medium' ELSE 'High' END
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  cost_category (case)
+    Resolved: CASE WHEN TOTAL_CHARGES <= 5000 THEN 'Low' WHEN TOTAL_CHARGES <= 20000 THEN 'Medium' ELSE 'High' END
+    Base columns: HSP_TRANSACTIONS.TOTAL_CHARGES
+    Base tables: HSP_TRANSACTIONS

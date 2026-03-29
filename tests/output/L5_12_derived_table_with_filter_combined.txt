@@ -1,0 +1,47 @@
+======================================================================
+  L5_12_derived_table_with_filter
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  s.total_charges
+FROM (
+  SELECT
+    HSP_ACCOUNT_ID,
+    SUM(TX_AMOUNT) AS total_charges
+  FROM HSP_TRANSACTIONS
+  WHERE
+    TX_TYPE_C = 1
+  GROUP BY
+    HSP_ACCOUNT_ID
+) AS s
+WHERE
+  s.total_charges > 1000
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  filter:where:s.total_charges
+    Filter: only include records where s.total_charges is greater than 1000
+    Source: s
+    Technical: s.total_charges > 1000
+
+  total_charges
+    Sum of TX_AMOUNT
+    Technical: SUM(tx_amount)
+
+  filter:where:TX_TYPE_C
+    Filter: only include records where tx_type_c equals 1
+    Technical: tx_type_c = 1
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  total_charges (aggregate)
+    Resolved: SUM(TX_AMOUNT)
+    Base columns: HSP_TRANSACTIONS.TX_AMOUNT
+    Base tables: HSP_TRANSACTIONS
+    Filter: s.total_charges > 1000
+    Filter: TX_TYPE_C = 1
+    Chain:
+      -> query.total_charges (passthrough)
+        -> s.total_charges = SUM(TX_AMOUNT) AS total_charges (aggregate)

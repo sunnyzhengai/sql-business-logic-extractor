@@ -1,0 +1,54 @@
+{
+  "definitions": [
+    {
+      "id": "L1_15_row_number:def-001",
+      "name": "filter:where:rn",
+      "category": "equality_filter",
+      "pattern": "<col> = <val>",
+      "normalized_expression": "rn = 1",
+      "signature": "b5d4ed66b3b45687",
+      "structural_signature": "417a62addcceec03",
+      "source_columns": [
+        "rn"
+      ],
+      "query_label": "L1_15_row_number"
+    },
+    {
+      "id": "L1_15_row_number:SUB:ranked:def-002",
+      "name": "rn",
+      "category": "window_function",
+      "subcategory": "ranking",
+      "pattern": "ROW_NUMBER OVER ( PARTITION BY <cols> ORDER BY <cols> )",
+      "normalized_expression": "ROW_NUMBER() OVER (PARTITION BY pat_enc_hsp.pat_id ORDER BY pat_enc_hsp.hosp_admsn_time DESC)",
+      "signature": "145fa1c3de258a9e",
+      "structural_signature": "790c8d22b7ec7237",
+      "source_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "PAT_ENC_HSP.PAT_ID",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME"
+      ],
+      "filters_context": [
+        "NOT pat_enc_hsp.hosp_disch_time IS NULL"
+      ],
+      "query_label": "L1_15_row_number:SUB:ranked"
+    },
+    {
+      "id": "L1_15_row_number:SUB:ranked:def-003",
+      "name": "filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME",
+      "category": "null_check",
+      "pattern": "NOT e.HOSP_DISCH_TIME IS NULL",
+      "normalized_expression": "NOT pat_enc_hsp.hosp_disch_time IS NULL",
+      "signature": "27771812c4e69985",
+      "structural_signature": "994dc3a5f1c01847",
+      "source_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "query_label": "L1_15_row_number:SUB:ranked"
+    }
+  ]
+}

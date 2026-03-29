@@ -1,4 +1,0 @@
-filter:where:HSP_ACCT_DX_LIST.LINE
-  Filter: only include records where Diagnosis priority line (1=Primary, 2=Secondary, etc.) equals 1
-  Source: HSP_ACCT_DX_LIST (Diagnosis list for hospital accounts (primary, secondary, etc.))
-  Technical: hsp_acct_dx_list.line = 1

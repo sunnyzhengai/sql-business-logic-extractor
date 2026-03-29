@@ -1,0 +1,752 @@
+{
+  "sources": [
+    {
+      "name": "med_events",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "ORDER_MED",
+      "alias": "om",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "MAR_ADMIN_INFO",
+      "alias": "ma",
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "med_name",
+      "expression": "med_name",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "med_name",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "total_admins",
+      "expression": "COUNT(*) AS total_admins",
+      "type": "aggregate",
+      "source_columns": []
+    },
+    {
+      "name": "avg_delay_min",
+      "expression": "AVG(delay_minutes) AS avg_delay_min",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "late_admins",
+      "expression": "COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS late_admins",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "late_pct",
+      "expression": "CAST(COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS FLOAT) / COUNT(*) * 100 AS late_pct",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "timing_category",
+      "expression": "CASE WHEN AVG(delay_minutes) <= 15 THEN 'On Time' WHEN AVG(delay_minutes) <= 60 THEN 'Slightly Delayed' ELSE 'Significantly Delayed' END AS timing_category",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "om.ORDER_MED_ID = ma.ORDER_MED_ID",
+      "scope": "join",
+      "columns": [
+        {
+          "column": "ORDER_MED_ID",
+          "table": "om",
+          "schema": null
+        },
+        {
+          "column": "ORDER_MED_ID",
+          "table": "ma",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "ma.MAR_ACTION_C = 1",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "MAR_ACTION_C",
+          "table": "ma",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "NOT ma.TAKEN_TIME IS NULL",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "TAKEN_TIME",
+          "table": "ma",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "COUNT(*) >= 20",
+      "scope": "having",
+      "columns": []
+    }
+  ],
+  "joins": [
+    {
+      "join_type": "JOIN",
+      "right_table": "MAR_ADMIN_INFO",
+      "right_alias": "ma",
+      "on_expression": "om.ORDER_MED_ID = ma.ORDER_MED_ID",
+      "columns": [
+        {
+          "column": "ORDER_MED_ID",
+          "table": "om",
+          "schema": null
+        },
+        {
+          "column": "ORDER_MED_ID",
+          "table": "ma",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "aggregations": [
+    {
+      "function": "COUNT",
+      "expression": "COUNT(*)",
+      "source_columns": [],
+      "group_by": [
+        "med_name"
+      ]
+    },
+    {
+      "function": "AVG",
+      "expression": "AVG(delay_minutes)",
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "med_name"
+      ]
+    },
+    {
+      "function": "COUNT",
+      "expression": "COUNT(CASE WHEN delay_minutes > 60 THEN 1 END)",
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "med_name"
+      ]
+    },
+    {
+      "function": "COUNT",
+      "expression": "COUNT(*)",
+      "source_columns": [],
+      "group_by": [
+        "med_name"
+      ]
+    },
+    {
+      "function": "COUNT",
+      "expression": "COUNT(CASE WHEN delay_minutes > 60 THEN 1 END)",
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "med_name"
+      ]
+    },
+    {
+      "function": "AVG",
+      "expression": "AVG(delay_minutes)",
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "med_name"
+      ]
+    },
+    {
+      "function": "AVG",
+      "expression": "AVG(delay_minutes)",
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "med_name"
+      ]
+    }
+  ],
+  "case_expressions": [
+    {
+      "output_name": "late_admins",
+      "expression": "CASE WHEN delay_minutes > 60 THEN 1 END",
+      "branches": [
+        {
+          "condition": "delay_minutes > 60",
+          "result": "1"
+        }
+      ],
+      "else_result": null,
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "output_name": "late_pct",
+      "expression": "CASE WHEN delay_minutes > 60 THEN 1 END",
+      "branches": [
+        {
+          "condition": "delay_minutes > 60",
+          "result": "1"
+        }
+      ],
+      "else_result": null,
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "output_name": "timing_category",
+      "expression": "CASE WHEN AVG(delay_minutes) <= 15 THEN 'On Time' WHEN AVG(delay_minutes) <= 60 THEN 'Slightly Delayed' ELSE 'Significantly Delayed' END",
+      "branches": [
+        {
+          "condition": "AVG(delay_minutes) <= 15",
+          "result": "'On Time'"
+        },
+        {
+          "condition": "AVG(delay_minutes) <= 60",
+          "result": "'Slightly Delayed'"
+        }
+      ],
+      "else_result": "'Significantly Delayed'",
+      "source_columns": [
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "delay_minutes",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "ctes": [
+    {
+      "name": "med_events",
+      "query": "SELECT om.PAT_ENC_CSN_ID, om.ORDER_MED_ID, om.DESCRIPTION AS med_name, ma.TAKEN_TIME, ma.SCHEDULED_TIME, DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes, ROW_NUMBER() OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS admin_seq, LAG(ma.TAKEN_TIME) OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS prev_admin_time FROM ORDER_MED AS om JOIN MAR_ADMIN_INFO AS ma ON om.ORDER_MED_ID = ma.ORDER_MED_ID WHERE ma.MAR_ACTION_C = 1 AND NOT ma.TAKEN_TIME IS NULL",
+      "logic": {
+        "sources": [
+          {
+            "name": "ORDER_MED",
+            "alias": "om",
+            "schema": null,
+            "type": "table"
+          },
+          {
+            "name": "MAR_ADMIN_INFO",
+            "alias": "ma",
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "PAT_ENC_CSN_ID",
+            "expression": "om.PAT_ENC_CSN_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ENC_CSN_ID",
+                "table": "om",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "ORDER_MED_ID",
+            "expression": "om.ORDER_MED_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "ORDER_MED_ID",
+                "table": "om",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "med_name",
+            "expression": "om.DESCRIPTION AS med_name",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "DESCRIPTION",
+                "table": "om",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "TAKEN_TIME",
+            "expression": "ma.TAKEN_TIME",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "TAKEN_TIME",
+                "table": "ma",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "SCHEDULED_TIME",
+            "expression": "ma.SCHEDULED_TIME",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "SCHEDULED_TIME",
+                "table": "ma",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "delay_minutes",
+            "expression": "DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes",
+            "type": "calculated",
+            "source_columns": [
+              {
+                "column": "MINUTE",
+                "table": null,
+                "schema": null
+              },
+              {
+                "column": "SCHEDULED_TIME",
+                "table": "ma",
+                "schema": null
+              },
+              {
+                "column": "TAKEN_TIME",
+                "table": "ma",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "admin_seq",
+            "expression": "ROW_NUMBER() OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS admin_seq",
+            "type": "window",
+            "source_columns": [
+              {
+                "column": "PAT_ENC_CSN_ID",
+                "table": "om",
+                "schema": null
+              },
+              {
+                "column": "ORDER_MED_ID",
+                "table": "om",
+                "schema": null
+              },
+              {
+                "column": "TAKEN_TIME",
+                "table": "ma",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "prev_admin_time",
+            "expression": "LAG(ma.TAKEN_TIME) OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS prev_admin_time",
+            "type": "window",
+            "source_columns": [
+              {
+                "column": "PAT_ENC_CSN_ID",
+                "table": "om",
+                "schema": null
+              },
+              {
+                "column": "ORDER_MED_ID",
+                "table": "om",
+                "schema": null
+              },
+              {
+                "column": "TAKEN_TIME",
+                "table": "ma",
+                "schema": null
+              },
+              {
+                "column": "TAKEN_TIME",
+                "table": "ma",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "filters": [
+          {
+            "expression": "om.ORDER_MED_ID = ma.ORDER_MED_ID",
+            "scope": "join",
+            "columns": [
+              {
+                "column": "ORDER_MED_ID",
+                "table": "om",
+                "schema": null
+              },
+              {
+                "column": "ORDER_MED_ID",
+                "table": "ma",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "expression": "ma.MAR_ACTION_C = 1",
+            "scope": "where",
+            "columns": [
+              {
+                "column": "MAR_ACTION_C",
+                "table": "ma",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "expression": "NOT ma.TAKEN_TIME IS NULL",
+            "scope": "where",
+            "columns": [
+              {
+                "column": "TAKEN_TIME",
+                "table": "ma",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "joins": [
+          {
+            "join_type": "JOIN",
+            "right_table": "MAR_ADMIN_INFO",
+            "right_alias": "ma",
+            "on_expression": "om.ORDER_MED_ID = ma.ORDER_MED_ID",
+            "columns": [
+              {
+                "column": "ORDER_MED_ID",
+                "table": "om",
+                "schema": null
+              },
+              {
+                "column": "ORDER_MED_ID",
+                "table": "ma",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "window_functions": [
+          {
+            "function": "ROWNUMBER",
+            "expression": "ROW_NUMBER() OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME)",
+            "partition_by": [
+              "om.PAT_ENC_CSN_ID",
+              "om.ORDER_MED_ID"
+            ],
+            "order_by": [
+              "ma.TAKEN_TIME"
+            ],
+            "frame": null,
+            "source_columns": [
+              {
+                "column": "PAT_ENC_CSN_ID",
+                "table": "om",
+                "schema": null
+              },
+              {
+                "column": "ORDER_MED_ID",
+                "table": "om",
+                "schema": null
+              },
+              {
+                "column": "TAKEN_TIME",
+                "table": "ma",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "function": "LAG",
+            "expression": "LAG(ma.TAKEN_TIME) OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME)",
+            "partition_by": [
+              "om.PAT_ENC_CSN_ID",
+              "om.ORDER_MED_ID"
+            ],
+            "order_by": [
+              "ma.TAKEN_TIME"
+            ],
+            "frame": null,
+            "source_columns": [
+              {
+                "column": "PAT_ENC_CSN_ID",
+                "table": "om",
+                "schema": null
+              },
+              {
+                "column": "ORDER_MED_ID",
+                "table": "om",
+                "schema": null
+              },
+              {
+                "column": "TAKEN_TIME",
+                "table": "ma",
+                "schema": null
+              },
+              {
+                "column": "TAKEN_TIME",
+                "table": "ma",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "PAT_ENC_CSN_ID",
+            "expression": "om.PAT_ENC_CSN_ID",
+            "depends_on": [
+              "om.PAT_ENC_CSN_ID"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "ORDER_MED_ID",
+            "expression": "om.ORDER_MED_ID",
+            "depends_on": [
+              "om.ORDER_MED_ID"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "med_name",
+            "expression": "om.DESCRIPTION AS med_name",
+            "depends_on": [
+              "om.DESCRIPTION"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "TAKEN_TIME",
+            "expression": "ma.TAKEN_TIME",
+            "depends_on": [
+              "ma.TAKEN_TIME"
+            ],
+            "filtered_by": {
+              "ma.TAKEN_TIME": [
+                "ma.MAR_ACTION_C = 1",
+                "NOT ma.TAKEN_TIME IS NULL"
+              ]
+            }
+          },
+          {
+            "output": "SCHEDULED_TIME",
+            "expression": "ma.SCHEDULED_TIME",
+            "depends_on": [
+              "ma.SCHEDULED_TIME"
+            ],
+            "filtered_by": {
+              "ma.SCHEDULED_TIME": [
+                "ma.MAR_ACTION_C = 1",
+                "NOT ma.TAKEN_TIME IS NULL"
+              ]
+            }
+          },
+          {
+            "output": "delay_minutes",
+            "expression": "DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes",
+            "depends_on": [
+              "MINUTE",
+              "ma.SCHEDULED_TIME",
+              "ma.TAKEN_TIME"
+            ],
+            "filtered_by": {
+              "ma.SCHEDULED_TIME": [
+                "ma.MAR_ACTION_C = 1",
+                "NOT ma.TAKEN_TIME IS NULL"
+              ],
+              "ma.TAKEN_TIME": [
+                "ma.MAR_ACTION_C = 1",
+                "NOT ma.TAKEN_TIME IS NULL"
+              ]
+            }
+          },
+          {
+            "output": "admin_seq",
+            "expression": "ROW_NUMBER() OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS admin_seq",
+            "depends_on": [
+              "om.PAT_ENC_CSN_ID",
+              "om.ORDER_MED_ID",
+              "ma.TAKEN_TIME"
+            ],
+            "filtered_by": {
+              "ma.TAKEN_TIME": [
+                "ma.MAR_ACTION_C = 1",
+                "NOT ma.TAKEN_TIME IS NULL"
+              ]
+            }
+          },
+          {
+            "output": "prev_admin_time",
+            "expression": "LAG(ma.TAKEN_TIME) OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS prev_admin_time",
+            "depends_on": [
+              "om.PAT_ENC_CSN_ID",
+              "om.ORDER_MED_ID",
+              "ma.TAKEN_TIME",
+              "ma.TAKEN_TIME"
+            ],
+            "filtered_by": {
+              "ma.TAKEN_TIME": [
+                "ma.MAR_ACTION_C = 1",
+                "NOT ma.TAKEN_TIME IS NULL"
+              ]
+            }
+          }
+        ],
+        "order_by": [
+          "ma.TAKEN_TIME"
+        ],
+        "raw_sql": "SELECT om.PAT_ENC_CSN_ID, om.ORDER_MED_ID, om.DESCRIPTION AS med_name, ma.TAKEN_TIME, ma.SCHEDULED_TIME, DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes, ROW_NUMBER() OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS admin_seq, LAG(ma.TAKEN_TIME) OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS prev_admin_time FROM ORDER_MED AS om JOIN MAR_ADMIN_INFO AS ma ON om.ORDER_MED_ID = ma.ORDER_MED_ID WHERE ma.MAR_ACTION_C = 1 AND NOT ma.TAKEN_TIME IS NULL"
+      }
+    }
+  ],
+  "lineage": [
+    {
+      "output": "med_name",
+      "expression": "med_name",
+      "depends_on": [
+        "med_name"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "total_admins",
+      "expression": "COUNT(*) AS total_admins",
+      "depends_on": [],
+      "filtered_by": {}
+    },
+    {
+      "output": "avg_delay_min",
+      "expression": "AVG(delay_minutes) AS avg_delay_min",
+      "depends_on": [
+        "delay_minutes"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "late_admins",
+      "expression": "COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS late_admins",
+      "depends_on": [
+        "delay_minutes"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "late_pct",
+      "expression": "CAST(COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS FLOAT) / COUNT(*) * 100 AS late_pct",
+      "depends_on": [
+        "delay_minutes"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "timing_category",
+      "expression": "CASE WHEN AVG(delay_minutes) <= 15 THEN 'On Time' WHEN AVG(delay_minutes) <= 60 THEN 'Slightly Delayed' ELSE 'Significantly Delayed' END AS timing_category",
+      "depends_on": [
+        "delay_minutes",
+        "delay_minutes"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "order_by": [
+    "avg_delay_min DESC"
+  ],
+  "raw_sql": "WITH med_events AS (\n            SELECT om.PAT_ENC_CSN_ID, om.ORDER_MED_ID, om.DESCRIPTION AS med_name,\n                   ma.TAKEN_TIME, ma.SCHEDULED_TIME,\n                   DATEDIFF(MINUTE, ma.SCHEDULED_TIME, ma.TAKEN_TIME) AS delay_minutes,\n                   ROW_NUMBER() OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS admin_seq,\n                   LAG(ma.TAKEN_TIME) OVER (PARTITION BY om.PAT_ENC_CSN_ID, om.ORDER_MED_ID ORDER BY ma.TAKEN_TIME) AS prev_admin_time\n            FROM ORDER_MED om\n            JOIN MAR_ADMIN_INFO ma ON om.ORDER_MED_ID = ma.ORDER_MED_ID\n            WHERE ma.MAR_ACTION_C = 1 AND ma.TAKEN_TIME IS NOT NULL\n        )\n        SELECT med_name, COUNT(*) AS total_admins,\n               AVG(delay_minutes) AS avg_delay_min,\n               COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS late_admins,\n               CAST(COUNT(CASE WHEN delay_minutes > 60 THEN 1 END) AS FLOAT) / COUNT(*) * 100 AS late_pct,\n               CASE WHEN AVG(delay_minutes) <= 15 THEN 'On Time'\n                    WHEN AVG(delay_minutes) <= 60 THEN 'Slightly Delayed'\n                    ELSE 'Significantly Delayed'\n               END AS timing_category\n        FROM med_events GROUP BY med_name\n        HAVING COUNT(*) >= 20 ORDER BY avg_delay_min DESC"
+}

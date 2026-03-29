@@ -1,0 +1,18 @@
+======================================================================
+  L1_30_distinct
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT DISTINCT
+  PAT_ID
+FROM PAT_ENC_HSP
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_ID (passthrough)
+    Resolved: PAT_ENC_HSP.PAT_ID
+    Base columns: PAT_ENC_HSP.PAT_ID
+    Base tables: PAT_ENC_HSP

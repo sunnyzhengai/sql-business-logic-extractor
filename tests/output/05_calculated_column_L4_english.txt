@@ -1,3 +1,0 @@
-age
-  The number of years between birth_date and GETDATE()
-  Technical: DATEDIFF(year, birth_date, GETDATE())

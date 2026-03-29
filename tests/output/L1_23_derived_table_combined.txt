@@ -1,0 +1,77 @@
+======================================================================
+  L1_23_derived_table
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  dept_stats.DEPARTMENT_NAME,
+  dept_stats.avg_los,
+  dept_stats.encounter_count
+FROM (
+  SELECT
+    dep.DEPARTMENT_NAME,
+    AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los,
+    COUNT(*) AS encounter_count
+  FROM PAT_ENC_HSP AS e
+  JOIN CLARITY_DEP AS dep
+    ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID
+  WHERE
+    NOT e.HOSP_DISCH_TIME IS NULL
+  GROUP BY
+    dep.DEPARTMENT_NAME
+) AS dept_stats
+WHERE
+  dept_stats.avg_los > 5
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  filter:where:dept_stats.avg_los
+    Filter: only include records where dept_stats.avg_los is greater than 5
+    Source: dept_stats
+    Technical: dept_stats.avg_los > 5
+
+  avg_los
+    Average of DAY, Hospital admission date and time, Hospital discharge date and time
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Condition: Hospital discharge date and time is not null
+    Technical: AVG(DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time))
+
+  encounter_count
+    Count of records
+    Technical: COUNT(*)
+
+  filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME
+    Filter: only include records where Hospital discharge date and time is not null
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: NOT pat_enc_hsp.hosp_disch_time IS NULL
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  DEPARTMENT_NAME (passthrough)
+    Resolved: CLARITY_DEP.DEPARTMENT_NAME
+    Base columns: CLARITY_DEP.DEPARTMENT_NAME
+    Base tables: CLARITY_DEP
+    Filter: dept_stats.avg_los > 5
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Chain:
+      -> query.DEPARTMENT_NAME (passthrough)
+        -> dept_stats.DEPARTMENT_NAME (passthrough)
+
+  avg_los (aggregate)
+    Resolved: AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME))
+    Base columns: PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base tables: PAT_ENC_HSP
+    Filter: dept_stats.avg_los > 5
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Chain:
+      -> query.avg_los (passthrough)
+        -> dept_stats.avg_los = AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los (aggregate)
+
+  encounter_count (aggregate)
+    Resolved: COUNT(*)
+    Filter: dept_stats.avg_los > 5
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Chain:
+      -> query.encounter_count (passthrough)
+        -> dept_stats.encounter_count = COUNT(*) AS encounter_count (aggregate)

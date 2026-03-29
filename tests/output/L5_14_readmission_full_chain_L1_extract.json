@@ -1,0 +1,452 @@
+{
+  "sources": [
+    {
+      "name": "summary",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "e",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "base",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "disch_status",
+      "expression": "disch_status",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "disch_status",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "discharges",
+      "expression": "discharges",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "discharges",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "avg_los",
+      "expression": "avg_los",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "avg_los",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "NOT e.HOSP_DISCH_TIME IS NULL",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "e.ADT_PAT_CLASS_C = 1",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "ADT_PAT_CLASS_C",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "ctes": [
+    {
+      "name": "base",
+      "query": "SELECT e.PAT_ID, e.PAT_ENC_CSN_ID, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME, DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days, CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 'Home' WHEN e.DISCH_DISPOSITION_C = 20 THEN 'Expired' ELSE 'Other' END AS disch_status FROM PAT_ENC_HSP AS e WHERE NOT e.HOSP_DISCH_TIME IS NULL AND e.ADT_PAT_CLASS_C = 1",
+      "logic": {
+        "sources": [
+          {
+            "name": "PAT_ENC_HSP",
+            "alias": "e",
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "PAT_ID",
+            "expression": "e.PAT_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "PAT_ENC_CSN_ID",
+            "expression": "e.PAT_ENC_CSN_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ENC_CSN_ID",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "HOSP_ADMSN_TIME",
+            "expression": "e.HOSP_ADMSN_TIME",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "HOSP_DISCH_TIME",
+            "expression": "e.HOSP_DISCH_TIME",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "HOSP_DISCH_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "los_days",
+            "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+            "type": "calculated",
+            "source_columns": [
+              {
+                "column": "DAY",
+                "table": null,
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "HOSP_DISCH_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "disch_status",
+            "expression": "CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 'Home' WHEN e.DISCH_DISPOSITION_C = 20 THEN 'Expired' ELSE 'Other' END AS disch_status",
+            "type": "case",
+            "source_columns": [
+              {
+                "column": "DISCH_DISPOSITION_C",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "DISCH_DISPOSITION_C",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "filters": [
+          {
+            "expression": "NOT e.HOSP_DISCH_TIME IS NULL",
+            "scope": "where",
+            "columns": [
+              {
+                "column": "HOSP_DISCH_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "expression": "e.ADT_PAT_CLASS_C = 1",
+            "scope": "where",
+            "columns": [
+              {
+                "column": "ADT_PAT_CLASS_C",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "case_expressions": [
+          {
+            "output_name": "disch_status",
+            "expression": "CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 'Home' WHEN e.DISCH_DISPOSITION_C = 20 THEN 'Expired' ELSE 'Other' END",
+            "branches": [
+              {
+                "condition": "e.DISCH_DISPOSITION_C = 1",
+                "result": "'Home'"
+              },
+              {
+                "condition": "e.DISCH_DISPOSITION_C = 20",
+                "result": "'Expired'"
+              }
+            ],
+            "else_result": "'Other'",
+            "source_columns": [
+              {
+                "column": "DISCH_DISPOSITION_C",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "DISCH_DISPOSITION_C",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "PAT_ID",
+            "expression": "e.PAT_ID",
+            "depends_on": [
+              "e.PAT_ID"
+            ],
+            "filtered_by": {
+              "e.PAT_ID": [
+                "e.ADT_PAT_CLASS_C = 1",
+                "NOT e.HOSP_DISCH_TIME IS NULL"
+              ]
+            }
+          },
+          {
+            "output": "PAT_ENC_CSN_ID",
+            "expression": "e.PAT_ENC_CSN_ID",
+            "depends_on": [
+              "e.PAT_ENC_CSN_ID"
+            ],
+            "filtered_by": {
+              "e.PAT_ENC_CSN_ID": [
+                "e.ADT_PAT_CLASS_C = 1",
+                "NOT e.HOSP_DISCH_TIME IS NULL"
+              ]
+            }
+          },
+          {
+            "output": "HOSP_ADMSN_TIME",
+            "expression": "e.HOSP_ADMSN_TIME",
+            "depends_on": [
+              "e.HOSP_ADMSN_TIME"
+            ],
+            "filtered_by": {
+              "e.HOSP_ADMSN_TIME": [
+                "e.ADT_PAT_CLASS_C = 1",
+                "NOT e.HOSP_DISCH_TIME IS NULL"
+              ]
+            }
+          },
+          {
+            "output": "HOSP_DISCH_TIME",
+            "expression": "e.HOSP_DISCH_TIME",
+            "depends_on": [
+              "e.HOSP_DISCH_TIME"
+            ],
+            "filtered_by": {
+              "e.HOSP_DISCH_TIME": [
+                "e.ADT_PAT_CLASS_C = 1",
+                "NOT e.HOSP_DISCH_TIME IS NULL"
+              ]
+            }
+          },
+          {
+            "output": "los_days",
+            "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+            "depends_on": [
+              "DAY",
+              "e.HOSP_ADMSN_TIME",
+              "e.HOSP_DISCH_TIME"
+            ],
+            "filtered_by": {
+              "e.HOSP_ADMSN_TIME": [
+                "e.ADT_PAT_CLASS_C = 1",
+                "NOT e.HOSP_DISCH_TIME IS NULL"
+              ],
+              "e.HOSP_DISCH_TIME": [
+                "e.ADT_PAT_CLASS_C = 1",
+                "NOT e.HOSP_DISCH_TIME IS NULL"
+              ]
+            }
+          },
+          {
+            "output": "disch_status",
+            "expression": "CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 'Home' WHEN e.DISCH_DISPOSITION_C = 20 THEN 'Expired' ELSE 'Other' END AS disch_status",
+            "depends_on": [
+              "e.DISCH_DISPOSITION_C",
+              "e.DISCH_DISPOSITION_C"
+            ],
+            "filtered_by": {
+              "e.DISCH_DISPOSITION_C": [
+                "e.ADT_PAT_CLASS_C = 1",
+                "NOT e.HOSP_DISCH_TIME IS NULL"
+              ]
+            }
+          }
+        ],
+        "raw_sql": "SELECT e.PAT_ID, e.PAT_ENC_CSN_ID, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME, DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days, CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 'Home' WHEN e.DISCH_DISPOSITION_C = 20 THEN 'Expired' ELSE 'Other' END AS disch_status FROM PAT_ENC_HSP AS e WHERE NOT e.HOSP_DISCH_TIME IS NULL AND e.ADT_PAT_CLASS_C = 1"
+      }
+    },
+    {
+      "name": "summary",
+      "query": "SELECT disch_status, COUNT(*) AS discharges, AVG(los_days) AS avg_los FROM base GROUP BY disch_status",
+      "logic": {
+        "sources": [
+          {
+            "name": "base",
+            "alias": null,
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "disch_status",
+            "expression": "disch_status",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "disch_status",
+                "table": null,
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "discharges",
+            "expression": "COUNT(*) AS discharges",
+            "type": "aggregate",
+            "source_columns": []
+          },
+          {
+            "name": "avg_los",
+            "expression": "AVG(los_days) AS avg_los",
+            "type": "aggregate",
+            "source_columns": [
+              {
+                "column": "los_days",
+                "table": null,
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "aggregations": [
+          {
+            "function": "COUNT",
+            "expression": "COUNT(*)",
+            "source_columns": [],
+            "group_by": [
+              "disch_status"
+            ]
+          },
+          {
+            "function": "AVG",
+            "expression": "AVG(los_days)",
+            "source_columns": [
+              {
+                "column": "los_days",
+                "table": null,
+                "schema": null
+              }
+            ],
+            "group_by": [
+              "disch_status"
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "disch_status",
+            "expression": "disch_status",
+            "depends_on": [
+              "disch_status"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "discharges",
+            "expression": "COUNT(*) AS discharges",
+            "depends_on": [],
+            "filtered_by": {}
+          },
+          {
+            "output": "avg_los",
+            "expression": "AVG(los_days) AS avg_los",
+            "depends_on": [
+              "los_days"
+            ],
+            "filtered_by": {}
+          }
+        ],
+        "raw_sql": "SELECT disch_status, COUNT(*) AS discharges, AVG(los_days) AS avg_los FROM base GROUP BY disch_status"
+      }
+    }
+  ],
+  "lineage": [
+    {
+      "output": "disch_status",
+      "expression": "disch_status",
+      "depends_on": [
+        "disch_status"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "discharges",
+      "expression": "discharges",
+      "depends_on": [
+        "discharges"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "avg_los",
+      "expression": "avg_los",
+      "depends_on": [
+        "avg_los"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "WITH base AS (\n            SELECT e.PAT_ID, e.PAT_ENC_CSN_ID,\n                   e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME,\n                   DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days,\n                   CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 'Home'\n                        WHEN e.DISCH_DISPOSITION_C = 20 THEN 'Expired'\n                        ELSE 'Other'\n                   END AS disch_status\n            FROM PAT_ENC_HSP e\n            WHERE e.HOSP_DISCH_TIME IS NOT NULL AND e.ADT_PAT_CLASS_C = 1\n        ),\n        summary AS (\n            SELECT disch_status, COUNT(*) AS discharges, AVG(los_days) AS avg_los\n            FROM base GROUP BY disch_status\n        )\n        SELECT disch_status, discharges, avg_los FROM summary"
+}

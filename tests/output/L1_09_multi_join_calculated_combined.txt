@@ -1,0 +1,82 @@
+======================================================================
+  L1_09_multi_join_calculated
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  p.PAT_MRN_ID,
+  e.PAT_ENC_CSN_ID,
+  dep.DEPARTMENT_NAME,
+  DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days,
+  DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) * dep.COST_PER_DAY AS total_cost
+FROM PAT_ENC_HSP AS e
+JOIN PATIENT AS p
+  ON e.PAT_ID = p.PAT_ID
+JOIN CLARITY_DEP AS dep
+  ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID
+WHERE
+  NOT e.HOSP_DISCH_TIME IS NULL AND e.ADT_PAT_CLASS_C = 1
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  los_days
+    The number of days between Hospital admission date and time and Hospital discharge date and time
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Condition: Hospital discharge date and time is not null
+    Condition: Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Technical: DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)
+
+  total_cost
+    Date difference calculation using Estimated cost per patient day for the department (CLARITY_DEP.COST_PER_DAY), DAY, Hospital admission date and time (PAT_ENC_HSP.HOSP_ADMSN_TIME), Hospital discharge date and time (PAT_ENC_HSP.HOSP_DISCH_TIME)
+    Source: CLARITY_DEP (Department reference table), PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Condition: Hospital discharge date and time is not null
+    Condition: Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Technical: DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time) * clarity_dep.cost_per_day
+
+  filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME
+    Filter: only include records where Hospital discharge date and time is not null
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: NOT pat_enc_hsp.hosp_disch_time IS NULL
+
+  filter:where:PAT_ENC_HSP.ADT_PAT_CLASS_C
+    Filter: only include records where Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: pat_enc_hsp.adt_pat_class_c = 1
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_MRN_ID (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+
+  PAT_ENC_CSN_ID (passthrough)
+    Resolved: PAT_ENC_HSP.PAT_ENC_CSN_ID
+    Base columns: PAT_ENC_HSP.PAT_ENC_CSN_ID
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+
+  DEPARTMENT_NAME (passthrough)
+    Resolved: CLARITY_DEP.DEPARTMENT_NAME
+    Base columns: CLARITY_DEP.DEPARTMENT_NAME
+    Base tables: CLARITY_DEP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+
+  los_days (calculated)
+    Resolved: DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)
+    Base columns: PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+
+  total_cost (calculated)
+    Resolved: DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) * dep.COST_PER_DAY
+    Base columns: CLARITY_DEP.COST_PER_DAY, PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base tables: CLARITY_DEP, PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1

@@ -1,0 +1,18 @@
+{
+  "columns": [
+    {
+      "name": "los_days",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)",
+      "direct_expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+      "base_columns": [
+        "PAT_ENC_HSP.DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    }
+  ]
+}

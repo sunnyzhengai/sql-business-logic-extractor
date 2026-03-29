@@ -1,0 +1,41 @@
+======================================================================
+  L1_15_row_number
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  *
+FROM (
+  SELECT
+    e.PAT_ENC_CSN_ID,
+    e.PAT_ID,
+    e.HOSP_ADMSN_TIME,
+    ROW_NUMBER() OVER (PARTITION BY e.PAT_ID ORDER BY e.HOSP_ADMSN_TIME DESC) AS rn
+  FROM PAT_ENC_HSP AS e
+  WHERE
+    NOT e.HOSP_DISCH_TIME IS NULL
+) AS ranked
+WHERE
+  rn = 1
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  filter:where:rn
+    Filter: only include records where rn equals 1
+    Technical: rn = 1
+
+  rn
+    Row ranking (used for deduplication or ordering)
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Condition: Hospital discharge date and time is not null
+    Technical: ROW_NUMBER() OVER (PARTITION BY pat_enc_hsp.pat_id ORDER BY pat_enc_hsp.hosp_admsn_time DESC)
+
+  filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME
+    Filter: only include records where Hospital discharge date and time is not null
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: NOT pat_enc_hsp.hosp_disch_time IS NULL
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  * (star)

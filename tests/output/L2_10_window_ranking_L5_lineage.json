@@ -1,0 +1,17 @@
+{
+  "columns": [
+    {
+      "name": "rn",
+      "type": "window",
+      "resolved_expression": "ROW_NUMBER() OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME DESC)",
+      "direct_expression": "ROW_NUMBER() OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME DESC) AS rn",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ID",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    }
+  ]
+}

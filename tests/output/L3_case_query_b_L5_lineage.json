@@ -1,0 +1,16 @@
+{
+  "columns": [
+    {
+      "name": "cost_category",
+      "type": "case",
+      "resolved_expression": "CASE WHEN TOTAL_CHARGES <= 5000 THEN 'Low' WHEN TOTAL_CHARGES <= 20000 THEN 'Medium' ELSE 'High' END",
+      "direct_expression": "CASE WHEN TOTAL_CHARGES <= 5000 THEN 'Low' WHEN TOTAL_CHARGES <= 20000 THEN 'Medium' ELSE 'High' END AS cost_category",
+      "base_columns": [
+        "HSP_TRANSACTIONS.TOTAL_CHARGES"
+      ],
+      "base_tables": [
+        "HSP_TRANSACTIONS"
+      ]
+    }
+  ]
+}

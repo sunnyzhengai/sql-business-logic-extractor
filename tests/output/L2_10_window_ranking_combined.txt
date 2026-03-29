@@ -1,0 +1,22 @@
+======================================================================
+  L2_10_window_ranking
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  ROW_NUMBER() OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME DESC) AS rn
+FROM PAT_ENC_HSP
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  rn
+    Row ranking (used for deduplication or ordering)
+    Technical: ROW_NUMBER() OVER (PARTITION BY pat_id ORDER BY hosp_admsn_time DESC)
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  rn (window)
+    Resolved: ROW_NUMBER() OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME DESC)
+    Base columns: PAT_ENC_HSP.PAT_ID, PAT_ENC_HSP.HOSP_ADMSN_TIME
+    Base tables: PAT_ENC_HSP

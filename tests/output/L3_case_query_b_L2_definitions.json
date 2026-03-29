@@ -1,0 +1,19 @@
+{
+  "definitions": [
+    {
+      "id": "L3_case_query_b:def-001",
+      "name": "cost_category",
+      "category": "classification",
+      "subcategory": "value_mapping",
+      "pattern": "CASE(IF(<col> <= <val>, <val>), IF(<col> <= <val>, <val>), <val>)",
+      "normalized_expression": "CASE WHEN total_charges <= 5000 THEN 'Low' WHEN total_charges <= 20000 THEN 'Medium' ELSE 'High' END",
+      "signature": "21a516972d72bf10",
+      "structural_signature": "594dee6bb052500a",
+      "source_columns": [
+        "TOTAL_CHARGES",
+        "TOTAL_CHARGES"
+      ],
+      "query_label": "L3_case_query_b"
+    }
+  ]
+}

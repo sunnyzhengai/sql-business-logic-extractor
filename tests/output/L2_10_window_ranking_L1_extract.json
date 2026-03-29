@@ -1,0 +1,69 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "rn",
+      "expression": "ROW_NUMBER() OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME DESC) AS rn",
+      "type": "window",
+      "source_columns": [
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "window_functions": [
+    {
+      "function": "ROWNUMBER",
+      "expression": "ROW_NUMBER() OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME DESC)",
+      "partition_by": [
+        "PAT_ID"
+      ],
+      "order_by": [
+        "HOSP_ADMSN_TIME DESC"
+      ],
+      "frame": null,
+      "source_columns": [
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "rn",
+      "expression": "ROW_NUMBER() OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME DESC) AS rn",
+      "depends_on": [
+        "PAT_ID",
+        "HOSP_ADMSN_TIME"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "order_by": [
+    "HOSP_ADMSN_TIME DESC"
+  ],
+  "raw_sql": "SELECT ROW_NUMBER() OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME DESC) AS rn FROM PAT_ENC_HSP"
+}

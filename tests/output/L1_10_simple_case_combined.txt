@@ -1,0 +1,37 @@
+======================================================================
+  L1_10_simple_case
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  PAT_MRN_ID,
+  CASE
+    WHEN AGE_YEARS < 18
+    THEN 'Pediatric'
+    WHEN AGE_YEARS BETWEEN 18 AND 64
+    THEN 'Adult'
+    ELSE 'Geriatric'
+  END AS age_group
+FROM PATIENT
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  age_group
+    Classified as:
+  - 'Pediatric' when age_years is less than 18
+  - 'Adult' when age_years is between 18 and 64
+  - 'Geriatric' otherwise
+    Technical: CASE WHEN age_years < 18 THEN 'Pediatric' WHEN age_years BETWEEN 18 AND 64 THEN 'Adult' ELSE 'Geriatric' END
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_MRN_ID (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+
+  age_group (case)
+    Resolved: CASE WHEN AGE_YEARS < 18 THEN 'Pediatric' WHEN AGE_YEARS BETWEEN 18 AND 64 THEN 'Adult' ELSE 'Geriatric' END
+    Base columns: PATIENT.AGE_YEARS
+    Base tables: PATIENT

@@ -1,0 +1,30 @@
+======================================================================
+  L1_02_select_with_alias
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  PAT_MRN_ID AS mrn,
+  PAT_FIRST_NAME AS first_name,
+  PAT_LAST_NAME AS last_name
+FROM PATIENT
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  mrn (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+
+  first_name (passthrough)
+    Resolved: PATIENT.PAT_FIRST_NAME
+    Base columns: PATIENT.PAT_FIRST_NAME
+    Base tables: PATIENT
+
+  last_name (passthrough)
+    Resolved: PATIENT.PAT_LAST_NAME
+    Base columns: PATIENT.PAT_LAST_NAME
+    Base tables: PATIENT

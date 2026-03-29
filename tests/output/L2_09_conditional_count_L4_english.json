@@ -1,0 +1,11 @@
+{
+  "definitions": [
+    {
+      "name": "discharged_home",
+      "business_description": "Conditional count of records where disch_disposition_c equals 1",
+      "category": "aggregation",
+      "subcategory": "conditional_count",
+      "technical_expression": "COUNT(CASE WHEN disch_disposition_c = 1 THEN 1 END)"
+    }
+  ]
+}

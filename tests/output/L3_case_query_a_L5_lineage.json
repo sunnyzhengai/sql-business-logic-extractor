@@ -1,0 +1,16 @@
+{
+  "columns": [
+    {
+      "name": "los_category",
+      "type": "case",
+      "resolved_expression": "CASE WHEN LOS_DAYS <= 3 THEN 'Short' WHEN LOS_DAYS <= 7 THEN 'Medium' ELSE 'Long' END",
+      "direct_expression": "CASE WHEN LOS_DAYS <= 3 THEN 'Short' WHEN LOS_DAYS <= 7 THEN 'Medium' ELSE 'Long' END AS los_category",
+      "base_columns": [
+        "PAT_ENC_HSP.LOS_DAYS"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    }
+  ]
+}

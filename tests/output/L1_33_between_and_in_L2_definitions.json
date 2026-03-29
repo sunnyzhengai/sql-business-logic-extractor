@@ -1,0 +1,43 @@
+{
+  "definitions": [
+    {
+      "id": "L1_33_between_and_in:def-001",
+      "name": "filter:where:HOSP_ADMSN_TIME",
+      "category": "range_filter",
+      "pattern": "HOSP_ADMSN_TIME BETWEEN '2025-01-01' AND '2025-12-31'",
+      "normalized_expression": "hosp_admsn_time BETWEEN '2025-01-01' AND '2025-12-31'",
+      "signature": "6c6e300e243afe97",
+      "structural_signature": "6c6e300e243afe97",
+      "source_columns": [
+        "HOSP_ADMSN_TIME"
+      ],
+      "query_label": "L1_33_between_and_in"
+    },
+    {
+      "id": "L1_33_between_and_in:def-002",
+      "name": "filter:where:ADT_PAT_CLASS_C",
+      "category": "membership_filter",
+      "pattern": "ADT_PAT_CLASS_C IN (1, 2, 3)",
+      "normalized_expression": "adt_pat_class_c IN (1, 2, 3)",
+      "signature": "8b434b581c662f81",
+      "structural_signature": "8b434b581c662f81",
+      "source_columns": [
+        "ADT_PAT_CLASS_C"
+      ],
+      "query_label": "L1_33_between_and_in"
+    },
+    {
+      "id": "L1_33_between_and_in:def-003",
+      "name": "filter:where:DEPARTMENT_ID",
+      "category": "membership_filter",
+      "pattern": "NOT DEPARTMENT_ID IN (100, 200)",
+      "normalized_expression": "NOT department_id IN (100, 200)",
+      "signature": "2fe609de043bdcac",
+      "structural_signature": "2fe609de043bdcac",
+      "source_columns": [
+        "DEPARTMENT_ID"
+      ],
+      "query_label": "L1_33_between_and_in"
+    }
+  ]
+}

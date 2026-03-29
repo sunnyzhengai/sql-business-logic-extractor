@@ -1,0 +1,259 @@
+{
+  "sources": [
+    {
+      "name": "flagged",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "e",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "base",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_ID",
+      "expression": "PAT_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "los_days",
+      "expression": "los_days",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "los_days",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "los_category",
+      "expression": "los_category",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "los_category",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "ctes": [
+    {
+      "name": "base",
+      "query": "SELECT e.PAT_ID, DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days FROM PAT_ENC_HSP AS e",
+      "logic": {
+        "sources": [
+          {
+            "name": "PAT_ENC_HSP",
+            "alias": "e",
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "PAT_ID",
+            "expression": "e.PAT_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "los_days",
+            "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+            "type": "calculated",
+            "source_columns": [
+              {
+                "column": "DAY",
+                "table": null,
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "HOSP_DISCH_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "PAT_ID",
+            "expression": "e.PAT_ID",
+            "depends_on": [
+              "e.PAT_ID"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "los_days",
+            "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+            "depends_on": [
+              "DAY",
+              "e.HOSP_ADMSN_TIME",
+              "e.HOSP_DISCH_TIME"
+            ],
+            "filtered_by": {}
+          }
+        ],
+        "raw_sql": "SELECT e.PAT_ID, DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days FROM PAT_ENC_HSP AS e"
+      }
+    },
+    {
+      "name": "flagged",
+      "query": "SELECT PAT_ID, los_days, CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END AS los_category FROM base",
+      "logic": {
+        "sources": [
+          {
+            "name": "base",
+            "alias": null,
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "PAT_ID",
+            "expression": "PAT_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": null,
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "los_days",
+            "expression": "los_days",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "los_days",
+                "table": null,
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "los_category",
+            "expression": "CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END AS los_category",
+            "type": "case",
+            "source_columns": [
+              {
+                "column": "los_days",
+                "table": null,
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "case_expressions": [
+          {
+            "output_name": "los_category",
+            "expression": "CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END",
+            "branches": [
+              {
+                "condition": "los_days > 7",
+                "result": "'Long'"
+              }
+            ],
+            "else_result": "'Short'",
+            "source_columns": [
+              {
+                "column": "los_days",
+                "table": null,
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "PAT_ID",
+            "expression": "PAT_ID",
+            "depends_on": [
+              "PAT_ID"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "los_days",
+            "expression": "los_days",
+            "depends_on": [
+              "los_days"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "los_category",
+            "expression": "CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END AS los_category",
+            "depends_on": [
+              "los_days"
+            ],
+            "filtered_by": {}
+          }
+        ],
+        "raw_sql": "SELECT PAT_ID, los_days, CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END AS los_category FROM base"
+      }
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_ID",
+      "expression": "PAT_ID",
+      "depends_on": [
+        "PAT_ID"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "los_days",
+      "expression": "los_days",
+      "depends_on": [
+        "los_days"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "los_category",
+      "expression": "los_category",
+      "depends_on": [
+        "los_category"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "WITH base AS (\n            SELECT e.PAT_ID,\n                   DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days\n            FROM PAT_ENC_HSP e\n        ),\n        flagged AS (\n            SELECT PAT_ID, los_days,\n                   CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END AS los_category\n            FROM base\n        )\n        SELECT PAT_ID, los_days, los_category FROM flagged"
+}

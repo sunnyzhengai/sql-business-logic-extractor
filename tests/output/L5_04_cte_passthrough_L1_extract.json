@@ -1,0 +1,156 @@
+{
+  "sources": [
+    {
+      "name": "enc",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "e",
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_ID",
+      "expression": "PAT_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "expression": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ENC_CSN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "e.ADT_PAT_CLASS_C = 1",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "ADT_PAT_CLASS_C",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "ctes": [
+    {
+      "name": "enc",
+      "query": "SELECT e.PAT_ID, e.PAT_ENC_CSN_ID FROM PAT_ENC_HSP AS e WHERE e.ADT_PAT_CLASS_C = 1",
+      "logic": {
+        "sources": [
+          {
+            "name": "PAT_ENC_HSP",
+            "alias": "e",
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "PAT_ID",
+            "expression": "e.PAT_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "PAT_ENC_CSN_ID",
+            "expression": "e.PAT_ENC_CSN_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ENC_CSN_ID",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "filters": [
+          {
+            "expression": "e.ADT_PAT_CLASS_C = 1",
+            "scope": "where",
+            "columns": [
+              {
+                "column": "ADT_PAT_CLASS_C",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "PAT_ID",
+            "expression": "e.PAT_ID",
+            "depends_on": [
+              "e.PAT_ID"
+            ],
+            "filtered_by": {
+              "e.PAT_ID": [
+                "e.ADT_PAT_CLASS_C = 1"
+              ]
+            }
+          },
+          {
+            "output": "PAT_ENC_CSN_ID",
+            "expression": "e.PAT_ENC_CSN_ID",
+            "depends_on": [
+              "e.PAT_ENC_CSN_ID"
+            ],
+            "filtered_by": {
+              "e.PAT_ENC_CSN_ID": [
+                "e.ADT_PAT_CLASS_C = 1"
+              ]
+            }
+          }
+        ],
+        "raw_sql": "SELECT e.PAT_ID, e.PAT_ENC_CSN_ID FROM PAT_ENC_HSP AS e WHERE e.ADT_PAT_CLASS_C = 1"
+      }
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_ID",
+      "expression": "PAT_ID",
+      "depends_on": [
+        "PAT_ID"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "PAT_ENC_CSN_ID",
+      "expression": "PAT_ENC_CSN_ID",
+      "depends_on": [
+        "PAT_ENC_CSN_ID"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "WITH enc AS (\n            SELECT e.PAT_ID, e.PAT_ENC_CSN_ID FROM PAT_ENC_HSP e WHERE e.ADT_PAT_CLASS_C = 1\n        )\n        SELECT PAT_ID, PAT_ENC_CSN_ID FROM enc"
+}

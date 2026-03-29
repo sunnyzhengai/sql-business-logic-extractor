@@ -1,0 +1,17 @@
+{
+  "columns": [
+    {
+      "name": "balance",
+      "type": "calculated",
+      "resolved_expression": "total_charges - total_payments",
+      "direct_expression": "total_charges - total_payments AS balance",
+      "base_columns": [
+        "HSP_TRANSACTIONS.total_charges",
+        "HSP_TRANSACTIONS.total_payments"
+      ],
+      "base_tables": [
+        "HSP_TRANSACTIONS"
+      ]
+    }
+  ]
+}

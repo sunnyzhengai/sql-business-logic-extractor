@@ -1,0 +1,30 @@
+======================================================================
+  L1_01_basic_select
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  PAT_MRN_ID,
+  PAT_FIRST_NAME,
+  PAT_LAST_NAME
+FROM PATIENT
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_MRN_ID (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+
+  PAT_FIRST_NAME (passthrough)
+    Resolved: PATIENT.PAT_FIRST_NAME
+    Base columns: PATIENT.PAT_FIRST_NAME
+    Base tables: PATIENT
+
+  PAT_LAST_NAME (passthrough)
+    Resolved: PATIENT.PAT_LAST_NAME
+    Base columns: PATIENT.PAT_LAST_NAME
+    Base tables: PATIENT

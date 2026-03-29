@@ -1,0 +1,12 @@
+{
+  "definitions": [
+    {
+      "name": "los_days",
+      "business_description": "The number of days between Hospital admission date and time and Hospital discharge date and time",
+      "category": "date_calculation",
+      "subcategory": "date_difference",
+      "source": "PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "technical_expression": "DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)"
+    }
+  ]
+}

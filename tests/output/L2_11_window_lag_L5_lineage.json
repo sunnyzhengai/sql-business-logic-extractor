@@ -1,0 +1,18 @@
+{
+  "columns": [
+    {
+      "name": "prev_discharge",
+      "type": "window",
+      "resolved_expression": "LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME)",
+      "direct_expression": "LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME) AS prev_discharge",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ID",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    }
+  ]
+}

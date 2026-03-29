@@ -1,0 +1,37 @@
+======================================================================
+  L2_15_filter_classification
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  PAT_MRN_ID
+FROM PATIENT
+WHERE
+  PAT_STATUS = 'Active'
+  AND BIRTH_DATE > '1950-01-01'
+  AND PAT_LAST_NAME LIKE 'Smith%'
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  filter:where:PAT_STATUS
+    Filter: only include records where pat_status equals 'Active'
+    Technical: pat_status = 'Active'
+
+  filter:where:BIRTH_DATE
+    Filter: only include records where birth_date is greater than '1950-01-01'
+    Technical: birth_date > '1950-01-01'
+
+  filter:where:PAT_LAST_NAME
+    Filter: only include records where pat_last_name matches pattern 'Smith%'
+    Technical: pat_last_name LIKE 'Smith%'
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_MRN_ID (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+    Filter: PAT_STATUS = 'Active'
+    Filter: BIRTH_DATE > '1950-01-01'
+    Filter: PAT_LAST_NAME LIKE 'Smith%'

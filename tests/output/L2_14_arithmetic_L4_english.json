@@ -1,0 +1,11 @@
+{
+  "definitions": [
+    {
+      "name": "balance",
+      "business_description": "total_charges minus total_payments",
+      "category": "arithmetic",
+      "subcategory": "calculation",
+      "technical_expression": "total_charges - total_payments"
+    }
+  ]
+}

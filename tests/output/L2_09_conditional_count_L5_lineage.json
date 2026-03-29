@@ -1,0 +1,16 @@
+{
+  "columns": [
+    {
+      "name": "discharged_home",
+      "type": "aggregate",
+      "resolved_expression": "COUNT(CASE WHEN DISCH_DISPOSITION_C = 1 THEN 1 END)",
+      "direct_expression": "COUNT(CASE WHEN DISCH_DISPOSITION_C = 1 THEN 1 END) AS discharged_home",
+      "base_columns": [
+        "PAT_ENC_HSP.DISCH_DISPOSITION_C"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    }
+  ]
+}

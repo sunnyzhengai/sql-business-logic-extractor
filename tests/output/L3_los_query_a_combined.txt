@@ -1,0 +1,23 @@
+======================================================================
+  L3_los_query_a
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days
+FROM PAT_ENC_HSP AS e
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  los_days
+    The number of days between Hospital admission date and time and Hospital discharge date and time
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  los_days (calculated)
+    Resolved: DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)
+    Base columns: PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base tables: PAT_ENC_HSP

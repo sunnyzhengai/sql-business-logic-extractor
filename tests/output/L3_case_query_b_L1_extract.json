@@ -1,0 +1,70 @@
+{
+  "sources": [
+    {
+      "name": "HSP_TRANSACTIONS",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "cost_category",
+      "expression": "CASE WHEN TOTAL_CHARGES <= 5000 THEN 'Low' WHEN TOTAL_CHARGES <= 20000 THEN 'Medium' ELSE 'High' END AS cost_category",
+      "type": "case",
+      "source_columns": [
+        {
+          "column": "TOTAL_CHARGES",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "TOTAL_CHARGES",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "case_expressions": [
+    {
+      "output_name": "cost_category",
+      "expression": "CASE WHEN TOTAL_CHARGES <= 5000 THEN 'Low' WHEN TOTAL_CHARGES <= 20000 THEN 'Medium' ELSE 'High' END",
+      "branches": [
+        {
+          "condition": "TOTAL_CHARGES <= 5000",
+          "result": "'Low'"
+        },
+        {
+          "condition": "TOTAL_CHARGES <= 20000",
+          "result": "'Medium'"
+        }
+      ],
+      "else_result": "'High'",
+      "source_columns": [
+        {
+          "column": "TOTAL_CHARGES",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "TOTAL_CHARGES",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "cost_category",
+      "expression": "CASE WHEN TOTAL_CHARGES <= 5000 THEN 'Low' WHEN TOTAL_CHARGES <= 20000 THEN 'Medium' ELSE 'High' END AS cost_category",
+      "depends_on": [
+        "TOTAL_CHARGES",
+        "TOTAL_CHARGES"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT CASE WHEN TOTAL_CHARGES <= 5000 THEN 'Low' WHEN TOTAL_CHARGES <= 20000 THEN 'Medium' ELSE 'High' END AS cost_category FROM HSP_TRANSACTIONS"
+}

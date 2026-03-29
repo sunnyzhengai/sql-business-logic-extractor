@@ -1,0 +1,65 @@
+======================================================================
+  L5_09_case_using_cte_column
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+WITH base AS (
+  SELECT
+    e.PAT_ID,
+    DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days
+  FROM PAT_ENC_HSP AS e
+), flagged AS (
+  SELECT
+    PAT_ID,
+    los_days,
+    CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END AS los_category
+  FROM base
+)
+SELECT
+  PAT_ID,
+  los_days,
+  los_category
+FROM flagged
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  los_days
+    The number of days between Hospital admission date and time and Hospital discharge date and time
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)
+
+  los_category
+    Classified as:
+  - 'Long' when los_days is greater than 7
+  - 'Short' otherwise
+    Technical: CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_ID (passthrough)
+    Resolved: PAT_ENC_HSP.PAT_ID
+    Base columns: PAT_ENC_HSP.PAT_ID
+    Base tables: PAT_ENC_HSP
+    Chain:
+      -> query.PAT_ID (passthrough)
+        -> flagged.PAT_ID (passthrough)
+          -> base.PAT_ID (passthrough)
+
+  los_days (calculated)
+    Resolved: DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)
+    Base columns: PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base tables: PAT_ENC_HSP
+    Chain:
+      -> query.los_days (passthrough)
+        -> flagged.los_days (passthrough)
+          -> base.los_days = DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days (calculated)
+
+  los_category (case)
+    Resolved: CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END
+    Base columns: PAT_ENC_HSP.DAY, PAT_ENC_HSP.HOSP_ADMSN_TIME, PAT_ENC_HSP.HOSP_DISCH_TIME
+    Base tables: PAT_ENC_HSP
+    Chain:
+      -> query.los_category (passthrough)
+        -> flagged.los_category = CASE WHEN los_days > 7 THEN 'Long' ELSE 'Short' END AS los_category (case)
+          -> base.los_days = DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days (calculated)

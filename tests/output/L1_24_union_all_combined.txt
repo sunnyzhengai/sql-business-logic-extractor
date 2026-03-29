@@ -1,0 +1,49 @@
+======================================================================
+  L1_24_union_all
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  PAT_ENC_CSN_ID,
+  PAT_ID,
+  HOSP_ADMSN_TIME,
+  'Inpatient' AS source
+FROM PAT_ENC_HSP
+WHERE
+  ADT_PAT_CLASS_C = 1
+UNION ALL
+SELECT
+  PAT_ENC_CSN_ID,
+  PAT_ID,
+  HOSP_ADMSN_TIME,
+  'ED' AS source
+FROM PAT_ENC_HSP
+WHERE
+  ADT_PAT_CLASS_C = 3
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  source
+    Fixed value
+    Technical: 'Inpatient'
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_ENC_CSN_ID (passthrough)
+    Resolved: .PAT_ENC_CSN_ID
+    Base columns: .PAT_ENC_CSN_ID
+    Base tables: 
+
+  PAT_ID (passthrough)
+    Resolved: .PAT_ID
+    Base columns: .PAT_ID
+    Base tables: 
+
+  HOSP_ADMSN_TIME (passthrough)
+    Resolved: .HOSP_ADMSN_TIME
+    Base columns: .HOSP_ADMSN_TIME
+    Base tables: 
+
+  source (literal)
+    Resolved: 'Inpatient'

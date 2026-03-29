@@ -1,0 +1,16 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ID",
+      "direct_expression": "PAT_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ]
+    }
+  ]
+}

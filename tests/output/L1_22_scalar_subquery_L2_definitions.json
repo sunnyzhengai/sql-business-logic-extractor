@@ -1,0 +1,117 @@
+{
+  "definitions": [
+    {
+      "id": "L1_22_scalar_subquery:def-001",
+      "name": "last_bp_time",
+      "category": "subquery",
+      "pattern": "<subquery>",
+      "normalized_expression": "(SELECT MAX(ip_flwsht_meas.recorded_time) FROM ip_flwsht_meas AS fm WHERE ip_flwsht_meas.pat_enc_csn_id = pat_enc_hsp.pat_enc_csn_id AND ip_flwsht_meas.flo_meas_id = '5')",
+      "signature": "4743492aa59948a4",
+      "structural_signature": "fbd6a67424b0f577",
+      "source_tables": [
+        "IP_FLWSHT_MEAS",
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "IP_FLWSHT_MEAS.RECORDED_TIME",
+        "IP_FLWSHT_MEAS.PAT_ENC_CSN_ID",
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+        "IP_FLWSHT_MEAS.FLO_MEAS_ID"
+      ],
+      "filters_context": [
+        "ip_flwsht_meas.pat_enc_csn_id = pat_enc_hsp.pat_enc_csn_id",
+        "ip_flwsht_meas.flo_meas_id = '5'"
+      ],
+      "query_label": "L1_22_scalar_subquery"
+    },
+    {
+      "id": "L1_22_scalar_subquery:def-002",
+      "name": "filter:where:IP_FLWSHT_MEAS.PAT_ENC_CSN_ID",
+      "category": "equality_filter",
+      "pattern": "<col> = <col>",
+      "normalized_expression": "ip_flwsht_meas.pat_enc_csn_id = pat_enc_hsp.pat_enc_csn_id",
+      "signature": "680b0d1e513cd46d",
+      "structural_signature": "2613735e5c3761e0",
+      "source_tables": [
+        "IP_FLWSHT_MEAS",
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "IP_FLWSHT_MEAS.PAT_ENC_CSN_ID",
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "query_label": "L1_22_scalar_subquery"
+    },
+    {
+      "id": "L1_22_scalar_subquery:def-003",
+      "name": "filter:where:IP_FLWSHT_MEAS.FLO_MEAS_ID",
+      "category": "equality_filter",
+      "pattern": "<col> = <val>",
+      "normalized_expression": "ip_flwsht_meas.flo_meas_id = '5'",
+      "signature": "15fff01129e97427",
+      "structural_signature": "417a62addcceec03",
+      "source_tables": [
+        "IP_FLWSHT_MEAS"
+      ],
+      "source_columns": [
+        "IP_FLWSHT_MEAS.FLO_MEAS_ID"
+      ],
+      "query_label": "L1_22_scalar_subquery"
+    },
+    {
+      "id": "L1_22_scalar_subquery:SUB:select:def-004",
+      "name": "MAX(fm.RECORDED_TIME)",
+      "category": "aggregation",
+      "subcategory": "maximum",
+      "pattern": "MAX(<col>)",
+      "normalized_expression": "MAX(ip_flwsht_meas.recorded_time)",
+      "signature": "3c88072aa7fc184a",
+      "structural_signature": "54d8263c6b2bd5b8",
+      "source_tables": [
+        "IP_FLWSHT_MEAS"
+      ],
+      "source_columns": [
+        "IP_FLWSHT_MEAS.RECORDED_TIME"
+      ],
+      "filters_context": [
+        "ip_flwsht_meas.pat_enc_csn_id = e.pat_enc_csn_id",
+        "ip_flwsht_meas.flo_meas_id = '5'"
+      ],
+      "query_label": "L1_22_scalar_subquery:SUB:select"
+    },
+    {
+      "id": "L1_22_scalar_subquery:SUB:select:def-005",
+      "name": "filter:where:IP_FLWSHT_MEAS.PAT_ENC_CSN_ID",
+      "category": "equality_filter",
+      "pattern": "<col> = <col>",
+      "normalized_expression": "ip_flwsht_meas.pat_enc_csn_id = e.pat_enc_csn_id",
+      "signature": "bca88bf9eb3dd4a2",
+      "structural_signature": "2613735e5c3761e0",
+      "source_tables": [
+        "IP_FLWSHT_MEAS",
+        "e"
+      ],
+      "source_columns": [
+        "IP_FLWSHT_MEAS.PAT_ENC_CSN_ID",
+        "e.PAT_ENC_CSN_ID"
+      ],
+      "query_label": "L1_22_scalar_subquery:SUB:select"
+    },
+    {
+      "id": "L1_22_scalar_subquery:SUB:select:def-006",
+      "name": "filter:where:IP_FLWSHT_MEAS.FLO_MEAS_ID",
+      "category": "equality_filter",
+      "pattern": "<col> = <val>",
+      "normalized_expression": "ip_flwsht_meas.flo_meas_id = '5'",
+      "signature": "15fff01129e97427",
+      "structural_signature": "417a62addcceec03",
+      "source_tables": [
+        "IP_FLWSHT_MEAS"
+      ],
+      "source_columns": [
+        "IP_FLWSHT_MEAS.FLO_MEAS_ID"
+      ],
+      "query_label": "L1_22_scalar_subquery:SUB:select"
+    }
+  ]
+}

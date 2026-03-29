@@ -1,0 +1,21 @@
+======================================================================
+  L1_29_select_star
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  *
+FROM PATIENT
+WHERE
+  PAT_STATUS = 'Active'
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  filter:where:PAT_STATUS
+    Filter: only include records where pat_status equals 'Active'
+    Technical: pat_status = 'Active'
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  * (star)

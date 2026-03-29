@@ -1,0 +1,28 @@
+======================================================================
+  L1_05_calculated_column
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  PAT_MRN_ID,
+  DATEDIFF(YEAR, BIRTH_DATE, GETDATE()) AS age
+FROM PATIENT
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  age
+    The number of years between birth_date and GETDATE()
+    Technical: DATEDIFF(year, birth_date, GETDATE())
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_MRN_ID (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+
+  age (calculated)
+    Resolved: DATEDIFF(YEAR, BIRTH_DATE, GETDATE())
+    Base columns: PATIENT.YEAR, PATIENT.BIRTH_DATE
+    Base tables: PATIENT

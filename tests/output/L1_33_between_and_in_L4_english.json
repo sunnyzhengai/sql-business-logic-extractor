@@ -1,0 +1,22 @@
+{
+  "definitions": [
+    {
+      "name": "filter:where:HOSP_ADMSN_TIME",
+      "business_description": "Filter: only include records where hosp_admsn_time is between '2025-01-01' and '2025-12-31'",
+      "category": "range_filter",
+      "technical_expression": "hosp_admsn_time BETWEEN '2025-01-01' AND '2025-12-31'"
+    },
+    {
+      "name": "filter:where:ADT_PAT_CLASS_C",
+      "business_description": "Filter: only include records where adt_pat_class_c IN (1, 2, 3)",
+      "category": "membership_filter",
+      "technical_expression": "adt_pat_class_c IN (1, 2, 3)"
+    },
+    {
+      "name": "filter:where:DEPARTMENT_ID",
+      "business_description": "Filter: only include records where not (department_id IN (100, 200))",
+      "category": "membership_filter",
+      "technical_expression": "NOT department_id IN (100, 200)"
+    }
+  ]
+}

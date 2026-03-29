@@ -1,0 +1,35 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "PAT_ID",
+          "expression": "PAT_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "b",
+          "name": "PAT_ID",
+          "expression": "PAT_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "a",
+          "name": "PAT_ID",
+          "expression": "PAT_ID",
+          "type": "passthrough"
+        }
+      ]
+    }
+  ]
+}

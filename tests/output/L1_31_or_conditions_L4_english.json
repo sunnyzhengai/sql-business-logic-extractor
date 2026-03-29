@@ -1,0 +1,10 @@
+{
+  "definitions": [
+    {
+      "name": "filter:where:PAT_STATUS",
+      "business_description": "Filter: only include records where pat_status equals 'Active' or pat_status equals 'Inactive'",
+      "category": "equality_filter",
+      "technical_expression": "pat_status = 'Active' OR pat_status = 'Inactive'"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "definitions": [
+    {
+      "name": "filter:where:PAT_STATUS",
+      "business_description": "Filter: only include records where pat_status equals 'Active'",
+      "category": "equality_filter",
+      "technical_expression": "pat_status = 'Active'"
+    },
+    {
+      "name": "filter:where:BIRTH_DATE",
+      "business_description": "Filter: only include records where birth_date is greater than '1950-01-01'",
+      "category": "comparison_filter",
+      "technical_expression": "birth_date > '1950-01-01'"
+    },
+    {
+      "name": "filter:where:PAT_LAST_NAME",
+      "business_description": "Filter: only include records where pat_last_name matches pattern 'Smith%'",
+      "category": "pattern_filter",
+      "technical_expression": "pat_last_name LIKE 'Smith%'"
+    }
+  ]
+}

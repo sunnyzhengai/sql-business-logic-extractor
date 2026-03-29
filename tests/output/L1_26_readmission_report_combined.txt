@@ -1,0 +1,271 @@
+======================================================================
+  L1_26_readmission_report
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+WITH index_encounters AS (
+  SELECT
+    e.PAT_ID,
+    e.PAT_ENC_CSN_ID,
+    e.HOSP_ADMSN_TIME,
+    e.HOSP_DISCH_TIME,
+    e.DEPARTMENT_ID,
+    DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days,
+    ROW_NUMBER() OVER (PARTITION BY e.PAT_ID ORDER BY e.HOSP_ADMSN_TIME) AS encounter_seq
+  FROM PAT_ENC_HSP AS e
+  WHERE
+    NOT e.HOSP_DISCH_TIME IS NULL
+    AND e.ADT_PAT_CLASS_C = 1
+    AND e.HOSP_ADMSN_TIME >= '2025-01-01'
+), with_readmit AS (
+  SELECT
+    ie.*,
+    LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME) AS next_admit_time,
+    DATEDIFF(
+      DAY,
+      ie.HOSP_DISCH_TIME,
+      LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)
+    ) AS days_to_readmit
+  FROM index_encounters AS ie
+), flagged AS (
+  SELECT
+    wr.*,
+    CASE WHEN wr.days_to_readmit <= 30 THEN 1 ELSE 0 END AS is_30day_readmit,
+    CASE
+      WHEN wr.days_to_readmit <= 7
+      THEN 'Early'
+      WHEN wr.days_to_readmit BETWEEN 8 AND 30
+      THEN 'Late'
+      ELSE 'None'
+    END AS readmit_category
+  FROM with_readmit AS wr
+)
+SELECT
+  dep.DEPARTMENT_NAME,
+  COUNT(*) AS total_discharges,
+  SUM(f.is_30day_readmit) AS readmissions,
+  CAST(SUM(f.is_30day_readmit) AS FLOAT) / COUNT(*) * 100 AS readmit_rate_pct,
+  AVG(f.los_days) AS avg_los,
+  COUNT(CASE WHEN f.readmit_category = 'Early' THEN 1 END) AS early_readmits,
+  COUNT(CASE WHEN f.readmit_category = 'Late' THEN 1 END) AS late_readmits
+FROM flagged AS f
+JOIN CLARITY_DEP AS dep
+  ON f.DEPARTMENT_ID = dep.DEPARTMENT_ID
+GROUP BY
+  dep.DEPARTMENT_NAME
+HAVING
+  COUNT(*) >= 50
+ORDER BY
+  readmit_rate_pct DESC
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  total_discharges
+    Count of records
+    Technical: COUNT(*)
+
+  readmissions
+    Sum of flagged.is_30day_readmit
+    Source: flagged
+    Technical: SUM(flagged.is_30day_readmit)
+
+  readmit_rate_pct
+    Count of records
+    Source: flagged
+    Technical: CAST(SUM(flagged.is_30day_readmit) AS FLOAT) / COUNT(*) * 100
+
+  avg_los
+    Average of flagged.los_days
+    Source: flagged
+    Technical: AVG(flagged.los_days)
+
+  early_readmits
+    Conditional count of records where flagged.readmit_category equals 'Early'
+    Source: flagged
+    Technical: COUNT(CASE WHEN flagged.readmit_category = 'Early' THEN 1 END)
+
+  late_readmits
+    Conditional count of records where flagged.readmit_category equals 'Late'
+    Source: flagged
+    Technical: COUNT(CASE WHEN flagged.readmit_category = 'Late' THEN 1 END)
+
+  filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME
+    Filter: only include records where Hospital discharge date and time is not null
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: NOT pat_enc_hsp.hosp_disch_time IS NULL
+
+  filter:where:PAT_ENC_HSP.ADT_PAT_CLASS_C
+    Filter: only include records where Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: pat_enc_hsp.adt_pat_class_c = 1
+
+  filter:where:PAT_ENC_HSP.HOSP_ADMSN_TIME
+    Filter: only include records where Hospital admission date and time is at least '2025-01-01'
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: pat_enc_hsp.hosp_admsn_time >= '2025-01-01'
+
+  filter:having:unknown
+    Filter: only include records where COUNT(*) is at least 50
+    Technical: COUNT(*) >= 50
+
+  los_days
+    The number of days between Hospital admission date and time and Hospital discharge date and time
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Condition: Hospital discharge date and time is not null
+    Condition: Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Condition: Hospital admission date and time is at least '2025-01-01'
+    Technical: DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)
+
+  encounter_seq
+    Row ranking (used for deduplication or ordering)
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Condition: Hospital discharge date and time is not null
+    Condition: Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Condition: Hospital admission date and time is at least '2025-01-01'
+    Technical: ROW_NUMBER() OVER (PARTITION BY pat_enc_hsp.pat_id ORDER BY pat_enc_hsp.hosp_admsn_time)
+
+  filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME
+    Filter: only include records where Hospital discharge date and time is not null
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: NOT pat_enc_hsp.hosp_disch_time IS NULL
+
+  filter:where:PAT_ENC_HSP.ADT_PAT_CLASS_C
+    Filter: only include records where Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: pat_enc_hsp.adt_pat_class_c = 1
+
+  filter:where:PAT_ENC_HSP.HOSP_ADMSN_TIME
+    Filter: only include records where Hospital admission date and time is at least '2025-01-01'
+    Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+    Technical: pat_enc_hsp.hosp_admsn_time >= '2025-01-01'
+
+  next_admit_time
+    Previous/next value comparison using index_encounters.PAT_ID, index_encounters.HOSP_ADMSN_TIME, index_encounters.HOSP_ADMSN_TIME
+    Source: index_encounters
+    Technical: LEAD(index_encounters.hosp_admsn_time) OVER (PARTITION BY index_encounters.pat_id ORDER BY index_encounters.hosp_admsn_time)
+
+  days_to_readmit
+    Previous/next value comparison using DAY, index_encounters.HOSP_DISCH_TIME, index_encounters.PAT_ID, index_encounters.HOSP_ADMSN_TIME, index_encounters.HOSP_ADMSN_TIME
+    Source: index_encounters
+    Technical: DATEDIFF(day, index_encounters.hosp_disch_time, LEAD(index_encounters.hosp_admsn_time) OVER (PARTITION BY index_encounters.pat_id ORDER BY index_encounters.hosp_admsn_time))
+
+  is_30day_readmit
+    Classified as:
+  - 1 when with_readmit.days_to_readmit is at most 30
+  - 0 otherwise
+    Source: with_readmit
+    Technical: CASE WHEN with_readmit.days_to_readmit <= 30 THEN 1 ELSE 0 END
+
+  readmit_category
+    Classified as:
+  - 'Early' when with_readmit.days_to_readmit is at most 7
+  - 'Late' when with_readmit.days_to_readmit is between 8 and 30
+  - 'None' otherwise
+    Source: with_readmit
+    Technical: CASE WHEN with_readmit.days_to_readmit <= 7 THEN 'Early' WHEN with_readmit.days_to_readmit BETWEEN 8 AND 30 THEN 'Late' ELSE 'None' END
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  DEPARTMENT_NAME (passthrough)
+    Resolved: CLARITY_DEP.DEPARTMENT_NAME
+    Base columns: CLARITY_DEP.DEPARTMENT_NAME
+    Base tables: CLARITY_DEP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+    Filter: COUNT(*) >= 50
+
+  total_discharges (aggregate)
+    Resolved: COUNT(*)
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+    Filter: COUNT(*) >= 50
+
+  readmissions (aggregate)
+    Resolved: SUM(CASE WHEN wr.days_to_readmit <= 30 THEN 1 ELSE 0 END)
+    Base columns: .DAY, PAT_ENC_HSP.HOSP_DISCH_TIME, PAT_ENC_HSP.PAT_ID, PAT_ENC_HSP.HOSP_ADMSN_TIME
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+    Filter: COUNT(*) >= 50
+    Chain:
+      -> query.readmissions = SUM(f.is_30day_readmit) AS readmissions (aggregate)
+        -> flagged.is_30day_readmit = CASE WHEN wr.days_to_readmit <= 30 THEN 1 ELSE 0 END AS is_30day_readmit (case)
+          -> with_readmit.days_to_readmit = DATEDIFF(DAY, ie.HOSP_DISCH_TIME, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)) AS days_to_readmit (window)
+            -> index_encounters.HOSP_DISCH_TIME (passthrough)
+              -> index_encounters.PAT_ID (passthrough)
+                -> index_encounters.HOSP_ADMSN_TIME (passthrough)
+                  -> index_encounters.HOSP_ADMSN_TIME (passthrough)
+
+  readmit_rate_pct (aggregate)
+    Resolved: CAST(SUM(CASE WHEN wr.days_to_readmit <= 30 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100
+    Base columns: .DAY, PAT_ENC_HSP.HOSP_DISCH_TIME, PAT_ENC_HSP.PAT_ID, PAT_ENC_HSP.HOSP_ADMSN_TIME
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+    Filter: COUNT(*) >= 50
+    Chain:
+      -> query.readmit_rate_pct = CAST(SUM(f.is_30day_readmit) AS FLOAT) / COUNT(*) * 100 AS readmit_rate_pct (aggregate)
+        -> flagged.is_30day_readmit = CASE WHEN wr.days_to_readmit <= 30 THEN 1 ELSE 0 END AS is_30day_readmit (case)
+          -> with_readmit.days_to_readmit = DATEDIFF(DAY, ie.HOSP_DISCH_TIME, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)) AS days_to_readmit (window)
+            -> index_encounters.HOSP_DISCH_TIME (passthrough)
+              -> index_encounters.PAT_ID (passthrough)
+                -> index_encounters.HOSP_ADMSN_TIME (passthrough)
+                  -> index_encounters.HOSP_ADMSN_TIME (passthrough)
+
+  avg_los (aggregate)
+    Resolved: AVG(f.los_days)
+    Base columns: flagged.los_days
+    Base tables: flagged
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+    Filter: COUNT(*) >= 50
+
+  early_readmits (aggregate)
+    Resolved: COUNT(CASE WHEN CASE WHEN wr.days_to_readmit <= 7 THEN 'Early' WHEN wr.days_to_readmit BETWEEN 8 AND 30 THEN 'Late' ELSE 'None' END = 'Early' THEN 1 END)
+    Base columns: .DAY, PAT_ENC_HSP.HOSP_DISCH_TIME, PAT_ENC_HSP.PAT_ID, PAT_ENC_HSP.HOSP_ADMSN_TIME
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+    Filter: COUNT(*) >= 50
+    Chain:
+      -> query.early_readmits = COUNT(CASE WHEN f.readmit_category = 'Early' THEN 1 END) AS early_readmits (aggregate)
+        -> flagged.readmit_category = CASE WHEN wr.days_to_readmit <= 7 THEN 'Early' WHEN wr.days_to_readmit BETWEEN 8 AND 30 THEN 'Late' ELSE 'None' END AS readmit_category (case)
+          -> with_readmit.days_to_readmit = DATEDIFF(DAY, ie.HOSP_DISCH_TIME, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)) AS days_to_readmit (window)
+            -> index_encounters.HOSP_DISCH_TIME (passthrough)
+              -> index_encounters.PAT_ID (passthrough)
+                -> index_encounters.HOSP_ADMSN_TIME (passthrough)
+                  -> index_encounters.HOSP_ADMSN_TIME (passthrough)
+                    -> with_readmit.days_to_readmit = DATEDIFF(DAY, ie.HOSP_DISCH_TIME, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)) AS days_to_readmit (window)
+                      -> index_encounters.HOSP_DISCH_TIME (passthrough)
+                        -> index_encounters.PAT_ID (passthrough)
+                          -> index_encounters.HOSP_ADMSN_TIME (passthrough)
+                            -> index_encounters.HOSP_ADMSN_TIME (passthrough)
+
+  late_readmits (aggregate)
+    Resolved: COUNT(CASE WHEN CASE WHEN wr.days_to_readmit <= 7 THEN 'Early' WHEN wr.days_to_readmit BETWEEN 8 AND 30 THEN 'Late' ELSE 'None' END = 'Late' THEN 1 END)
+    Base columns: .DAY, PAT_ENC_HSP.HOSP_DISCH_TIME, PAT_ENC_HSP.PAT_ID, PAT_ENC_HSP.HOSP_ADMSN_TIME
+    Base tables: PAT_ENC_HSP
+    Filter: NOT e.HOSP_DISCH_TIME IS NULL
+    Filter: e.ADT_PAT_CLASS_C = 1
+    Filter: e.HOSP_ADMSN_TIME >= '2025-01-01'
+    Filter: COUNT(*) >= 50
+    Chain:
+      -> query.late_readmits = COUNT(CASE WHEN f.readmit_category = 'Late' THEN 1 END) AS late_readmits (aggregate)
+        -> flagged.readmit_category = CASE WHEN wr.days_to_readmit <= 7 THEN 'Early' WHEN wr.days_to_readmit BETWEEN 8 AND 30 THEN 'Late' ELSE 'None' END AS readmit_category (case)
+          -> with_readmit.days_to_readmit = DATEDIFF(DAY, ie.HOSP_DISCH_TIME, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)) AS days_to_readmit (window)
+            -> index_encounters.HOSP_DISCH_TIME (passthrough)
+              -> index_encounters.PAT_ID (passthrough)
+                -> index_encounters.HOSP_ADMSN_TIME (passthrough)
+                  -> index_encounters.HOSP_ADMSN_TIME (passthrough)
+                    -> with_readmit.days_to_readmit = DATEDIFF(DAY, ie.HOSP_DISCH_TIME, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)) AS days_to_readmit (window)
+                      -> index_encounters.HOSP_DISCH_TIME (passthrough)
+                        -> index_encounters.PAT_ID (passthrough)
+                          -> index_encounters.HOSP_ADMSN_TIME (passthrough)
+                            -> index_encounters.HOSP_ADMSN_TIME (passthrough)

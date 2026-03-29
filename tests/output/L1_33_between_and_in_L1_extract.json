@@ -1,0 +1,76 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "expression": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ENC_CSN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "HOSP_ADMSN_TIME BETWEEN '2025-01-01' AND '2025-12-31'",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "ADT_PAT_CLASS_C IN (1, 2, 3)",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "ADT_PAT_CLASS_C",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "NOT DEPARTMENT_ID IN (100, 200)",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "DEPARTMENT_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_ENC_CSN_ID",
+      "expression": "PAT_ENC_CSN_ID",
+      "depends_on": [
+        "PAT_ENC_CSN_ID"
+      ],
+      "filtered_by": {
+        "PAT_ENC_CSN_ID": [
+          "HOSP_ADMSN_TIME BETWEEN '2025-01-01' AND '2025-12-31'",
+          "NOT DEPARTMENT_ID IN (100, 200)",
+          "ADT_PAT_CLASS_C IN (1, 2, 3)"
+        ]
+      }
+    }
+  ],
+  "raw_sql": "SELECT PAT_ENC_CSN_ID FROM PAT_ENC_HSP\n        WHERE HOSP_ADMSN_TIME BETWEEN '2025-01-01' AND '2025-12-31'\n          AND ADT_PAT_CLASS_C IN (1, 2, 3) AND DEPARTMENT_ID NOT IN (100, 200)"
+}

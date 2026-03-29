@@ -1,0 +1,60 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "e.ADT_PAT_CLASS_C = 1"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "PAT_ID",
+          "expression": "PAT_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "enc",
+          "name": "PAT_ID",
+          "expression": "e.PAT_ID",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "e.ADT_PAT_CLASS_C = 1"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "enc",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "e.PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        }
+      ]
+    }
+  ]
+}

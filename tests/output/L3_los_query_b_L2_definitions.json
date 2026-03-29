@@ -1,0 +1,23 @@
+{
+  "definitions": [
+    {
+      "id": "L3_los_query_b:def-001",
+      "name": "length_of_stay",
+      "category": "date_calculation",
+      "subcategory": "date_difference",
+      "pattern": "DATEDIFF(<col>, <col>, <col>)",
+      "normalized_expression": "DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)",
+      "signature": "c6883212f8bf1f0b",
+      "structural_signature": "af563ea968d2d5e6",
+      "source_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "query_label": "L3_los_query_b"
+    }
+  ]
+}

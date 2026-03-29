@@ -1,0 +1,20 @@
+{
+  "definitions": [
+    {
+      "id": "L2_11_window_lag:def-001",
+      "name": "prev_discharge",
+      "category": "window_function",
+      "subcategory": "offset_comparison",
+      "pattern": "LAG(<col>) OVER ( PARTITION BY <cols> ORDER BY <cols> )",
+      "normalized_expression": "LAG(hosp_disch_time) OVER (PARTITION BY pat_id ORDER BY hosp_admsn_time)",
+      "signature": "f7634b9ac87d9ae3",
+      "structural_signature": "f16a9ced7a9d1a12",
+      "source_columns": [
+        "PAT_ID",
+        "HOSP_DISCH_TIME",
+        "HOSP_ADMSN_TIME"
+      ],
+      "query_label": "L2_11_window_lag"
+    }
+  ]
+}

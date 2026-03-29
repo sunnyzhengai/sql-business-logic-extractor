@@ -1,0 +1,19 @@
+{
+  "definitions": [
+    {
+      "id": "L2_14_arithmetic:def-001",
+      "name": "balance",
+      "category": "arithmetic",
+      "subcategory": "calculation",
+      "pattern": "<col> - <col>",
+      "normalized_expression": "total_charges - total_payments",
+      "signature": "3061b591ffbcd13e",
+      "structural_signature": "f561d20386c85fab",
+      "source_columns": [
+        "total_charges",
+        "total_payments"
+      ],
+      "query_label": "L2_14_arithmetic"
+    }
+  ]
+}

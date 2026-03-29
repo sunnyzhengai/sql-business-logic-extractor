@@ -1,0 +1,47 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "enc",
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "length_of_stay",
+      "expression": "DATEDIFF(DAY, enc.HOSP_ADMSN_TIME, enc.HOSP_DISCH_TIME) AS length_of_stay",
+      "type": "calculated",
+      "source_columns": [
+        {
+          "column": "DAY",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": "enc",
+          "schema": null
+        },
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": "enc",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "length_of_stay",
+      "expression": "DATEDIFF(DAY, enc.HOSP_ADMSN_TIME, enc.HOSP_DISCH_TIME) AS length_of_stay",
+      "depends_on": [
+        "DAY",
+        "enc.HOSP_ADMSN_TIME",
+        "enc.HOSP_DISCH_TIME"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT DATEDIFF(DAY, enc.HOSP_ADMSN_TIME, enc.HOSP_DISCH_TIME) AS length_of_stay FROM PAT_ENC_HSP enc"
+}

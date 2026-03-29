@@ -1,0 +1,47 @@
+{
+  "definitions": [
+    {
+      "id": "L5_12_derived_table_with_filter:def-001",
+      "name": "filter:where:s.total_charges",
+      "category": "comparison_filter",
+      "pattern": "<col> > <val>",
+      "normalized_expression": "s.total_charges > 1000",
+      "signature": "7bd8d4199f51928b",
+      "structural_signature": "2b184d69b657e055",
+      "source_tables": [
+        "s"
+      ],
+      "source_columns": [
+        "s.total_charges"
+      ],
+      "query_label": "L5_12_derived_table_with_filter"
+    },
+    {
+      "id": "L5_12_derived_table_with_filter:SUB:s:def-002",
+      "name": "total_charges",
+      "category": "aggregation",
+      "subcategory": "sum",
+      "pattern": "SUM(<col>)",
+      "normalized_expression": "SUM(tx_amount)",
+      "signature": "1e7a47598952b039",
+      "structural_signature": "d3864f9cc3f34a8b",
+      "source_columns": [
+        "TX_AMOUNT"
+      ],
+      "query_label": "L5_12_derived_table_with_filter:SUB:s"
+    },
+    {
+      "id": "L5_12_derived_table_with_filter:SUB:s:def-003",
+      "name": "filter:where:TX_TYPE_C",
+      "category": "equality_filter",
+      "pattern": "<col> = <val>",
+      "normalized_expression": "tx_type_c = 1",
+      "signature": "bec74b59b2867bd2",
+      "structural_signature": "417a62addcceec03",
+      "source_columns": [
+        "TX_TYPE_C"
+      ],
+      "query_label": "L5_12_derived_table_with_filter:SUB:s"
+    }
+  ]
+}

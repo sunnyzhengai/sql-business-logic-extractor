@@ -1,0 +1,34 @@
+======================================================================
+  L1_06_literal_column
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  PAT_MRN_ID,
+  'Inpatient' AS encounter_type,
+  1 AS is_active
+FROM PATIENT
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  encounter_type
+    Fixed value
+    Technical: 'Inpatient'
+
+  is_active
+    Fixed value
+    Technical: 1
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_MRN_ID (passthrough)
+    Resolved: PATIENT.PAT_MRN_ID
+    Base columns: PATIENT.PAT_MRN_ID
+    Base tables: PATIENT
+
+  encounter_type (literal)
+    Resolved: 'Inpatient'
+
+  is_active (literal)
+    Resolved: 1

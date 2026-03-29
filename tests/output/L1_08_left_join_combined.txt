@@ -1,0 +1,37 @@
+======================================================================
+  L1_08_left_join
+======================================================================
+
+FORMATTED SQL:
+----------------------------------------
+SELECT
+  e.PAT_ENC_CSN_ID,
+  dx.DX_NAME
+FROM PAT_ENC_HSP AS e
+LEFT JOIN HSP_ACCT_DX_LIST AS dl
+  ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID
+LEFT JOIN CLARITY_EDG AS dx
+  ON dl.DX_ID = dx.DX_ID
+WHERE
+  dl.LINE = 1
+
+BUSINESS DEFINITIONS (Plain English):
+----------------------------------------
+  filter:where:HSP_ACCT_DX_LIST.LINE
+    Filter: only include records where Diagnosis priority line (1=Primary, 2=Secondary, etc.) equals 1
+    Source: HSP_ACCT_DX_LIST (Diagnosis list for hospital accounts (primary, secondary, etc.))
+    Technical: hsp_acct_dx_list.line = 1
+
+LINEAGE (Resolved to base tables):
+----------------------------------------
+  PAT_ENC_CSN_ID (passthrough)
+    Resolved: PAT_ENC_HSP.PAT_ENC_CSN_ID
+    Base columns: PAT_ENC_HSP.PAT_ENC_CSN_ID
+    Base tables: PAT_ENC_HSP
+    Filter: dl.LINE = 1
+
+  DX_NAME (passthrough)
+    Resolved: CLARITY_EDG.DX_NAME
+    Base columns: CLARITY_EDG.DX_NAME
+    Base tables: CLARITY_EDG
+    Filter: dl.LINE = 1

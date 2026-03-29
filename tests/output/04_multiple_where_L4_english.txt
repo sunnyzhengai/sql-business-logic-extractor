@@ -1,0 +1,11 @@
+filter:where:PAT_STATUS
+  Filter: only include records where pat_status equals 'Active'
+  Technical: pat_status = 'Active'
+
+filter:where:BIRTH_DATE
+  Filter: only include records where birth_date is greater than '1950-01-01'
+  Technical: birth_date > '1950-01-01'
+
+filter:where:STATE_ABBR
+  Filter: only include records where state_abbr equals 'TX'
+  Technical: state_abbr = 'TX'

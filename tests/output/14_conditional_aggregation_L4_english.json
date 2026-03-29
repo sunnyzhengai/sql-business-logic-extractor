@@ -1,0 +1,35 @@
+{
+  "definitions": [
+    {
+      "name": "discharged_home",
+      "business_description": "Conditional count of records where Discharge disposition (1=Home, 2=Transfer, 20=Expired) is Home",
+      "category": "aggregation",
+      "subcategory": "conditional_count",
+      "source": "PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "technical_expression": "COUNT(CASE WHEN pat_enc_hsp.disch_disposition_c = 1 THEN 1 END)"
+    },
+    {
+      "name": "transferred",
+      "business_description": "Conditional count of records where Discharge disposition (1=Home, 2=Transfer, 20=Expired) is Transfer to another facility",
+      "category": "aggregation",
+      "subcategory": "conditional_count",
+      "source": "PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "technical_expression": "COUNT(CASE WHEN pat_enc_hsp.disch_disposition_c = 2 THEN 1 END)"
+    },
+    {
+      "name": "expired",
+      "business_description": "Conditional count of records where Discharge disposition (1=Home, 2=Transfer, 20=Expired) is Expired (deceased)",
+      "category": "aggregation",
+      "subcategory": "conditional_count",
+      "source": "PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "technical_expression": "COUNT(CASE WHEN pat_enc_hsp.disch_disposition_c = 20 THEN 1 END)"
+    },
+    {
+      "name": "total",
+      "business_description": "Count of records",
+      "category": "aggregation",
+      "subcategory": "count",
+      "technical_expression": "COUNT(*)"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+filter:where:HOSP_DISCH_TIME
+  Filter: only include records where hosp_disch_time is not null
+  Technical: NOT hosp_disch_time IS NULL
+
+filter:where:ADT_PAT_CLASS_C
+  Filter: only include records where adt_pat_class_c equals 1
+  Technical: adt_pat_class_c = 1
+
+filter:where:HOSP_DISCH_TIME
+  Filter: only include records where hosp_disch_time is not null
+  Technical: NOT hosp_disch_time IS NULL
+
+filter:where:ADT_PAT_CLASS_C
+  Filter: only include records where adt_pat_class_c equals 1
+  Technical: adt_pat_class_c = 1
+
+days_to_readmit
+  The number of days between discharges.hosp_disch_time and discharges.hosp_disch_time
+  Source: discharges
+  Technical: DATEDIFF(day, discharges.hosp_disch_time, discharges.hosp_disch_time)

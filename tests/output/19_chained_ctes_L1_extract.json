@@ -333,8 +333,8 @@
             ],
             "filtered_by": {
               "PAT_ID": [
-                "NOT HOSP_DISCH_TIME IS NULL",
-                "ADT_PAT_CLASS_C = 1"
+                "ADT_PAT_CLASS_C = 1",
+                "NOT HOSP_DISCH_TIME IS NULL"
               ]
             }
           },
@@ -346,8 +346,8 @@
             ],
             "filtered_by": {
               "PAT_ENC_CSN_ID": [
-                "NOT HOSP_DISCH_TIME IS NULL",
-                "ADT_PAT_CLASS_C = 1"
+                "ADT_PAT_CLASS_C = 1",
+                "NOT HOSP_DISCH_TIME IS NULL"
               ]
             }
           },
@@ -359,8 +359,8 @@
             ],
             "filtered_by": {
               "HOSP_DISCH_TIME": [
-                "NOT HOSP_DISCH_TIME IS NULL",
-                "ADT_PAT_CLASS_C = 1"
+                "ADT_PAT_CLASS_C = 1",
+                "NOT HOSP_DISCH_TIME IS NULL"
               ]
             }
           },
@@ -372,8 +372,8 @@
             ],
             "filtered_by": {
               "DISCH_DISPOSITION_C": [
-                "NOT HOSP_DISCH_TIME IS NULL",
-                "ADT_PAT_CLASS_C = 1"
+                "ADT_PAT_CLASS_C = 1",
+                "NOT HOSP_DISCH_TIME IS NULL"
               ]
             }
           }
@@ -596,8 +596,8 @@
       ],
       "filtered_by": {
         "r.PAT_ID": [
-          "NOT HOSP_DISCH_TIME IS NULL",
-          "ADT_PAT_CLASS_C = 1"
+          "ADT_PAT_CLASS_C = 1",
+          "NOT HOSP_DISCH_TIME IS NULL"
         ]
       }
     },
@@ -609,8 +609,8 @@
       ],
       "filtered_by": {
         "p.PAT_MRN_ID": [
-          "NOT HOSP_DISCH_TIME IS NULL",
-          "ADT_PAT_CLASS_C = 1"
+          "ADT_PAT_CLASS_C = 1",
+          "NOT HOSP_DISCH_TIME IS NULL"
         ]
       }
     },
@@ -622,8 +622,8 @@
       ],
       "filtered_by": {
         "r.index_csn": [
-          "NOT HOSP_DISCH_TIME IS NULL",
-          "ADT_PAT_CLASS_C = 1"
+          "ADT_PAT_CLASS_C = 1",
+          "NOT HOSP_DISCH_TIME IS NULL"
         ]
       }
     },
@@ -635,8 +635,8 @@
       ],
       "filtered_by": {
         "r.readmit_csn": [
-          "NOT HOSP_DISCH_TIME IS NULL",
-          "ADT_PAT_CLASS_C = 1"
+          "ADT_PAT_CLASS_C = 1",
+          "NOT HOSP_DISCH_TIME IS NULL"
         ]
       }
     },
@@ -648,8 +648,8 @@
       ],
       "filtered_by": {
         "r.days_to_readmit": [
-          "NOT HOSP_DISCH_TIME IS NULL",
-          "ADT_PAT_CLASS_C = 1"
+          "ADT_PAT_CLASS_C = 1",
+          "NOT HOSP_DISCH_TIME IS NULL"
         ]
       }
     }

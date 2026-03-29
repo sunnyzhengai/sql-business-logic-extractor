@@ -1,0 +1,18 @@
+patient_count
+  Count of records
+  Technical: COUNT(*)
+
+avg_charges
+  Average of Total charges for the encounter
+  Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+  Condition: AVG(pat_enc_hsp.total_charges) is greater than 5000
+  Technical: AVG(pat_enc_hsp.total_charges)
+
+filter:having:unknown
+  Filter: only include records where COUNT(*) is at least 10
+  Technical: COUNT(*) >= 10
+
+filter:having:PAT_ENC_HSP.TOTAL_CHARGES
+  Filter: only include records where AVG(pat_enc_hsp.total_charges) is greater than 5000
+  Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+  Technical: AVG(pat_enc_hsp.total_charges) > 5000

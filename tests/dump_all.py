@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from extract import SQLBusinessLogicExtractor, to_dict
 from normalize import extract_definitions, definitions_to_dict
+from translate import translate_query
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -258,6 +259,26 @@ for name, sql in QUERIES.items():
     with open(os.path.join(OUT_DIR, f"{name}_L2_definitions.json"), "w") as f:
         json.dump({"definitions": definitions_to_dict(defs)}, f, indent=2, default=str)
 
-    print(f"  {name}: {len(logic.get('outputs', []))} outputs, {len(defs)} definitions")
+    # Layer 4: Plain English translation
+    translated = translate_query(sql.strip(), query_label=name)
+    with open(os.path.join(OUT_DIR, f"{name}_L4_english.json"), "w") as f:
+        json.dump({"definitions": translated}, f, indent=2, default=str)
+
+    # Layer 4: Text version
+    lines = []
+    for t in translated:
+        lines.append(f"{t['name']}")
+        lines.append(f"  {t['business_description']}")
+        if "source" in t:
+            lines.append(f"  Source: {t['source']}")
+        if "conditions" in t:
+            for c in t["conditions"]:
+                lines.append(f"  Condition: {c}")
+        lines.append(f"  Technical: {t['technical_expression']}")
+        lines.append("")
+    with open(os.path.join(OUT_DIR, f"{name}_L4_english.txt"), "w") as f:
+        f.write("\n".join(lines))
+
+    print(f"  {name}: {len(logic.get('outputs', []))} outputs, {len(defs)} definitions, {len(translated)} translated")
 
 print(f"\nDone. Files in {OUT_DIR}/")

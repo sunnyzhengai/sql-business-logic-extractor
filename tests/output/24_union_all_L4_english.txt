@@ -1,0 +1,3 @@
+source
+  Fixed value
+  Technical: 'Inpatient'

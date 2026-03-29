@@ -1,0 +1,42 @@
+{
+  "definitions": [
+    {
+      "name": "los_days",
+      "business_description": "The number of days between Hospital admission date and time and Hospital discharge date and time",
+      "category": "date_calculation",
+      "subcategory": "date_difference",
+      "source": "PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "conditions": [
+        "Hospital discharge date and time is not null",
+        "Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient"
+      ],
+      "technical_expression": "DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)"
+    },
+    {
+      "name": "total_cost",
+      "business_description": "Date difference calculation using Estimated cost per patient day for the department (CLARITY_DEP.COST_PER_DAY), DAY, Hospital admission date and time (PAT_ENC_HSP.HOSP_ADMSN_TIME), Hospital discharge date and time (PAT_ENC_HSP.HOSP_DISCH_TIME)",
+      "category": "date_calculation",
+      "subcategory": "date_difference",
+      "source": "CLARITY_DEP (Department reference table), PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "conditions": [
+        "Hospital discharge date and time is not null",
+        "Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient"
+      ],
+      "technical_expression": "DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time) * clarity_dep.cost_per_day"
+    },
+    {
+      "name": "filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME",
+      "business_description": "Filter: only include records where Hospital discharge date and time is not null",
+      "category": "null_check",
+      "source": "PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "technical_expression": "NOT pat_enc_hsp.hosp_disch_time IS NULL"
+    },
+    {
+      "name": "filter:where:PAT_ENC_HSP.ADT_PAT_CLASS_C",
+      "business_description": "Filter: only include records where Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient",
+      "category": "equality_filter",
+      "source": "PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "technical_expression": "pat_enc_hsp.adt_pat_class_c = 1"
+    }
+  ]
+}

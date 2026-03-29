@@ -1,0 +1,55 @@
+{
+  "definitions": [
+    {
+      "name": "last_bp_time",
+      "business_description": "Value derived from a sub-query",
+      "category": "subquery",
+      "source": "IP_FLWSHT_MEAS (Inpatient flowsheet measurements (vitals, assessments)), PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "conditions": [
+        "Encounter identifier equals pat_enc_hsp.pat_enc_csn_id",
+        "Flowsheet measurement type (5=Blood Pressure, 8=Heart Rate, etc.) equals '5'"
+      ],
+      "technical_expression": "(SELECT MAX(ip_flwsht_meas.recorded_time) FROM ip_flwsht_meas AS fm WHERE ip_flwsht_meas.pat_enc_csn_id = pat_enc_hsp.pat_enc_csn_id AND ip_flwsht_meas.flo_meas_id = '5')"
+    },
+    {
+      "name": "filter:where:IP_FLWSHT_MEAS.PAT_ENC_CSN_ID",
+      "business_description": "Filter: only include records where Encounter identifier equals pat_enc_hsp.pat_enc_csn_id",
+      "category": "equality_filter",
+      "source": "IP_FLWSHT_MEAS (Inpatient flowsheet measurements (vitals, assessments)), PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "technical_expression": "ip_flwsht_meas.pat_enc_csn_id = pat_enc_hsp.pat_enc_csn_id"
+    },
+    {
+      "name": "filter:where:IP_FLWSHT_MEAS.FLO_MEAS_ID",
+      "business_description": "Filter: only include records where Flowsheet measurement type (5=Blood Pressure, 8=Heart Rate, etc.) equals '5'",
+      "category": "equality_filter",
+      "source": "IP_FLWSHT_MEAS (Inpatient flowsheet measurements (vitals, assessments))",
+      "technical_expression": "ip_flwsht_meas.flo_meas_id = '5'"
+    },
+    {
+      "name": "MAX(fm.RECORDED_TIME)",
+      "business_description": "Maximum of Time the measurement was recorded",
+      "category": "aggregation",
+      "subcategory": "maximum",
+      "source": "IP_FLWSHT_MEAS (Inpatient flowsheet measurements (vitals, assessments))",
+      "conditions": [
+        "Encounter identifier equals e.pat_enc_csn_id",
+        "Flowsheet measurement type (5=Blood Pressure, 8=Heart Rate, etc.) equals '5'"
+      ],
+      "technical_expression": "MAX(ip_flwsht_meas.recorded_time)"
+    },
+    {
+      "name": "filter:where:IP_FLWSHT_MEAS.PAT_ENC_CSN_ID",
+      "business_description": "Filter: only include records where Encounter identifier equals e.pat_enc_csn_id",
+      "category": "equality_filter",
+      "source": "IP_FLWSHT_MEAS (Inpatient flowsheet measurements (vitals, assessments)), e",
+      "technical_expression": "ip_flwsht_meas.pat_enc_csn_id = e.pat_enc_csn_id"
+    },
+    {
+      "name": "filter:where:IP_FLWSHT_MEAS.FLO_MEAS_ID",
+      "business_description": "Filter: only include records where Flowsheet measurement type (5=Blood Pressure, 8=Heart Rate, etc.) equals '5'",
+      "category": "equality_filter",
+      "source": "IP_FLWSHT_MEAS (Inpatient flowsheet measurements (vitals, assessments))",
+      "technical_expression": "ip_flwsht_meas.flo_meas_id = '5'"
+    }
+  ]
+}

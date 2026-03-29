@@ -1,0 +1,35 @@
+{
+  "definitions": [
+    {
+      "name": "patient_count",
+      "business_description": "Count of records",
+      "category": "aggregation",
+      "subcategory": "count",
+      "technical_expression": "COUNT(*)"
+    },
+    {
+      "name": "avg_charges",
+      "business_description": "Average of Total charges for the encounter",
+      "category": "aggregation",
+      "subcategory": "average",
+      "source": "PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "conditions": [
+        "AVG(pat_enc_hsp.total_charges) is greater than 5000"
+      ],
+      "technical_expression": "AVG(pat_enc_hsp.total_charges)"
+    },
+    {
+      "name": "filter:having:unknown",
+      "business_description": "Filter: only include records where COUNT(*) is at least 10",
+      "category": "post_aggregation_filter",
+      "technical_expression": "COUNT(*) >= 10"
+    },
+    {
+      "name": "filter:having:PAT_ENC_HSP.TOTAL_CHARGES",
+      "business_description": "Filter: only include records where AVG(pat_enc_hsp.total_charges) is greater than 5000",
+      "category": "post_aggregation_filter",
+      "source": "PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "technical_expression": "AVG(pat_enc_hsp.total_charges) > 5000"
+    }
+  ]
+}

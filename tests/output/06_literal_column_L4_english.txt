@@ -1,0 +1,7 @@
+encounter_type
+  Fixed value
+  Technical: 'Inpatient'
+
+is_active
+  Fixed value
+  Technical: 1

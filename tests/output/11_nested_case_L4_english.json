@@ -1,0 +1,20 @@
+{
+  "definitions": [
+    {
+      "name": "readmit_risk",
+      "business_description": "Classified as:\n  - 'High' when Diagnosis name/description matches pattern '%heart failure%' and Length of stay in days (calculated) is greater than 7\n  - 'Medium' when Diagnosis name/description matches pattern '%pneumonia%'\n  - 'Medium' when Time patient departed the Emergency Department is not null\n  - 'Low' otherwise",
+      "category": "classification",
+      "subcategory": "pattern_matching",
+      "source": "CLARITY_EDG (Diagnosis reference table (ICD-10, descriptions)), PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "technical_expression": "CASE WHEN clarity_edg.dx_name LIKE '%heart failure%' AND pat_enc_hsp.los_days > 7 THEN 'High' WHEN clarity_edg.dx_name LIKE '%pneumonia%' THEN 'Medium' WHEN NOT pat_enc_hsp.ed_departure_time IS NULL THEN 'Medium' ELSE 'Low' END"
+    },
+    {
+      "name": "visit_type",
+      "business_description": "Classified as:\n  - 'Inpatient' when 1\n  - 'Outpatient' when 2\n  - 'Emergency' when 3\n  - 'Other' otherwise",
+      "category": "classification",
+      "subcategory": "conditional_logic",
+      "source": "PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))",
+      "technical_expression": "CASE pat_enc_hsp.adt_pat_class_c WHEN 1 THEN 'Inpatient' WHEN 2 THEN 'Outpatient' WHEN 3 THEN 'Emergency' ELSE 'Other' END"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "definitions": [
+    {
+      "name": "filter:where:HSP_ACCT_DX_LIST.LINE",
+      "business_description": "Filter: only include records where Diagnosis priority line (1=Primary, 2=Secondary, etc.) equals 1",
+      "category": "equality_filter",
+      "source": "HSP_ACCT_DX_LIST (Diagnosis list for hospital accounts (primary, secondary, etc.))",
+      "technical_expression": "hsp_acct_dx_list.line = 1"
+    }
+  ]
+}

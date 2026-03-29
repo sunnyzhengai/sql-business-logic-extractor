@@ -1,0 +1,11 @@
+{
+  "definitions": [
+    {
+      "name": "age_group",
+      "business_description": "Classified as:\n  - 'Pediatric' when age_years is less than 18\n  - 'Adult' when age_years is between 18 and 64\n  - 'Geriatric' otherwise",
+      "category": "classification",
+      "subcategory": "pattern_matching",
+      "technical_expression": "CASE WHEN age_years < 18 THEN 'Pediatric' WHEN age_years BETWEEN 18 AND 64 THEN 'Adult' ELSE 'Geriatric' END"
+    }
+  ]
+}

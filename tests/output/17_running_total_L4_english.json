@@ -1,0 +1,11 @@
+{
+  "definitions": [
+    {
+      "name": "cumulative_charges",
+      "business_description": "Running total of PAT_ENC_CSN_ID, TX_AMOUNT, SERVICE_DATE",
+      "category": "window_function",
+      "subcategory": "running_aggregate",
+      "technical_expression": "SUM(tx_amount) OVER (PARTITION BY pat_enc_csn_id ORDER BY service_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)"
+    }
+  ]
+}

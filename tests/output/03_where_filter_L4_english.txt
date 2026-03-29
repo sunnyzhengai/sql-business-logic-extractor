@@ -1,0 +1,3 @@
+filter:where:PAT_STATUS
+  Filter: only include records where pat_status equals 'Active'
+  Technical: pat_status = 'Active'

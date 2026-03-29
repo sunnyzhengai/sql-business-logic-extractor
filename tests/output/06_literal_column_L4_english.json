@@ -1,0 +1,16 @@
+{
+  "definitions": [
+    {
+      "name": "encounter_type",
+      "business_description": "Fixed value",
+      "category": "constant",
+      "technical_expression": "'Inpatient'"
+    },
+    {
+      "name": "is_active",
+      "business_description": "Fixed value",
+      "category": "constant",
+      "technical_expression": "1"
+    }
+  ]
+}

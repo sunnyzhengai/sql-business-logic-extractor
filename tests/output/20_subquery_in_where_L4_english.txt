@@ -1,0 +1,9 @@
+filter:where:PATIENT.PAT_ID
+  Filter: only include records where patient.pat_id IN (SELECT DISTINCT pat_enc_hsp.pat_id FROM pat_enc_hsp AS e JOIN hsp_acct_dx_list AS dl ON pat_enc_hsp.hsp_account_id = hsp_acct_dx_list.hsp_account_id JOIN clarity_edg AS dx ON hsp_acct_dx_list.dx_id = clarity_edg.dx_id WHERE clarity_edg.icd10_code LIKE 'I50%')
+  Source: CLARITY_EDG (Diagnosis reference table (ICD-10, descriptions)), HSP_ACCT_DX_LIST (Diagnosis list for hospital accounts (primary, secondary, etc.)), PATIENT (Master patient demographics table), PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+  Technical: patient.pat_id IN (SELECT DISTINCT pat_enc_hsp.pat_id FROM pat_enc_hsp AS e JOIN hsp_acct_dx_list AS dl ON pat_enc_hsp.hsp_account_id = hsp_acct_dx_list.hsp_account_id JOIN clarity_edg AS dx ON hsp_acct_dx_list.dx_id = clarity_edg.dx_id WHERE clarity_edg.icd10_code LIKE 'I50%')
+
+filter:where:CLARITY_EDG.ICD10_CODE
+  Filter: only include records where ICD-10 diagnosis code matches pattern 'I50%'
+  Source: CLARITY_EDG (Diagnosis reference table (ICD-10, descriptions))
+  Technical: clarity_edg.icd10_code LIKE 'I50%'

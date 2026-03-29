@@ -1,0 +1,24 @@
+{
+  "definitions": [
+    {
+      "name": "prev_discharge",
+      "business_description": "Previous/next value comparison using PAT_ID, HOSP_DISCH_TIME, HOSP_ADMSN_TIME",
+      "category": "window_function",
+      "subcategory": "offset_comparison",
+      "technical_expression": "LAG(hosp_disch_time) OVER (PARTITION BY pat_id ORDER BY hosp_admsn_time)"
+    },
+    {
+      "name": "days_since_last_discharge",
+      "business_description": "Previous/next value comparison using DAY, PAT_ID, HOSP_DISCH_TIME, HOSP_ADMSN_TIME",
+      "category": "window_function",
+      "subcategory": "offset_comparison",
+      "technical_expression": "DATEDIFF(day, LAG(hosp_disch_time) OVER (PARTITION BY pat_id ORDER BY hosp_admsn_time), HOSP_ADMSN_TIME)"
+    },
+    {
+      "name": "filter:where:HOSP_DISCH_TIME",
+      "business_description": "Filter: only include records where hosp_disch_time is not null",
+      "category": "null_check",
+      "technical_expression": "NOT hosp_disch_time IS NULL"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+filter:where:encounters.los_days
+  Filter: only include records where encounters.los_days is greater than 3
+  Source: encounters
+  Technical: encounters.los_days > 3
+
+los_days
+  The number of days between Hospital admission date and time and Hospital discharge date and time
+  Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+  Condition: Hospital discharge date and time is not null
+  Condition: Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+  Technical: DATEDIFF(day, pat_enc_hsp.hosp_admsn_time, pat_enc_hsp.hosp_disch_time)
+
+filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME
+  Filter: only include records where Hospital discharge date and time is not null
+  Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+  Technical: NOT pat_enc_hsp.hosp_disch_time IS NULL
+
+filter:where:PAT_ENC_HSP.ADT_PAT_CLASS_C
+  Filter: only include records where Patient class (1=Inpatient, 2=Outpatient, 3=Emergency, 4=Observation) is Inpatient
+  Source: PAT_ENC_HSP (Hospital patient encounters (inpatient, ED, observation))
+  Technical: pat_enc_hsp.adt_pat_class_c = 1

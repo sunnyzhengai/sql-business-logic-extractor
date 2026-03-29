@@ -1,0 +1,10 @@
+{
+  "definitions": [
+    {
+      "name": "source",
+      "business_description": "Fixed value",
+      "category": "constant",
+      "technical_expression": "'Inpatient'"
+    }
+  ]
+}

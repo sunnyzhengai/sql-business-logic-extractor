@@ -1,0 +1,6 @@
+age_group
+  Classified as:
+  - 'Pediatric' when age_years is less than 18
+  - 'Adult' when age_years is between 18 and 64
+  - 'Geriatric' otherwise
+  Technical: CASE WHEN age_years < 18 THEN 'Pediatric' WHEN age_years BETWEEN 18 AND 64 THEN 'Adult' ELSE 'Geriatric' END

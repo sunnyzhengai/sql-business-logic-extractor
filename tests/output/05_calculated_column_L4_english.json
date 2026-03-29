@@ -1,0 +1,11 @@
+{
+  "definitions": [
+    {
+      "name": "age",
+      "business_description": "The number of years between birth_date and GETDATE()",
+      "category": "date_calculation",
+      "subcategory": "date_difference",
+      "technical_expression": "DATEDIFF(year, birth_date, GETDATE())"
+    }
+  ]
+}

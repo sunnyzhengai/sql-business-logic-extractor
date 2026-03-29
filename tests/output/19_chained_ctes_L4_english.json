@@ -1,0 +1,36 @@
+{
+  "definitions": [
+    {
+      "name": "filter:where:HOSP_DISCH_TIME",
+      "business_description": "Filter: only include records where hosp_disch_time is not null",
+      "category": "null_check",
+      "technical_expression": "NOT hosp_disch_time IS NULL"
+    },
+    {
+      "name": "filter:where:ADT_PAT_CLASS_C",
+      "business_description": "Filter: only include records where adt_pat_class_c equals 1",
+      "category": "equality_filter",
+      "technical_expression": "adt_pat_class_c = 1"
+    },
+    {
+      "name": "filter:where:HOSP_DISCH_TIME",
+      "business_description": "Filter: only include records where hosp_disch_time is not null",
+      "category": "null_check",
+      "technical_expression": "NOT hosp_disch_time IS NULL"
+    },
+    {
+      "name": "filter:where:ADT_PAT_CLASS_C",
+      "business_description": "Filter: only include records where adt_pat_class_c equals 1",
+      "category": "equality_filter",
+      "technical_expression": "adt_pat_class_c = 1"
+    },
+    {
+      "name": "days_to_readmit",
+      "business_description": "The number of days between discharges.hosp_disch_time and discharges.hosp_disch_time",
+      "category": "date_calculation",
+      "subcategory": "date_difference",
+      "source": "discharges",
+      "technical_expression": "DATEDIFF(day, discharges.hosp_disch_time, discharges.hosp_disch_time)"
+    }
+  ]
+}

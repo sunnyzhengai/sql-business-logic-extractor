@@ -66,8 +66,8 @@
       "filtered_by": {
         "PAT_MRN_ID": [
           "STATE_ABBR = 'TX'",
-          "BIRTH_DATE > '1950-01-01'",
-          "PAT_STATUS = 'Active'"
+          "PAT_STATUS = 'Active'",
+          "BIRTH_DATE > '1950-01-01'"
         ]
       }
     }

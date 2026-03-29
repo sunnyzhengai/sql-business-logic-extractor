@@ -163,8 +163,8 @@
             ],
             "filtered_by": {
               "fm.RECORDED_TIME": [
-                "fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID",
-                "fm.FLO_MEAS_ID = '5'"
+                "fm.FLO_MEAS_ID = '5'",
+                "fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID"
               ]
             }
           }
@@ -197,19 +197,19 @@
       ],
       "filtered_by": {
         "fm.RECORDED_TIME": [
-          "fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID",
-          "fm.FLO_MEAS_ID = '5'"
+          "fm.FLO_MEAS_ID = '5'",
+          "fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID"
         ],
         "fm.PAT_ENC_CSN_ID": [
-          "fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID",
-          "fm.FLO_MEAS_ID = '5'"
+          "fm.FLO_MEAS_ID = '5'",
+          "fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID"
         ],
         "e.PAT_ENC_CSN_ID": [
           "fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID"
         ],
         "fm.FLO_MEAS_ID": [
-          "fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID",
-          "fm.FLO_MEAS_ID = '5'"
+          "fm.FLO_MEAS_ID = '5'",
+          "fm.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID"
         ]
       }
     }

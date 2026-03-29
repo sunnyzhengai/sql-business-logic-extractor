@@ -1,0 +1,59 @@
+{
+  "sources": [
+    {
+      "name": "PATIENT",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_MRN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "encounter_type",
+      "expression": "'Inpatient' AS encounter_type",
+      "type": "literal",
+      "source_columns": []
+    },
+    {
+      "name": "is_active",
+      "expression": "1 AS is_active",
+      "type": "literal",
+      "source_columns": []
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "depends_on": [
+        "PAT_MRN_ID"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "encounter_type",
+      "expression": "'Inpatient' AS encounter_type",
+      "depends_on": [],
+      "filtered_by": {}
+    },
+    {
+      "output": "is_active",
+      "expression": "1 AS is_active",
+      "depends_on": [],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT PAT_MRN_ID, 'Inpatient' AS encounter_type, 1 AS is_active FROM PATIENT"
+}

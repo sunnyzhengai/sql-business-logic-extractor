@@ -1,0 +1,20 @@
+{
+  "definitions": [
+    {
+      "id": "07_inner_join:def-001",
+      "name": "filter:where:PAT_ENC_HSP.HOSP_DISCH_TIME",
+      "category": "null_check",
+      "pattern": "NOT e.HOSP_DISCH_TIME IS NULL",
+      "normalized_expression": "NOT pat_enc_hsp.hosp_disch_time IS NULL",
+      "signature": "27771812c4e69985",
+      "structural_signature": "994dc3a5f1c01847",
+      "source_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "query_label": "07_inner_join"
+    }
+  ]
+}

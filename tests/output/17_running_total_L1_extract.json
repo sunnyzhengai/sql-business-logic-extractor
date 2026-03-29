@@ -1,0 +1,140 @@
+{
+  "sources": [
+    {
+      "name": "HSP_TRANSACTIONS",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "expression": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ENC_CSN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "SERVICE_DATE",
+      "expression": "SERVICE_DATE",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "SERVICE_DATE",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "TX_AMOUNT",
+      "expression": "TX_AMOUNT",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "TX_AMOUNT",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "cumulative_charges",
+      "expression": "SUM(TX_AMOUNT) OVER (PARTITION BY PAT_ENC_CSN_ID ORDER BY SERVICE_DATE ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_charges",
+      "type": "window",
+      "source_columns": [
+        {
+          "column": "PAT_ENC_CSN_ID",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "TX_AMOUNT",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "SERVICE_DATE",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "window_functions": [
+    {
+      "function": "SUM",
+      "expression": "SUM(TX_AMOUNT) OVER (PARTITION BY PAT_ENC_CSN_ID ORDER BY SERVICE_DATE ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+      "partition_by": [
+        "PAT_ENC_CSN_ID"
+      ],
+      "order_by": [
+        "SERVICE_DATE"
+      ],
+      "frame": "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+      "source_columns": [
+        {
+          "column": "PAT_ENC_CSN_ID",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "TX_AMOUNT",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "SERVICE_DATE",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_ENC_CSN_ID",
+      "expression": "PAT_ENC_CSN_ID",
+      "depends_on": [
+        "PAT_ENC_CSN_ID"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "SERVICE_DATE",
+      "expression": "SERVICE_DATE",
+      "depends_on": [
+        "SERVICE_DATE"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "TX_AMOUNT",
+      "expression": "TX_AMOUNT",
+      "depends_on": [
+        "TX_AMOUNT"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "cumulative_charges",
+      "expression": "SUM(TX_AMOUNT) OVER (PARTITION BY PAT_ENC_CSN_ID ORDER BY SERVICE_DATE ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_charges",
+      "depends_on": [
+        "PAT_ENC_CSN_ID",
+        "TX_AMOUNT",
+        "SERVICE_DATE"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "order_by": [
+    "SERVICE_DATE"
+  ],
+  "raw_sql": "SELECT PAT_ENC_CSN_ID, SERVICE_DATE, TX_AMOUNT,\n               SUM(TX_AMOUNT) OVER (PARTITION BY PAT_ENC_CSN_ID ORDER BY SERVICE_DATE\n                   ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_charges\n        FROM HSP_TRANSACTIONS"
+}

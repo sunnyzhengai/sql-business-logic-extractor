@@ -1,0 +1,19 @@
+-- Readmission Report
+WITH base AS (
+    SELECT e.PAT_ID, e.PAT_ENC_CSN_ID,
+           e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME,
+           DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days,
+           CASE
+               WHEN e.DISCH_DISPOSITION_C = 1 THEN 'Home'
+               WHEN e.DISCH_DISPOSITION_C = 2 THEN 'Transfer'
+               WHEN e.DISCH_DISPOSITION_C = 20 THEN 'Expired'
+               ELSE 'Other'
+           END AS disch_status
+    FROM PAT_ENC_HSP e
+    WHERE e.HOSP_DISCH_TIME IS NOT NULL AND e.ADT_PAT_CLASS_C = 1
+)
+SELECT disch_status,
+       COUNT(*) AS discharges,
+       AVG(los_days) AS avg_los
+FROM base
+GROUP BY disch_status

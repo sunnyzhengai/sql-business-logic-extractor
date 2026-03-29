@@ -1,0 +1,76 @@
+{
+  "sources": [
+    {
+      "name": "PATIENT",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_MRN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "PAT_STATUS = 'Active'",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "PAT_STATUS",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "BIRTH_DATE > '1950-01-01'",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "BIRTH_DATE",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "STATE_ABBR = 'TX'",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "STATE_ABBR",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "depends_on": [
+        "PAT_MRN_ID"
+      ],
+      "filtered_by": {
+        "PAT_MRN_ID": [
+          "STATE_ABBR = 'TX'",
+          "BIRTH_DATE > '1950-01-01'",
+          "PAT_STATUS = 'Active'"
+        ]
+      }
+    }
+  ],
+  "raw_sql": "SELECT PAT_MRN_ID FROM PATIENT\n        WHERE PAT_STATUS = 'Active' AND BIRTH_DATE > '1950-01-01' AND STATE_ABBR = 'TX'"
+}

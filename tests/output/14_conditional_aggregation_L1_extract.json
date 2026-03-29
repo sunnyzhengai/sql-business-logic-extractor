@@ -1,0 +1,259 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "e",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "CLARITY_DEP",
+      "alias": "dep",
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "DEPARTMENT_NAME",
+      "expression": "dep.DEPARTMENT_NAME",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "DEPARTMENT_NAME",
+          "table": "dep",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "discharged_home",
+      "expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 1 END) AS discharged_home",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "transferred",
+      "expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 2 THEN 1 END) AS transferred",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "expired",
+      "expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 20 THEN 1 END) AS expired",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "total",
+      "expression": "COUNT(*) AS total",
+      "type": "aggregate",
+      "source_columns": []
+    }
+  ],
+  "filters": [
+    {
+      "expression": "e.DEPARTMENT_ID = dep.DEPARTMENT_ID",
+      "scope": "join",
+      "columns": [
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "dep",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "joins": [
+    {
+      "join_type": "JOIN",
+      "right_table": "CLARITY_DEP",
+      "right_alias": "dep",
+      "on_expression": "e.DEPARTMENT_ID = dep.DEPARTMENT_ID",
+      "columns": [
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "dep",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "aggregations": [
+    {
+      "function": "COUNT",
+      "expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 1 END)",
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": "e",
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "dep.DEPARTMENT_NAME"
+      ]
+    },
+    {
+      "function": "COUNT",
+      "expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 2 THEN 1 END)",
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": "e",
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "dep.DEPARTMENT_NAME"
+      ]
+    },
+    {
+      "function": "COUNT",
+      "expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 20 THEN 1 END)",
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": "e",
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "dep.DEPARTMENT_NAME"
+      ]
+    },
+    {
+      "function": "COUNT",
+      "expression": "COUNT(*)",
+      "source_columns": [],
+      "group_by": [
+        "dep.DEPARTMENT_NAME"
+      ]
+    }
+  ],
+  "case_expressions": [
+    {
+      "output_name": "discharged_home",
+      "expression": "CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 1 END",
+      "branches": [
+        {
+          "condition": "e.DISCH_DISPOSITION_C = 1",
+          "result": "1"
+        }
+      ],
+      "else_result": null,
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "output_name": "transferred",
+      "expression": "CASE WHEN e.DISCH_DISPOSITION_C = 2 THEN 1 END",
+      "branches": [
+        {
+          "condition": "e.DISCH_DISPOSITION_C = 2",
+          "result": "1"
+        }
+      ],
+      "else_result": null,
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "output_name": "expired",
+      "expression": "CASE WHEN e.DISCH_DISPOSITION_C = 20 THEN 1 END",
+      "branches": [
+        {
+          "condition": "e.DISCH_DISPOSITION_C = 20",
+          "result": "1"
+        }
+      ],
+      "else_result": null,
+      "source_columns": [
+        {
+          "column": "DISCH_DISPOSITION_C",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "DEPARTMENT_NAME",
+      "expression": "dep.DEPARTMENT_NAME",
+      "depends_on": [
+        "dep.DEPARTMENT_NAME"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "discharged_home",
+      "expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 1 END) AS discharged_home",
+      "depends_on": [
+        "e.DISCH_DISPOSITION_C"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "transferred",
+      "expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 2 THEN 1 END) AS transferred",
+      "depends_on": [
+        "e.DISCH_DISPOSITION_C"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "expired",
+      "expression": "COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 20 THEN 1 END) AS expired",
+      "depends_on": [
+        "e.DISCH_DISPOSITION_C"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "total",
+      "expression": "COUNT(*) AS total",
+      "depends_on": [],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT dep.DEPARTMENT_NAME,\n               COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 1 END) AS discharged_home,\n               COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 2 THEN 1 END) AS transferred,\n               COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 20 THEN 1 END) AS expired,\n               COUNT(*) AS total\n        FROM PAT_ENC_HSP e\n        JOIN CLARITY_DEP dep ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID\n        GROUP BY dep.DEPARTMENT_NAME"
+}

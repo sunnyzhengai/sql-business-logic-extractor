@@ -1,0 +1,75 @@
+{
+  "sources": [
+    {
+      "name": "PATIENT",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "mrn",
+      "expression": "PAT_MRN_ID AS mrn",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_MRN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "first_name",
+      "expression": "PAT_FIRST_NAME AS first_name",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_FIRST_NAME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "last_name",
+      "expression": "PAT_LAST_NAME AS last_name",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_LAST_NAME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "mrn",
+      "expression": "PAT_MRN_ID AS mrn",
+      "depends_on": [
+        "PAT_MRN_ID"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "first_name",
+      "expression": "PAT_FIRST_NAME AS first_name",
+      "depends_on": [
+        "PAT_FIRST_NAME"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "last_name",
+      "expression": "PAT_LAST_NAME AS last_name",
+      "depends_on": [
+        "PAT_LAST_NAME"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT PAT_MRN_ID AS mrn, PAT_FIRST_NAME AS first_name, PAT_LAST_NAME AS last_name FROM PATIENT"
+}

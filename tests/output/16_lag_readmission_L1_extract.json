@@ -1,0 +1,278 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_ID",
+      "expression": "PAT_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "expression": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ENC_CSN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "HOSP_ADMSN_TIME",
+      "expression": "HOSP_ADMSN_TIME",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "HOSP_DISCH_TIME",
+      "expression": "HOSP_DISCH_TIME",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "prev_discharge",
+      "expression": "LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME) AS prev_discharge",
+      "type": "window",
+      "source_columns": [
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "days_since_last_discharge",
+      "expression": "DATEDIFF(DAY, LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME), HOSP_ADMSN_TIME) AS days_since_last_discharge",
+      "type": "window",
+      "source_columns": [
+        {
+          "column": "DAY",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "NOT HOSP_DISCH_TIME IS NULL",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "window_functions": [
+    {
+      "function": "LAG",
+      "expression": "LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME)",
+      "partition_by": [
+        "PAT_ID"
+      ],
+      "order_by": [
+        "HOSP_ADMSN_TIME"
+      ],
+      "frame": null,
+      "source_columns": [
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "function": "LAG",
+      "expression": "LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME)",
+      "partition_by": [
+        "PAT_ID"
+      ],
+      "order_by": [
+        "HOSP_ADMSN_TIME"
+      ],
+      "frame": null,
+      "source_columns": [
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_ID",
+      "expression": "PAT_ID",
+      "depends_on": [
+        "PAT_ID"
+      ],
+      "filtered_by": {
+        "PAT_ID": [
+          "NOT HOSP_DISCH_TIME IS NULL"
+        ]
+      }
+    },
+    {
+      "output": "PAT_ENC_CSN_ID",
+      "expression": "PAT_ENC_CSN_ID",
+      "depends_on": [
+        "PAT_ENC_CSN_ID"
+      ],
+      "filtered_by": {
+        "PAT_ENC_CSN_ID": [
+          "NOT HOSP_DISCH_TIME IS NULL"
+        ]
+      }
+    },
+    {
+      "output": "HOSP_ADMSN_TIME",
+      "expression": "HOSP_ADMSN_TIME",
+      "depends_on": [
+        "HOSP_ADMSN_TIME"
+      ],
+      "filtered_by": {
+        "HOSP_ADMSN_TIME": [
+          "NOT HOSP_DISCH_TIME IS NULL"
+        ]
+      }
+    },
+    {
+      "output": "HOSP_DISCH_TIME",
+      "expression": "HOSP_DISCH_TIME",
+      "depends_on": [
+        "HOSP_DISCH_TIME"
+      ],
+      "filtered_by": {
+        "HOSP_DISCH_TIME": [
+          "NOT HOSP_DISCH_TIME IS NULL"
+        ]
+      }
+    },
+    {
+      "output": "prev_discharge",
+      "expression": "LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME) AS prev_discharge",
+      "depends_on": [
+        "PAT_ID",
+        "HOSP_DISCH_TIME",
+        "HOSP_ADMSN_TIME"
+      ],
+      "filtered_by": {
+        "PAT_ID": [
+          "NOT HOSP_DISCH_TIME IS NULL"
+        ],
+        "HOSP_DISCH_TIME": [
+          "NOT HOSP_DISCH_TIME IS NULL"
+        ],
+        "HOSP_ADMSN_TIME": [
+          "NOT HOSP_DISCH_TIME IS NULL"
+        ]
+      }
+    },
+    {
+      "output": "days_since_last_discharge",
+      "expression": "DATEDIFF(DAY, LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME), HOSP_ADMSN_TIME) AS days_since_last_discharge",
+      "depends_on": [
+        "DAY",
+        "PAT_ID",
+        "HOSP_DISCH_TIME",
+        "HOSP_ADMSN_TIME"
+      ],
+      "filtered_by": {
+        "DAY": [
+          "NOT HOSP_DISCH_TIME IS NULL"
+        ],
+        "PAT_ID": [
+          "NOT HOSP_DISCH_TIME IS NULL"
+        ],
+        "HOSP_DISCH_TIME": [
+          "NOT HOSP_DISCH_TIME IS NULL"
+        ],
+        "HOSP_ADMSN_TIME": [
+          "NOT HOSP_DISCH_TIME IS NULL"
+        ]
+      }
+    }
+  ],
+  "order_by": [
+    "HOSP_ADMSN_TIME"
+  ],
+  "raw_sql": "SELECT PAT_ID, PAT_ENC_CSN_ID, HOSP_ADMSN_TIME, HOSP_DISCH_TIME,\n               LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME) AS prev_discharge,\n               DATEDIFF(DAY, LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME), HOSP_ADMSN_TIME) AS days_since_last_discharge\n        FROM PAT_ENC_HSP WHERE HOSP_DISCH_TIME IS NOT NULL"
+}

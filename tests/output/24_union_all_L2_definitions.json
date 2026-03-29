@@ -1,0 +1,14 @@
+{
+  "definitions": [
+    {
+      "id": "24_union_all:def-001",
+      "name": "source",
+      "category": "constant",
+      "pattern": "<val>",
+      "normalized_expression": "'Inpatient'",
+      "signature": "65da2849989a8123",
+      "structural_signature": "cb7b109b4d64a10f",
+      "query_label": "24_union_all"
+    }
+  ]
+}

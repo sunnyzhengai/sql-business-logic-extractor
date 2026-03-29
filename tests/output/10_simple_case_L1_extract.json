@@ -1,0 +1,90 @@
+{
+  "sources": [
+    {
+      "name": "PATIENT",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_MRN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "age_group",
+      "expression": "CASE WHEN AGE_YEARS < 18 THEN 'Pediatric' WHEN AGE_YEARS BETWEEN 18 AND 64 THEN 'Adult' ELSE 'Geriatric' END AS age_group",
+      "type": "case",
+      "source_columns": [
+        {
+          "column": "AGE_YEARS",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "AGE_YEARS",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "case_expressions": [
+    {
+      "output_name": "age_group",
+      "expression": "CASE WHEN AGE_YEARS < 18 THEN 'Pediatric' WHEN AGE_YEARS BETWEEN 18 AND 64 THEN 'Adult' ELSE 'Geriatric' END",
+      "branches": [
+        {
+          "condition": "AGE_YEARS < 18",
+          "result": "'Pediatric'"
+        },
+        {
+          "condition": "AGE_YEARS BETWEEN 18 AND 64",
+          "result": "'Adult'"
+        }
+      ],
+      "else_result": "'Geriatric'",
+      "source_columns": [
+        {
+          "column": "AGE_YEARS",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "AGE_YEARS",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "depends_on": [
+        "PAT_MRN_ID"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "age_group",
+      "expression": "CASE WHEN AGE_YEARS < 18 THEN 'Pediatric' WHEN AGE_YEARS BETWEEN 18 AND 64 THEN 'Adult' ELSE 'Geriatric' END AS age_group",
+      "depends_on": [
+        "AGE_YEARS",
+        "AGE_YEARS"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT PAT_MRN_ID,\n               CASE WHEN AGE_YEARS < 18 THEN 'Pediatric'\n                    WHEN AGE_YEARS BETWEEN 18 AND 64 THEN 'Adult'\n                    ELSE 'Geriatric'\n               END AS age_group\n        FROM PATIENT"
+}

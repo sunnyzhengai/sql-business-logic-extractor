@@ -1,0 +1,75 @@
+{
+  "definitions": [
+    {
+      "id": "19_chained_ctes:def-001",
+      "name": "filter:where:HOSP_DISCH_TIME",
+      "category": "null_check",
+      "pattern": "NOT HOSP_DISCH_TIME IS NULL",
+      "normalized_expression": "NOT hosp_disch_time IS NULL",
+      "signature": "5f3c0c4514d09f71",
+      "structural_signature": "5f3c0c4514d09f71",
+      "source_columns": [
+        "HOSP_DISCH_TIME"
+      ],
+      "query_label": "19_chained_ctes"
+    },
+    {
+      "id": "19_chained_ctes:def-002",
+      "name": "filter:where:ADT_PAT_CLASS_C",
+      "category": "equality_filter",
+      "pattern": "<col> = <val>",
+      "normalized_expression": "adt_pat_class_c = 1",
+      "signature": "e4b3aebd286c4318",
+      "structural_signature": "417a62addcceec03",
+      "source_columns": [
+        "ADT_PAT_CLASS_C"
+      ],
+      "query_label": "19_chained_ctes"
+    },
+    {
+      "id": "19_chained_ctes:CTE:discharges:def-003",
+      "name": "filter:where:HOSP_DISCH_TIME",
+      "category": "null_check",
+      "pattern": "NOT HOSP_DISCH_TIME IS NULL",
+      "normalized_expression": "NOT hosp_disch_time IS NULL",
+      "signature": "5f3c0c4514d09f71",
+      "structural_signature": "5f3c0c4514d09f71",
+      "source_columns": [
+        "HOSP_DISCH_TIME"
+      ],
+      "query_label": "19_chained_ctes:CTE:discharges"
+    },
+    {
+      "id": "19_chained_ctes:CTE:discharges:def-004",
+      "name": "filter:where:ADT_PAT_CLASS_C",
+      "category": "equality_filter",
+      "pattern": "<col> = <val>",
+      "normalized_expression": "adt_pat_class_c = 1",
+      "signature": "e4b3aebd286c4318",
+      "structural_signature": "417a62addcceec03",
+      "source_columns": [
+        "ADT_PAT_CLASS_C"
+      ],
+      "query_label": "19_chained_ctes:CTE:discharges"
+    },
+    {
+      "id": "19_chained_ctes:CTE:readmissions:def-005",
+      "name": "days_to_readmit",
+      "category": "date_calculation",
+      "subcategory": "date_difference",
+      "pattern": "DATEDIFF(<col>, <col>, <col>)",
+      "normalized_expression": "DATEDIFF(day, discharges.hosp_disch_time, discharges.hosp_disch_time)",
+      "signature": "d2c3b616879f50f7",
+      "structural_signature": "af563ea968d2d5e6",
+      "source_tables": [
+        "discharges"
+      ],
+      "source_columns": [
+        "DAY",
+        "discharges.HOSP_DISCH_TIME",
+        "discharges.HOSP_DISCH_TIME"
+      ],
+      "query_label": "19_chained_ctes:CTE:readmissions"
+    }
+  ]
+}

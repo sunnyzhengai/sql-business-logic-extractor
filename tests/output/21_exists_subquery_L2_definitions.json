@@ -1,0 +1,67 @@
+{
+  "definitions": [
+    {
+      "id": "21_exists_subquery:def-001",
+      "name": "filter:where:ORDER_MED.PAT_ENC_CSN_ID",
+      "category": "existence_filter",
+      "pattern": "EXISTS(SELECT 1 FROM ORDER_MED AS om WHERE om.PAT_ENC_CSN_ID = e.PAT_ENC_CSN_ID AND om.ORDER_STATUS_C = 2)",
+      "normalized_expression": "EXISTS(SELECT 1 FROM order_med AS om WHERE order_med.pat_enc_csn_id = pat_enc_hsp.pat_enc_csn_id AND order_med.order_status_c = 2)",
+      "signature": "3e04da41ff955874",
+      "structural_signature": "14df86c501c6befb",
+      "source_tables": [
+        "ORDER_MED",
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "ORDER_MED.PAT_ENC_CSN_ID",
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+        "ORDER_MED.ORDER_STATUS_C"
+      ],
+      "query_label": "21_exists_subquery"
+    },
+    {
+      "id": "21_exists_subquery:SUB:exists:def-002",
+      "name": "1",
+      "category": "constant",
+      "pattern": "<val>",
+      "normalized_expression": "1",
+      "signature": "6b86b273ff34fce1",
+      "structural_signature": "cb7b109b4d64a10f",
+      "query_label": "21_exists_subquery:SUB:exists"
+    },
+    {
+      "id": "21_exists_subquery:SUB:exists:def-003",
+      "name": "filter:where:ORDER_MED.PAT_ENC_CSN_ID",
+      "category": "equality_filter",
+      "pattern": "<col> = <col>",
+      "normalized_expression": "order_med.pat_enc_csn_id = e.pat_enc_csn_id",
+      "signature": "7b0426a95b3a5614",
+      "structural_signature": "2613735e5c3761e0",
+      "source_tables": [
+        "ORDER_MED",
+        "e"
+      ],
+      "source_columns": [
+        "ORDER_MED.PAT_ENC_CSN_ID",
+        "e.PAT_ENC_CSN_ID"
+      ],
+      "query_label": "21_exists_subquery:SUB:exists"
+    },
+    {
+      "id": "21_exists_subquery:SUB:exists:def-004",
+      "name": "filter:where:ORDER_MED.ORDER_STATUS_C",
+      "category": "equality_filter",
+      "pattern": "<col> = <val>",
+      "normalized_expression": "order_med.order_status_c = 2",
+      "signature": "c254b3fef30b9d2e",
+      "structural_signature": "417a62addcceec03",
+      "source_tables": [
+        "ORDER_MED"
+      ],
+      "source_columns": [
+        "ORDER_MED.ORDER_STATUS_C"
+      ],
+      "query_label": "21_exists_subquery:SUB:exists"
+    }
+  ]
+}

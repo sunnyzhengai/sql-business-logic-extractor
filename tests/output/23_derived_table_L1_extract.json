@@ -1,0 +1,148 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "e",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "CLARITY_DEP",
+      "alias": "dep",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "SELECT dep.DEPARTMENT_NAME, AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los, COUNT(*) AS encounter_count FROM PAT_ENC_HSP AS e JOIN CLARITY_DEP AS dep ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID WHERE NOT e.HOSP_DISCH_TIME IS NULL GROUP BY dep.DEPARTMENT_NAME",
+      "alias": "dept_stats",
+      "schema": null,
+      "type": "subquery"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "DEPARTMENT_NAME",
+      "expression": "dept_stats.DEPARTMENT_NAME",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "DEPARTMENT_NAME",
+          "table": "dept_stats",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "avg_los",
+      "expression": "dept_stats.avg_los",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "avg_los",
+          "table": "dept_stats",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "encounter_count",
+      "expression": "dept_stats.encounter_count",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "encounter_count",
+          "table": "dept_stats",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "e.DEPARTMENT_ID = dep.DEPARTMENT_ID",
+      "scope": "join",
+      "columns": [
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "dep",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "dept_stats.avg_los > 5",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "avg_los",
+          "table": "dept_stats",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "joins": [
+    {
+      "join_type": "JOIN",
+      "right_table": "CLARITY_DEP",
+      "right_alias": "dep",
+      "on_expression": "e.DEPARTMENT_ID = dep.DEPARTMENT_ID",
+      "columns": [
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "dep",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "DEPARTMENT_NAME",
+      "expression": "dept_stats.DEPARTMENT_NAME",
+      "depends_on": [
+        "dept_stats.DEPARTMENT_NAME"
+      ],
+      "filtered_by": {
+        "dept_stats.DEPARTMENT_NAME": [
+          "dept_stats.avg_los > 5"
+        ]
+      }
+    },
+    {
+      "output": "avg_los",
+      "expression": "dept_stats.avg_los",
+      "depends_on": [
+        "dept_stats.avg_los"
+      ],
+      "filtered_by": {
+        "dept_stats.avg_los": [
+          "dept_stats.avg_los > 5"
+        ]
+      }
+    },
+    {
+      "output": "encounter_count",
+      "expression": "dept_stats.encounter_count",
+      "depends_on": [
+        "dept_stats.encounter_count"
+      ],
+      "filtered_by": {
+        "dept_stats.encounter_count": [
+          "dept_stats.avg_los > 5"
+        ]
+      }
+    }
+  ],
+  "raw_sql": "SELECT dept_stats.DEPARTMENT_NAME, dept_stats.avg_los, dept_stats.encounter_count\n        FROM (\n            SELECT dep.DEPARTMENT_NAME,\n                   AVG(DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME)) AS avg_los,\n                   COUNT(*) AS encounter_count\n            FROM PAT_ENC_HSP e\n            JOIN CLARITY_DEP dep ON e.DEPARTMENT_ID = dep.DEPARTMENT_ID\n            WHERE e.HOSP_DISCH_TIME IS NOT NULL\n            GROUP BY dep.DEPARTMENT_NAME\n        ) dept_stats WHERE dept_stats.avg_los > 5"
+}

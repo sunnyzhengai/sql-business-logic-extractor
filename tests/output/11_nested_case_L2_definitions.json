@@ -1,0 +1,42 @@
+{
+  "definitions": [
+    {
+      "id": "11_nested_case:def-001",
+      "name": "readmit_risk",
+      "category": "classification",
+      "subcategory": "pattern_matching",
+      "pattern": "CASE(IF(AND(<col> LIKE <val>, <col> > <val>), <val>), IF(<col> LIKE <val>, <val>), IF(NOT e.ED_DEPARTURE_TIME IS NULL, <val>), <val>)",
+      "normalized_expression": "CASE WHEN clarity_edg.dx_name LIKE '%heart failure%' AND pat_enc_hsp.los_days > 7 THEN 'High' WHEN clarity_edg.dx_name LIKE '%pneumonia%' THEN 'Medium' WHEN NOT pat_enc_hsp.ed_departure_time IS NULL THEN 'Medium' ELSE 'Low' END",
+      "signature": "0a3af5043eba56e3",
+      "structural_signature": "7f42c9ce8cd7bdd1",
+      "source_tables": [
+        "CLARITY_EDG",
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "CLARITY_EDG.DX_NAME",
+        "CLARITY_EDG.DX_NAME",
+        "PAT_ENC_HSP.LOS_DAYS",
+        "PAT_ENC_HSP.ED_DEPARTURE_TIME"
+      ],
+      "query_label": "11_nested_case"
+    },
+    {
+      "id": "11_nested_case:def-002",
+      "name": "visit_type",
+      "category": "classification",
+      "subcategory": "conditional_logic",
+      "pattern": "CASE(<col>, IF(<val>, <val>), IF(<val>, <val>), IF(<val>, <val>), <val>)",
+      "normalized_expression": "CASE pat_enc_hsp.adt_pat_class_c WHEN 1 THEN 'Inpatient' WHEN 2 THEN 'Outpatient' WHEN 3 THEN 'Emergency' ELSE 'Other' END",
+      "signature": "7125d939545592c4",
+      "structural_signature": "b0e800c4b44328bd",
+      "source_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "source_columns": [
+        "PAT_ENC_HSP.ADT_PAT_CLASS_C"
+      ],
+      "query_label": "11_nested_case"
+    }
+  ]
+}

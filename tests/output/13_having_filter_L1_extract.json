@@ -1,0 +1,155 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "e",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "PATIENT",
+      "alias": "p",
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PRIMARY_DX_CODE",
+      "expression": "p.PRIMARY_DX_CODE",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PRIMARY_DX_CODE",
+          "table": "p",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "patient_count",
+      "expression": "COUNT(*) AS patient_count",
+      "type": "aggregate",
+      "source_columns": []
+    },
+    {
+      "name": "avg_charges",
+      "expression": "AVG(e.TOTAL_CHARGES) AS avg_charges",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "TOTAL_CHARGES",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "e.PAT_ID = p.PAT_ID",
+      "scope": "join",
+      "columns": [
+        {
+          "column": "PAT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "PAT_ID",
+          "table": "p",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "COUNT(*) >= 10",
+      "scope": "having",
+      "columns": []
+    },
+    {
+      "expression": "AVG(e.TOTAL_CHARGES) > 5000",
+      "scope": "having",
+      "columns": [
+        {
+          "column": "TOTAL_CHARGES",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "joins": [
+    {
+      "join_type": "JOIN",
+      "right_table": "PATIENT",
+      "right_alias": "p",
+      "on_expression": "e.PAT_ID = p.PAT_ID",
+      "columns": [
+        {
+          "column": "PAT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "PAT_ID",
+          "table": "p",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "aggregations": [
+    {
+      "function": "COUNT",
+      "expression": "COUNT(*)",
+      "source_columns": [],
+      "group_by": [
+        "p.PRIMARY_DX_CODE"
+      ]
+    },
+    {
+      "function": "AVG",
+      "expression": "AVG(e.TOTAL_CHARGES)",
+      "source_columns": [
+        {
+          "column": "TOTAL_CHARGES",
+          "table": "e",
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "p.PRIMARY_DX_CODE"
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PRIMARY_DX_CODE",
+      "expression": "p.PRIMARY_DX_CODE",
+      "depends_on": [
+        "p.PRIMARY_DX_CODE"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "patient_count",
+      "expression": "COUNT(*) AS patient_count",
+      "depends_on": [],
+      "filtered_by": {}
+    },
+    {
+      "output": "avg_charges",
+      "expression": "AVG(e.TOTAL_CHARGES) AS avg_charges",
+      "depends_on": [
+        "e.TOTAL_CHARGES"
+      ],
+      "filtered_by": {
+        "e.TOTAL_CHARGES": [
+          "AVG(e.TOTAL_CHARGES) > 5000"
+        ]
+      }
+    }
+  ],
+  "raw_sql": "SELECT p.PRIMARY_DX_CODE, COUNT(*) AS patient_count, AVG(e.TOTAL_CHARGES) AS avg_charges\n        FROM PAT_ENC_HSP e JOIN PATIENT p ON e.PAT_ID = p.PAT_ID\n        GROUP BY p.PRIMARY_DX_CODE\n        HAVING COUNT(*) >= 10 AND AVG(e.TOTAL_CHARGES) > 5000"
+}

@@ -1,0 +1,978 @@
+{
+  "sources": [
+    {
+      "name": "flagged",
+      "alias": "f",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "CLARITY_DEP",
+      "alias": "dep",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "e",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "index_encounters",
+      "alias": "ie",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "with_readmit",
+      "alias": "wr",
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "DEPARTMENT_NAME",
+      "expression": "dep.DEPARTMENT_NAME",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "DEPARTMENT_NAME",
+          "table": "dep",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "total_discharges",
+      "expression": "COUNT(*) AS total_discharges",
+      "type": "aggregate",
+      "source_columns": []
+    },
+    {
+      "name": "readmissions",
+      "expression": "SUM(f.is_30day_readmit) AS readmissions",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "is_30day_readmit",
+          "table": "f",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "readmit_rate_pct",
+      "expression": "CAST(SUM(f.is_30day_readmit) AS FLOAT) / COUNT(*) * 100 AS readmit_rate_pct",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "is_30day_readmit",
+          "table": "f",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "avg_los",
+      "expression": "AVG(f.los_days) AS avg_los",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "los_days",
+          "table": "f",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "early_readmits",
+      "expression": "COUNT(CASE WHEN f.readmit_category = 'Early' THEN 1 END) AS early_readmits",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "readmit_category",
+          "table": "f",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "late_readmits",
+      "expression": "COUNT(CASE WHEN f.readmit_category = 'Late' THEN 1 END) AS late_readmits",
+      "type": "aggregate",
+      "source_columns": [
+        {
+          "column": "readmit_category",
+          "table": "f",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "f.DEPARTMENT_ID = dep.DEPARTMENT_ID",
+      "scope": "join",
+      "columns": [
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "f",
+          "schema": null
+        },
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "dep",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "NOT e.HOSP_DISCH_TIME IS NULL",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "HOSP_DISCH_TIME",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "e.ADT_PAT_CLASS_C = 1",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "ADT_PAT_CLASS_C",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "e.HOSP_ADMSN_TIME >= '2025-01-01'",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": "e",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "COUNT(*) >= 50",
+      "scope": "having",
+      "columns": []
+    }
+  ],
+  "joins": [
+    {
+      "join_type": "JOIN",
+      "right_table": "CLARITY_DEP",
+      "right_alias": "dep",
+      "on_expression": "f.DEPARTMENT_ID = dep.DEPARTMENT_ID",
+      "columns": [
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "f",
+          "schema": null
+        },
+        {
+          "column": "DEPARTMENT_ID",
+          "table": "dep",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "aggregations": [
+    {
+      "function": "COUNT",
+      "expression": "COUNT(*)",
+      "source_columns": [],
+      "group_by": [
+        "dep.DEPARTMENT_NAME"
+      ]
+    },
+    {
+      "function": "SUM",
+      "expression": "SUM(f.is_30day_readmit)",
+      "source_columns": [
+        {
+          "column": "is_30day_readmit",
+          "table": "f",
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "dep.DEPARTMENT_NAME"
+      ]
+    },
+    {
+      "function": "COUNT",
+      "expression": "COUNT(*)",
+      "source_columns": [],
+      "group_by": [
+        "dep.DEPARTMENT_NAME"
+      ]
+    },
+    {
+      "function": "SUM",
+      "expression": "SUM(f.is_30day_readmit)",
+      "source_columns": [
+        {
+          "column": "is_30day_readmit",
+          "table": "f",
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "dep.DEPARTMENT_NAME"
+      ]
+    },
+    {
+      "function": "AVG",
+      "expression": "AVG(f.los_days)",
+      "source_columns": [
+        {
+          "column": "los_days",
+          "table": "f",
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "dep.DEPARTMENT_NAME"
+      ]
+    },
+    {
+      "function": "COUNT",
+      "expression": "COUNT(CASE WHEN f.readmit_category = 'Early' THEN 1 END)",
+      "source_columns": [
+        {
+          "column": "readmit_category",
+          "table": "f",
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "dep.DEPARTMENT_NAME"
+      ]
+    },
+    {
+      "function": "COUNT",
+      "expression": "COUNT(CASE WHEN f.readmit_category = 'Late' THEN 1 END)",
+      "source_columns": [
+        {
+          "column": "readmit_category",
+          "table": "f",
+          "schema": null
+        }
+      ],
+      "group_by": [
+        "dep.DEPARTMENT_NAME"
+      ]
+    }
+  ],
+  "case_expressions": [
+    {
+      "output_name": "early_readmits",
+      "expression": "CASE WHEN f.readmit_category = 'Early' THEN 1 END",
+      "branches": [
+        {
+          "condition": "f.readmit_category = 'Early'",
+          "result": "1"
+        }
+      ],
+      "else_result": null,
+      "source_columns": [
+        {
+          "column": "readmit_category",
+          "table": "f",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "output_name": "late_readmits",
+      "expression": "CASE WHEN f.readmit_category = 'Late' THEN 1 END",
+      "branches": [
+        {
+          "condition": "f.readmit_category = 'Late'",
+          "result": "1"
+        }
+      ],
+      "else_result": null,
+      "source_columns": [
+        {
+          "column": "readmit_category",
+          "table": "f",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "ctes": [
+    {
+      "name": "index_encounters",
+      "query": "SELECT e.PAT_ID, e.PAT_ENC_CSN_ID, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME, e.DEPARTMENT_ID, DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days, ROW_NUMBER() OVER (PARTITION BY e.PAT_ID ORDER BY e.HOSP_ADMSN_TIME) AS encounter_seq FROM PAT_ENC_HSP AS e WHERE NOT e.HOSP_DISCH_TIME IS NULL AND e.ADT_PAT_CLASS_C = 1 AND e.HOSP_ADMSN_TIME >= '2025-01-01'",
+      "logic": {
+        "sources": [
+          {
+            "name": "PAT_ENC_HSP",
+            "alias": "e",
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "PAT_ID",
+            "expression": "e.PAT_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "PAT_ENC_CSN_ID",
+            "expression": "e.PAT_ENC_CSN_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ENC_CSN_ID",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "HOSP_ADMSN_TIME",
+            "expression": "e.HOSP_ADMSN_TIME",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "HOSP_DISCH_TIME",
+            "expression": "e.HOSP_DISCH_TIME",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "HOSP_DISCH_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "DEPARTMENT_ID",
+            "expression": "e.DEPARTMENT_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "DEPARTMENT_ID",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "los_days",
+            "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+            "type": "calculated",
+            "source_columns": [
+              {
+                "column": "DAY",
+                "table": null,
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "HOSP_DISCH_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "encounter_seq",
+            "expression": "ROW_NUMBER() OVER (PARTITION BY e.PAT_ID ORDER BY e.HOSP_ADMSN_TIME) AS encounter_seq",
+            "type": "window",
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "filters": [
+          {
+            "expression": "NOT e.HOSP_DISCH_TIME IS NULL",
+            "scope": "where",
+            "columns": [
+              {
+                "column": "HOSP_DISCH_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "expression": "e.ADT_PAT_CLASS_C = 1",
+            "scope": "where",
+            "columns": [
+              {
+                "column": "ADT_PAT_CLASS_C",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "expression": "e.HOSP_ADMSN_TIME >= '2025-01-01'",
+            "scope": "where",
+            "columns": [
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "window_functions": [
+          {
+            "function": "ROWNUMBER",
+            "expression": "ROW_NUMBER() OVER (PARTITION BY e.PAT_ID ORDER BY e.HOSP_ADMSN_TIME)",
+            "partition_by": [
+              "e.PAT_ID"
+            ],
+            "order_by": [
+              "e.HOSP_ADMSN_TIME"
+            ],
+            "frame": null,
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "PAT_ID",
+            "expression": "e.PAT_ID",
+            "depends_on": [
+              "e.PAT_ID"
+            ],
+            "filtered_by": {
+              "e.PAT_ID": [
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
+                "NOT e.HOSP_DISCH_TIME IS NULL",
+                "e.ADT_PAT_CLASS_C = 1"
+              ]
+            }
+          },
+          {
+            "output": "PAT_ENC_CSN_ID",
+            "expression": "e.PAT_ENC_CSN_ID",
+            "depends_on": [
+              "e.PAT_ENC_CSN_ID"
+            ],
+            "filtered_by": {
+              "e.PAT_ENC_CSN_ID": [
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
+                "NOT e.HOSP_DISCH_TIME IS NULL",
+                "e.ADT_PAT_CLASS_C = 1"
+              ]
+            }
+          },
+          {
+            "output": "HOSP_ADMSN_TIME",
+            "expression": "e.HOSP_ADMSN_TIME",
+            "depends_on": [
+              "e.HOSP_ADMSN_TIME"
+            ],
+            "filtered_by": {
+              "e.HOSP_ADMSN_TIME": [
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
+                "NOT e.HOSP_DISCH_TIME IS NULL",
+                "e.ADT_PAT_CLASS_C = 1"
+              ]
+            }
+          },
+          {
+            "output": "HOSP_DISCH_TIME",
+            "expression": "e.HOSP_DISCH_TIME",
+            "depends_on": [
+              "e.HOSP_DISCH_TIME"
+            ],
+            "filtered_by": {
+              "e.HOSP_DISCH_TIME": [
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
+                "NOT e.HOSP_DISCH_TIME IS NULL",
+                "e.ADT_PAT_CLASS_C = 1"
+              ]
+            }
+          },
+          {
+            "output": "DEPARTMENT_ID",
+            "expression": "e.DEPARTMENT_ID",
+            "depends_on": [
+              "e.DEPARTMENT_ID"
+            ],
+            "filtered_by": {
+              "e.DEPARTMENT_ID": [
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
+                "NOT e.HOSP_DISCH_TIME IS NULL",
+                "e.ADT_PAT_CLASS_C = 1"
+              ]
+            }
+          },
+          {
+            "output": "los_days",
+            "expression": "DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days",
+            "depends_on": [
+              "DAY",
+              "e.HOSP_ADMSN_TIME",
+              "e.HOSP_DISCH_TIME"
+            ],
+            "filtered_by": {
+              "e.HOSP_ADMSN_TIME": [
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
+                "NOT e.HOSP_DISCH_TIME IS NULL",
+                "e.ADT_PAT_CLASS_C = 1"
+              ],
+              "e.HOSP_DISCH_TIME": [
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
+                "NOT e.HOSP_DISCH_TIME IS NULL",
+                "e.ADT_PAT_CLASS_C = 1"
+              ]
+            }
+          },
+          {
+            "output": "encounter_seq",
+            "expression": "ROW_NUMBER() OVER (PARTITION BY e.PAT_ID ORDER BY e.HOSP_ADMSN_TIME) AS encounter_seq",
+            "depends_on": [
+              "e.PAT_ID",
+              "e.HOSP_ADMSN_TIME"
+            ],
+            "filtered_by": {
+              "e.PAT_ID": [
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
+                "NOT e.HOSP_DISCH_TIME IS NULL",
+                "e.ADT_PAT_CLASS_C = 1"
+              ],
+              "e.HOSP_ADMSN_TIME": [
+                "e.HOSP_ADMSN_TIME >= '2025-01-01'",
+                "NOT e.HOSP_DISCH_TIME IS NULL",
+                "e.ADT_PAT_CLASS_C = 1"
+              ]
+            }
+          }
+        ],
+        "order_by": [
+          "e.HOSP_ADMSN_TIME"
+        ],
+        "raw_sql": "SELECT e.PAT_ID, e.PAT_ENC_CSN_ID, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME, e.DEPARTMENT_ID, DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days, ROW_NUMBER() OVER (PARTITION BY e.PAT_ID ORDER BY e.HOSP_ADMSN_TIME) AS encounter_seq FROM PAT_ENC_HSP AS e WHERE NOT e.HOSP_DISCH_TIME IS NULL AND e.ADT_PAT_CLASS_C = 1 AND e.HOSP_ADMSN_TIME >= '2025-01-01'"
+      }
+    },
+    {
+      "name": "with_readmit",
+      "query": "SELECT ie.*, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME) AS next_admit_time, DATEDIFF(DAY, ie.HOSP_DISCH_TIME, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)) AS days_to_readmit FROM index_encounters AS ie",
+      "logic": {
+        "sources": [
+          {
+            "name": "index_encounters",
+            "alias": "ie",
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "*",
+            "expression": "ie.*",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "*",
+                "table": "ie",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "next_admit_time",
+            "expression": "LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME) AS next_admit_time",
+            "type": "window",
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": "ie",
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "ie",
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "ie",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "days_to_readmit",
+            "expression": "DATEDIFF(DAY, ie.HOSP_DISCH_TIME, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)) AS days_to_readmit",
+            "type": "window",
+            "source_columns": [
+              {
+                "column": "DAY",
+                "table": null,
+                "schema": null
+              },
+              {
+                "column": "HOSP_DISCH_TIME",
+                "table": "ie",
+                "schema": null
+              },
+              {
+                "column": "PAT_ID",
+                "table": "ie",
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "ie",
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "ie",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "window_functions": [
+          {
+            "function": "LEAD",
+            "expression": "LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)",
+            "partition_by": [
+              "ie.PAT_ID"
+            ],
+            "order_by": [
+              "ie.HOSP_ADMSN_TIME"
+            ],
+            "frame": null,
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": "ie",
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "ie",
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "ie",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "function": "LEAD",
+            "expression": "LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)",
+            "partition_by": [
+              "ie.PAT_ID"
+            ],
+            "order_by": [
+              "ie.HOSP_ADMSN_TIME"
+            ],
+            "frame": null,
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": "ie",
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "ie",
+                "schema": null
+              },
+              {
+                "column": "HOSP_ADMSN_TIME",
+                "table": "ie",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "*",
+            "expression": "ie.*",
+            "depends_on": [
+              "ie.*"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "next_admit_time",
+            "expression": "LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME) AS next_admit_time",
+            "depends_on": [
+              "ie.PAT_ID",
+              "ie.HOSP_ADMSN_TIME",
+              "ie.HOSP_ADMSN_TIME"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "days_to_readmit",
+            "expression": "DATEDIFF(DAY, ie.HOSP_DISCH_TIME, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)) AS days_to_readmit",
+            "depends_on": [
+              "DAY",
+              "ie.HOSP_DISCH_TIME",
+              "ie.PAT_ID",
+              "ie.HOSP_ADMSN_TIME",
+              "ie.HOSP_ADMSN_TIME"
+            ],
+            "filtered_by": {}
+          }
+        ],
+        "order_by": [
+          "ie.HOSP_ADMSN_TIME"
+        ],
+        "raw_sql": "SELECT ie.*, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME) AS next_admit_time, DATEDIFF(DAY, ie.HOSP_DISCH_TIME, LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)) AS days_to_readmit FROM index_encounters AS ie"
+      }
+    },
+    {
+      "name": "flagged",
+      "query": "SELECT wr.*, CASE WHEN wr.days_to_readmit <= 30 THEN 1 ELSE 0 END AS is_30day_readmit, CASE WHEN wr.days_to_readmit <= 7 THEN 'Early' WHEN wr.days_to_readmit BETWEEN 8 AND 30 THEN 'Late' ELSE 'None' END AS readmit_category FROM with_readmit AS wr",
+      "logic": {
+        "sources": [
+          {
+            "name": "with_readmit",
+            "alias": "wr",
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "*",
+            "expression": "wr.*",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "*",
+                "table": "wr",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "is_30day_readmit",
+            "expression": "CASE WHEN wr.days_to_readmit <= 30 THEN 1 ELSE 0 END AS is_30day_readmit",
+            "type": "case",
+            "source_columns": [
+              {
+                "column": "days_to_readmit",
+                "table": "wr",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "name": "readmit_category",
+            "expression": "CASE WHEN wr.days_to_readmit <= 7 THEN 'Early' WHEN wr.days_to_readmit BETWEEN 8 AND 30 THEN 'Late' ELSE 'None' END AS readmit_category",
+            "type": "case",
+            "source_columns": [
+              {
+                "column": "days_to_readmit",
+                "table": "wr",
+                "schema": null
+              },
+              {
+                "column": "days_to_readmit",
+                "table": "wr",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "case_expressions": [
+          {
+            "output_name": "is_30day_readmit",
+            "expression": "CASE WHEN wr.days_to_readmit <= 30 THEN 1 ELSE 0 END",
+            "branches": [
+              {
+                "condition": "wr.days_to_readmit <= 30",
+                "result": "1"
+              }
+            ],
+            "else_result": "0",
+            "source_columns": [
+              {
+                "column": "days_to_readmit",
+                "table": "wr",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "output_name": "readmit_category",
+            "expression": "CASE WHEN wr.days_to_readmit <= 7 THEN 'Early' WHEN wr.days_to_readmit BETWEEN 8 AND 30 THEN 'Late' ELSE 'None' END",
+            "branches": [
+              {
+                "condition": "wr.days_to_readmit <= 7",
+                "result": "'Early'"
+              },
+              {
+                "condition": "wr.days_to_readmit BETWEEN 8 AND 30",
+                "result": "'Late'"
+              }
+            ],
+            "else_result": "'None'",
+            "source_columns": [
+              {
+                "column": "days_to_readmit",
+                "table": "wr",
+                "schema": null
+              },
+              {
+                "column": "days_to_readmit",
+                "table": "wr",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "*",
+            "expression": "wr.*",
+            "depends_on": [
+              "wr.*"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "is_30day_readmit",
+            "expression": "CASE WHEN wr.days_to_readmit <= 30 THEN 1 ELSE 0 END AS is_30day_readmit",
+            "depends_on": [
+              "wr.days_to_readmit"
+            ],
+            "filtered_by": {}
+          },
+          {
+            "output": "readmit_category",
+            "expression": "CASE WHEN wr.days_to_readmit <= 7 THEN 'Early' WHEN wr.days_to_readmit BETWEEN 8 AND 30 THEN 'Late' ELSE 'None' END AS readmit_category",
+            "depends_on": [
+              "wr.days_to_readmit",
+              "wr.days_to_readmit"
+            ],
+            "filtered_by": {}
+          }
+        ],
+        "raw_sql": "SELECT wr.*, CASE WHEN wr.days_to_readmit <= 30 THEN 1 ELSE 0 END AS is_30day_readmit, CASE WHEN wr.days_to_readmit <= 7 THEN 'Early' WHEN wr.days_to_readmit BETWEEN 8 AND 30 THEN 'Late' ELSE 'None' END AS readmit_category FROM with_readmit AS wr"
+      }
+    }
+  ],
+  "lineage": [
+    {
+      "output": "DEPARTMENT_NAME",
+      "expression": "dep.DEPARTMENT_NAME",
+      "depends_on": [
+        "dep.DEPARTMENT_NAME"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "total_discharges",
+      "expression": "COUNT(*) AS total_discharges",
+      "depends_on": [],
+      "filtered_by": {}
+    },
+    {
+      "output": "readmissions",
+      "expression": "SUM(f.is_30day_readmit) AS readmissions",
+      "depends_on": [
+        "f.is_30day_readmit"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "readmit_rate_pct",
+      "expression": "CAST(SUM(f.is_30day_readmit) AS FLOAT) / COUNT(*) * 100 AS readmit_rate_pct",
+      "depends_on": [
+        "f.is_30day_readmit"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "avg_los",
+      "expression": "AVG(f.los_days) AS avg_los",
+      "depends_on": [
+        "f.los_days"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "early_readmits",
+      "expression": "COUNT(CASE WHEN f.readmit_category = 'Early' THEN 1 END) AS early_readmits",
+      "depends_on": [
+        "f.readmit_category"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "late_readmits",
+      "expression": "COUNT(CASE WHEN f.readmit_category = 'Late' THEN 1 END) AS late_readmits",
+      "depends_on": [
+        "f.readmit_category"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "order_by": [
+    "readmit_rate_pct DESC"
+  ],
+  "raw_sql": "WITH index_encounters AS (\n            SELECT e.PAT_ID, e.PAT_ENC_CSN_ID, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME, e.DEPARTMENT_ID,\n                   DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days,\n                   ROW_NUMBER() OVER (PARTITION BY e.PAT_ID ORDER BY e.HOSP_ADMSN_TIME) AS encounter_seq\n            FROM PAT_ENC_HSP e\n            WHERE e.HOSP_DISCH_TIME IS NOT NULL AND e.ADT_PAT_CLASS_C = 1 AND e.HOSP_ADMSN_TIME >= '2025-01-01'\n        ),\n        with_readmit AS (\n            SELECT ie.*,\n                   LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME) AS next_admit_time,\n                   DATEDIFF(DAY, ie.HOSP_DISCH_TIME,\n                       LEAD(ie.HOSP_ADMSN_TIME) OVER (PARTITION BY ie.PAT_ID ORDER BY ie.HOSP_ADMSN_TIME)\n                   ) AS days_to_readmit\n            FROM index_encounters ie\n        ),\n        flagged AS (\n            SELECT wr.*,\n                   CASE WHEN wr.days_to_readmit <= 30 THEN 1 ELSE 0 END AS is_30day_readmit,\n                   CASE WHEN wr.days_to_readmit <= 7 THEN 'Early'\n                        WHEN wr.days_to_readmit BETWEEN 8 AND 30 THEN 'Late' ELSE 'None'\n                   END AS readmit_category\n            FROM with_readmit wr\n        )\n        SELECT dep.DEPARTMENT_NAME,\n               COUNT(*) AS total_discharges, SUM(f.is_30day_readmit) AS readmissions,\n               CAST(SUM(f.is_30day_readmit) AS FLOAT) / COUNT(*) * 100 AS readmit_rate_pct,\n               AVG(f.los_days) AS avg_los,\n               COUNT(CASE WHEN f.readmit_category = 'Early' THEN 1 END) AS early_readmits,\n               COUNT(CASE WHEN f.readmit_category = 'Late' THEN 1 END) AS late_readmits\n        FROM flagged f JOIN CLARITY_DEP dep ON f.DEPARTMENT_ID = dep.DEPARTMENT_ID\n        GROUP BY dep.DEPARTMENT_NAME HAVING COUNT(*) >= 50\n        ORDER BY readmit_rate_pct DESC"
+}

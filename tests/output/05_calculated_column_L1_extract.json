@@ -1,0 +1,61 @@
+{
+  "sources": [
+    {
+      "name": "PATIENT",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_MRN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "age",
+      "expression": "DATEDIFF(YEAR, BIRTH_DATE, GETDATE()) AS age",
+      "type": "calculated",
+      "source_columns": [
+        {
+          "column": "YEAR",
+          "table": null,
+          "schema": null
+        },
+        {
+          "column": "BIRTH_DATE",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "depends_on": [
+        "PAT_MRN_ID"
+      ],
+      "filtered_by": {}
+    },
+    {
+      "output": "age",
+      "expression": "DATEDIFF(YEAR, BIRTH_DATE, GETDATE()) AS age",
+      "depends_on": [
+        "YEAR",
+        "BIRTH_DATE"
+      ],
+      "filtered_by": {}
+    }
+  ],
+  "raw_sql": "SELECT PAT_MRN_ID, DATEDIFF(YEAR, BIRTH_DATE, GETDATE()) AS age FROM PATIENT"
+}

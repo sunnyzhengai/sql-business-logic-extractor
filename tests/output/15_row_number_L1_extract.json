@@ -1,0 +1,49 @@
+{
+  "sources": [
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "e",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "SELECT e.PAT_ENC_CSN_ID, e.PAT_ID, e.HOSP_ADMSN_TIME, ROW_NUMBER() OVER (PARTITION BY e.PAT_ID ORDER BY e.HOSP_ADMSN_TIME DESC) AS rn FROM PAT_ENC_HSP AS e WHERE NOT e.HOSP_DISCH_TIME IS NULL",
+      "alias": "ranked",
+      "schema": null,
+      "type": "subquery"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "*",
+      "expression": "*",
+      "type": "star",
+      "source_columns": []
+    }
+  ],
+  "filters": [
+    {
+      "expression": "rn = 1",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "rn",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "*",
+      "expression": "*",
+      "depends_on": [],
+      "filtered_by": {}
+    }
+  ],
+  "order_by": [
+    "e.HOSP_ADMSN_TIME DESC"
+  ],
+  "raw_sql": "SELECT * FROM (\n            SELECT e.PAT_ENC_CSN_ID, e.PAT_ID, e.HOSP_ADMSN_TIME,\n                   ROW_NUMBER() OVER (PARTITION BY e.PAT_ID ORDER BY e.HOSP_ADMSN_TIME DESC) AS rn\n            FROM PAT_ENC_HSP e WHERE e.HOSP_DISCH_TIME IS NOT NULL\n        ) ranked WHERE rn = 1"
+}

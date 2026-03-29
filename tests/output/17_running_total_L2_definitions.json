@@ -1,0 +1,20 @@
+{
+  "definitions": [
+    {
+      "id": "17_running_total:def-001",
+      "name": "cumulative_charges",
+      "category": "window_function",
+      "subcategory": "running_aggregate",
+      "pattern": "SUM(<col>) OVER ( PARTITION BY <cols> ORDER BY <cols> )",
+      "normalized_expression": "SUM(tx_amount) OVER (PARTITION BY pat_enc_csn_id ORDER BY service_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+      "signature": "cee10b20cf95b71d",
+      "structural_signature": "3985f0bed268fb07",
+      "source_columns": [
+        "PAT_ENC_CSN_ID",
+        "TX_AMOUNT",
+        "SERVICE_DATE"
+      ],
+      "query_label": "17_running_total"
+    }
+  ]
+}

@@ -1,0 +1,278 @@
+{
+  "outputs": [
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "expression": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ENC_CSN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "PAT_ID",
+      "expression": "PAT_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "HOSP_ADMSN_TIME",
+      "expression": "HOSP_ADMSN_TIME",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "HOSP_ADMSN_TIME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "source",
+      "expression": "'Inpatient' AS source",
+      "type": "literal",
+      "source_columns": []
+    }
+  ],
+  "set_operations": [
+    {
+      "type": "UNION ALL",
+      "branches": [
+        {
+          "sources": [
+            {
+              "name": "PAT_ENC_HSP",
+              "alias": null,
+              "schema": null,
+              "type": "table"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "PAT_ENC_CSN_ID",
+              "expression": "PAT_ENC_CSN_ID",
+              "type": "passthrough",
+              "source_columns": [
+                {
+                  "column": "PAT_ENC_CSN_ID",
+                  "table": null,
+                  "schema": null
+                }
+              ]
+            },
+            {
+              "name": "PAT_ID",
+              "expression": "PAT_ID",
+              "type": "passthrough",
+              "source_columns": [
+                {
+                  "column": "PAT_ID",
+                  "table": null,
+                  "schema": null
+                }
+              ]
+            },
+            {
+              "name": "HOSP_ADMSN_TIME",
+              "expression": "HOSP_ADMSN_TIME",
+              "type": "passthrough",
+              "source_columns": [
+                {
+                  "column": "HOSP_ADMSN_TIME",
+                  "table": null,
+                  "schema": null
+                }
+              ]
+            },
+            {
+              "name": "source",
+              "expression": "'Inpatient' AS source",
+              "type": "literal",
+              "source_columns": []
+            }
+          ],
+          "filters": [
+            {
+              "expression": "ADT_PAT_CLASS_C = 1",
+              "scope": "where",
+              "columns": [
+                {
+                  "column": "ADT_PAT_CLASS_C",
+                  "table": null,
+                  "schema": null
+                }
+              ]
+            }
+          ],
+          "lineage": [
+            {
+              "output": "PAT_ENC_CSN_ID",
+              "expression": "PAT_ENC_CSN_ID",
+              "depends_on": [
+                "PAT_ENC_CSN_ID"
+              ],
+              "filtered_by": {
+                "PAT_ENC_CSN_ID": [
+                  "ADT_PAT_CLASS_C = 1"
+                ]
+              }
+            },
+            {
+              "output": "PAT_ID",
+              "expression": "PAT_ID",
+              "depends_on": [
+                "PAT_ID"
+              ],
+              "filtered_by": {
+                "PAT_ID": [
+                  "ADT_PAT_CLASS_C = 1"
+                ]
+              }
+            },
+            {
+              "output": "HOSP_ADMSN_TIME",
+              "expression": "HOSP_ADMSN_TIME",
+              "depends_on": [
+                "HOSP_ADMSN_TIME"
+              ],
+              "filtered_by": {
+                "HOSP_ADMSN_TIME": [
+                  "ADT_PAT_CLASS_C = 1"
+                ]
+              }
+            },
+            {
+              "output": "source",
+              "expression": "'Inpatient' AS source",
+              "depends_on": [],
+              "filtered_by": {}
+            }
+          ],
+          "raw_sql": "SELECT PAT_ENC_CSN_ID, PAT_ID, HOSP_ADMSN_TIME, 'Inpatient' AS source FROM PAT_ENC_HSP WHERE ADT_PAT_CLASS_C = 1"
+        },
+        {
+          "sources": [
+            {
+              "name": "PAT_ENC_HSP",
+              "alias": null,
+              "schema": null,
+              "type": "table"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "PAT_ENC_CSN_ID",
+              "expression": "PAT_ENC_CSN_ID",
+              "type": "passthrough",
+              "source_columns": [
+                {
+                  "column": "PAT_ENC_CSN_ID",
+                  "table": null,
+                  "schema": null
+                }
+              ]
+            },
+            {
+              "name": "PAT_ID",
+              "expression": "PAT_ID",
+              "type": "passthrough",
+              "source_columns": [
+                {
+                  "column": "PAT_ID",
+                  "table": null,
+                  "schema": null
+                }
+              ]
+            },
+            {
+              "name": "HOSP_ADMSN_TIME",
+              "expression": "HOSP_ADMSN_TIME",
+              "type": "passthrough",
+              "source_columns": [
+                {
+                  "column": "HOSP_ADMSN_TIME",
+                  "table": null,
+                  "schema": null
+                }
+              ]
+            },
+            {
+              "name": "source",
+              "expression": "'ED' AS source",
+              "type": "literal",
+              "source_columns": []
+            }
+          ],
+          "filters": [
+            {
+              "expression": "ADT_PAT_CLASS_C = 3",
+              "scope": "where",
+              "columns": [
+                {
+                  "column": "ADT_PAT_CLASS_C",
+                  "table": null,
+                  "schema": null
+                }
+              ]
+            }
+          ],
+          "lineage": [
+            {
+              "output": "PAT_ENC_CSN_ID",
+              "expression": "PAT_ENC_CSN_ID",
+              "depends_on": [
+                "PAT_ENC_CSN_ID"
+              ],
+              "filtered_by": {
+                "PAT_ENC_CSN_ID": [
+                  "ADT_PAT_CLASS_C = 3"
+                ]
+              }
+            },
+            {
+              "output": "PAT_ID",
+              "expression": "PAT_ID",
+              "depends_on": [
+                "PAT_ID"
+              ],
+              "filtered_by": {
+                "PAT_ID": [
+                  "ADT_PAT_CLASS_C = 3"
+                ]
+              }
+            },
+            {
+              "output": "HOSP_ADMSN_TIME",
+              "expression": "HOSP_ADMSN_TIME",
+              "depends_on": [
+                "HOSP_ADMSN_TIME"
+              ],
+              "filtered_by": {
+                "HOSP_ADMSN_TIME": [
+                  "ADT_PAT_CLASS_C = 3"
+                ]
+              }
+            },
+            {
+              "output": "source",
+              "expression": "'ED' AS source",
+              "depends_on": [],
+              "filtered_by": {}
+            }
+          ],
+          "raw_sql": "SELECT PAT_ENC_CSN_ID, PAT_ID, HOSP_ADMSN_TIME, 'ED' AS source FROM PAT_ENC_HSP WHERE ADT_PAT_CLASS_C = 3"
+        }
+      ]
+    }
+  ],
+  "raw_sql": "SELECT PAT_ENC_CSN_ID, PAT_ID, HOSP_ADMSN_TIME, 'Inpatient' AS source\n        FROM PAT_ENC_HSP WHERE ADT_PAT_CLASS_C = 1\n        UNION ALL\n        SELECT PAT_ENC_CSN_ID, PAT_ID, HOSP_ADMSN_TIME, 'ED' AS source\n        FROM PAT_ENC_HSP WHERE ADT_PAT_CLASS_C = 3"
+}

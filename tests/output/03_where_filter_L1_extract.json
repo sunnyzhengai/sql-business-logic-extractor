@@ -1,0 +1,76 @@
+{
+  "sources": [
+    {
+      "name": "PATIENT",
+      "alias": null,
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_MRN_ID",
+          "table": null,
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "PAT_FIRST_NAME",
+      "expression": "PAT_FIRST_NAME",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_FIRST_NAME",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "PAT_STATUS = 'Active'",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "PAT_STATUS",
+          "table": null,
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_MRN_ID",
+      "expression": "PAT_MRN_ID",
+      "depends_on": [
+        "PAT_MRN_ID"
+      ],
+      "filtered_by": {
+        "PAT_MRN_ID": [
+          "PAT_STATUS = 'Active'"
+        ]
+      }
+    },
+    {
+      "output": "PAT_FIRST_NAME",
+      "expression": "PAT_FIRST_NAME",
+      "depends_on": [
+        "PAT_FIRST_NAME"
+      ],
+      "filtered_by": {
+        "PAT_FIRST_NAME": [
+          "PAT_STATUS = 'Active'"
+        ]
+      }
+    }
+  ],
+  "raw_sql": "SELECT PAT_MRN_ID, PAT_FIRST_NAME FROM PATIENT WHERE PAT_STATUS = 'Active'"
+}

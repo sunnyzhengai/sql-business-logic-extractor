@@ -49,14 +49,22 @@ class ReportSummary:
 # Batch Processing
 # ---------------------------------------------------------------------------
 
-def process_sql_file(sql_path: str, schema: dict, client, dialect: str = None) -> dict:
-    """Process a single SQL file through L5 and L6.
+def process_sql_file(sql_path: str, schema: dict, translator: str = None,
+                     client=None, dialect: str = None) -> dict:
+    """Process a single SQL file through L3 and L4.
+
+    Args:
+        sql_path: Path to SQL file
+        schema: Loaded schema dict
+        translator: 'llm' or 'offline' or None
+        client: OpenAI client (only for 'llm' translator)
+        dialect: SQL dialect
 
     Returns:
         {
             'report_name': str,
-            'l5_data': dict,  # Resolved lineage
-            'l6_data': dict,  # English definitions + summary
+            'l3_data': dict,  # Resolved lineage
+            'l4_data': dict,  # English definitions + summary
         }
     """
     report_name = os.path.splitext(os.path.basename(sql_path))[0]
@@ -65,18 +73,20 @@ def process_sql_file(sql_path: str, schema: dict, client, dialect: str = None) -
     with open(sql_path, 'r') as f:
         sql = f.read()
 
-    # L5: Resolve lineage
-    print(f"  [{report_name}] Resolving lineage...")
+    # L3: Resolve lineage
+    print(f"  [{report_name}] Resolving lineage (L3)...")
     resolved = resolve_query(sql, dialect=dialect)
-    l5_data = resolved_to_dict(resolved)
+    l3_data = resolved_to_dict(resolved)
 
-    # L6: Translate to English (if client provided)
-    l6_data = None
-    if client and schema:
-        from llm_translate import translate_column, summarize_query, build_column_context
+    # L4: Translate to English
+    l4_data = None
 
-        print(f"  [{report_name}] Translating to English...")
-        columns = l5_data.get('columns', [])
+    if translator == 'llm' and client and schema:
+        # LLM-based translation (requires API key)
+        from llm_translate import translate_column, summarize_query
+
+        print(f"  [{report_name}] Translating to English (L4-LLM)...")
+        columns = l3_data.get('columns', [])
         column_results = []
 
         for col in columns:
@@ -84,9 +94,29 @@ def process_sql_file(sql_path: str, schema: dict, client, dialect: str = None) -
             column_results.append(result)
 
         # Generate query summary
-        summary = summarize_query(column_results, l5_data, client)
+        summary = summarize_query(column_results, l3_data, client)
 
-        l6_data = {
+        l4_data = {
+            'summary': summary,
+            'columns': column_results
+        }
+
+    elif translator == 'offline' and schema:
+        # Offline template-based translation (no API needed)
+        from offline_translate import translate_column, summarize_query
+
+        print(f"  [{report_name}] Translating to English (L4-Offline)...")
+        columns = l3_data.get('columns', [])
+        column_results = []
+
+        for col in columns:
+            result = translate_column(col, schema)
+            column_results.append(result)
+
+        # Generate query summary
+        summary = summarize_query(column_results, l3_data)
+
+        l4_data = {
             'summary': summary,
             'columns': column_results
         }
@@ -94,21 +124,25 @@ def process_sql_file(sql_path: str, schema: dict, client, dialect: str = None) -
     return {
         'report_name': report_name,
         'sql_path': sql_path,
-        'l5_data': l5_data,
-        'l6_data': l6_data,
+        'l3_data': l3_data,
+        'l4_data': l4_data,
+        # Keep backward compatibility
+        'l5_data': l3_data,
+        'l6_data': l4_data,
     }
 
 
-def batch_process(sql_folder: str, schema_path: str = None, api_key: str = None,
-                  dialect: str = None, output_dir: str = None) -> list[dict]:
+def batch_process(sql_folder: str, schema_path: str = None, translator: str = None,
+                  api_key: str = None, dialect: str = None, output_dir: str = None) -> list[dict]:
     """Process all SQL files in a folder.
 
     Args:
         sql_folder: Path to folder containing SQL files
-        schema_path: Path to clarity_schema.yaml (optional, for L6)
-        api_key: OpenAI API key (optional, for L6)
+        schema_path: Path to schema YAML file (for L4 translation)
+        translator: 'llm' (requires api_key) or 'offline' (no API needed)
+        api_key: OpenAI API key (only for 'llm' translator)
         dialect: SQL dialect
-        output_dir: Directory to save individual L5/L6 outputs
+        output_dir: Directory to save individual L3/L4 outputs
 
     Returns:
         List of processed report dicts
@@ -124,15 +158,29 @@ def batch_process(sql_folder: str, schema_path: str = None, api_key: str = None,
     # Load schema if provided
     schema = None
     client = None
-    if schema_path and api_key:
-        from llm_translate import load_schema
-        from openai import OpenAI
 
+    if schema_path:
+        # Use offline_translate's load_schema (works for both translators)
+        from offline_translate import load_schema
         print(f"Loading schema: {schema_path}")
         schema = load_schema(schema_path)
-        client = OpenAI(api_key=api_key)
-    elif schema_path or api_key:
-        print("Warning: Both --schema and --api-key required for L6 translation")
+
+    # Set up LLM client if using LLM translator
+    if translator == 'llm':
+        if not api_key:
+            print("Warning: --translator llm requires --api-key or OPENAI_API_KEY")
+            translator = None
+        elif not schema:
+            print("Warning: --translator llm requires --schema")
+            translator = None
+        else:
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+
+    # Validate offline translator
+    if translator == 'offline' and not schema:
+        print("Warning: --translator offline requires --schema")
+        translator = None
 
     # Create output directory
     if output_dir:
@@ -146,21 +194,24 @@ def batch_process(sql_folder: str, schema_path: str = None, api_key: str = None,
         print(f"\n[{i}/{len(sql_files)}] Processing: {report_name}")
 
         try:
-            result = process_sql_file(sql_path, schema, client, dialect)
+            result = process_sql_file(
+                sql_path, schema, translator=translator,
+                client=client, dialect=dialect
+            )
             results.append(result)
 
             # Save individual outputs
             if output_dir:
                 detail_path = os.path.join(output_dir, "details", report_name)
 
-                # Save L5
-                with open(f"{detail_path}_L5.json", 'w') as f:
-                    json.dump(result['l5_data'], f, indent=2)
+                # Save L3
+                with open(f"{detail_path}_L3.json", 'w') as f:
+                    json.dump(result['l3_data'], f, indent=2)
 
-                # Save L6 if available
-                if result['l6_data']:
-                    with open(f"{detail_path}_L6.json", 'w') as f:
-                        json.dump(result['l6_data'], f, indent=2)
+                # Save L4 if available
+                if result['l4_data']:
+                    with open(f"{detail_path}_L4.json", 'w') as f:
+                        json.dump(result['l4_data'], f, indent=2)
 
         except Exception as e:
             print(f"  Error processing {report_name}: {e}")
@@ -516,15 +567,25 @@ def main():
     parser.add_argument("sql_folder", help="Folder containing SQL files")
     parser.add_argument("--output", "-o", default="governance_summary.xlsx",
                         help="Output Excel file path (default: governance_summary.xlsx)")
-    parser.add_argument("--schema", "-s", help="Path to clarity_schema.yaml for L6 translation")
-    parser.add_argument("--api-key", help="OpenAI API key for L6 translation (or set OPENAI_API_KEY)")
+    parser.add_argument("--schema", "-s", help="Path to schema YAML file for L4 translation")
+    parser.add_argument("--translator", "-t", choices=['llm', 'offline'],
+                        help="Translation method: 'llm' (OpenAI) or 'offline' (templates)")
+    parser.add_argument("--api-key", help="OpenAI API key (only for --translator llm)")
     parser.add_argument("--dialect", "-d", help="SQL dialect for parsing")
-    parser.add_argument("--details-dir", help="Directory to save individual L5/L6 JSON files")
+    parser.add_argument("--details-dir", help="Directory to save individual L3/L4 JSON files")
 
     args = parser.parse_args()
 
     # Get API key from env if not provided
     api_key = args.api_key or os.environ.get('OPENAI_API_KEY')
+
+    # Auto-select translator if not specified
+    translator = args.translator
+    if not translator and args.schema:
+        if api_key:
+            translator = 'llm'
+        else:
+            translator = 'offline'
 
     print("=" * 70)
     print("SQL BUSINESS LOGIC EXTRACTOR - GOVERNANCE BATCH PROCESS")
@@ -533,10 +594,12 @@ def main():
     print(f"Output file: {args.output}")
     if args.schema:
         print(f"Schema: {args.schema}")
-    if api_key:
-        print("LLM translation: ENABLED")
+    if translator == 'llm':
+        print("L4 Translation: LLM (OpenAI)")
+    elif translator == 'offline':
+        print("L4 Translation: OFFLINE (templates)")
     else:
-        print("LLM translation: DISABLED (no API key)")
+        print("L4 Translation: DISABLED")
     print()
 
     # Step 1: Batch process all SQL files
@@ -547,6 +610,7 @@ def main():
     results = batch_process(
         sql_folder=args.sql_folder,
         schema_path=args.schema,
+        translator=translator,
         api_key=api_key,
         dialect=args.dialect,
         output_dir=args.details_dir,

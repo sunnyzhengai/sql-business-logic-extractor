@@ -1,0 +1,181 @@
+{
+  "summary": {
+    "query_summary": "Query extracts 8 columns from 2 table(s) covering Billing, Financial, General and 3 more domain(s)",
+    "primary_purpose": "Data extraction for financial analysis",
+    "key_entities": [
+      "PATIENT",
+      "ARPB_TRANSACTIONS"
+    ],
+    "key_metrics": [
+      "length_of_stay",
+      "patient_age"
+    ],
+    "source_tables": [
+      "ARPB_TRANSACTIONS",
+      "PATIENT"
+    ],
+    "business_domains": [
+      "Billing",
+      "Financial",
+      "General",
+      "Hospital Metrics",
+      "Patient Demographics",
+      "Quality Metrics"
+    ],
+    "column_count": 8
+  },
+  "columns": [
+    {
+      "column_name": "PAT_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_ID",
+        "base_columns": [
+          "PATIENT.PAT_ID"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Unique patient identifier",
+      "business_domain": "General"
+    },
+    {
+      "column_name": "PAT_NAME",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_NAME",
+        "base_columns": [
+          "PATIENT.PAT_NAME"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Patient full name",
+      "business_domain": "General"
+    },
+    {
+      "column_name": "TX_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "ARPB_TRANSACTIONS.TX_ID",
+        "base_columns": [
+          "ARPB_TRANSACTIONS.TX_ID"
+        ],
+        "base_tables": [
+          "ARPB_TRANSACTIONS"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Unique ID of this ARPB transaction.",
+      "business_domain": "Billing"
+    },
+    {
+      "column_name": "admission_date",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "ARPB_TRANSACTIONS.SERVICE_DATE",
+        "base_columns": [
+          "ARPB_TRANSACTIONS.SERVICE_DATE"
+        ],
+        "base_tables": [
+          "ARPB_TRANSACTIONS"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: The date the service was performed.",
+      "business_domain": "Billing"
+    },
+    {
+      "column_name": "discharge_date",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "ARPB_TRANSACTIONS.POST_DATE",
+        "base_columns": [
+          "ARPB_TRANSACTIONS.POST_DATE"
+        ],
+        "base_tables": [
+          "ARPB_TRANSACTIONS"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: The date the transaction was entered into the billing system.",
+      "business_domain": "Financial"
+    },
+    {
+      "column_name": "length_of_stay",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "DATEDIFF(DAY, CAST(t.SERVICE_DATE AS DATE), CAST(t.POST_DATE AS DATE))",
+        "base_columns": [
+          "ARPB_TRANSACTIONS.DAY",
+          "ARPB_TRANSACTIONS.SERVICE_DATE",
+          "ARPB_TRANSACTIONS.POST_DATE"
+        ],
+        "base_tables": [
+          "ARPB_TRANSACTIONS"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Number of days between Service Date As Date) and Post Date As Date (filtered by: t.TX_TYPE_C = 1 /* Charges only */)",
+      "business_domain": "Hospital Metrics"
+    },
+    {
+      "column_name": "readmission_flag",
+      "column_type": "literal",
+      "technical_definition": {
+        "resolved_expression": "NULL /* Readmission: Not tracked in billing report */",
+        "base_columns": [],
+        "base_tables": [],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Constant value",
+      "business_domain": "Quality Metrics"
+    },
+    {
+      "column_name": "patient_age",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, SERVICE_DATE)",
+        "base_columns": [
+          "ARPB_TRANSACTIONS.YEAR",
+          "PATIENT.BIRTH_DATE"
+        ],
+        "base_tables": [
+          "ARPB_TRANSACTIONS",
+          "PATIENT"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Age in years (at Service Date) (filtered by: t.TX_TYPE_C = 1 /* Charges only */)",
+      "business_domain": "Patient Demographics"
+    }
+  ]
+}

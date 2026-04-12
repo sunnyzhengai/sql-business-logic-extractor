@@ -1,0 +1,188 @@
+{
+  "summary": {
+    "query_summary": "Query extracts 8 columns from 2 table(s) covering Financial, General, Hospital Metrics and 3 more domain(s)",
+    "primary_purpose": "Categorization and classification for financial analysis",
+    "key_entities": [
+      "PATIENT",
+      "PAT_ENC"
+    ],
+    "key_metrics": [
+      "length_of_stay",
+      "readmission_flag",
+      "patient_age"
+    ],
+    "source_tables": [
+      "PATIENT",
+      "PAT_ENC"
+    ],
+    "business_domains": [
+      "Financial",
+      "General",
+      "Hospital Metrics",
+      "Patient Demographics",
+      "Patient Encounters",
+      "Quality Metrics"
+    ],
+    "column_count": 8
+  },
+  "columns": [
+    {
+      "column_name": "PAT_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_ID",
+        "base_columns": [
+          "PATIENT.PAT_ID"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Unique patient identifier",
+      "business_domain": "General"
+    },
+    {
+      "column_name": "PAT_NAME",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_NAME",
+        "base_columns": [
+          "PATIENT.PAT_NAME"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Patient full name",
+      "business_domain": "General"
+    },
+    {
+      "column_name": "PAT_ENC_CSN_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PAT_ENC.PAT_ENC_CSN_ID",
+        "base_columns": [
+          "PAT_ENC.PAT_ENC_CSN_ID"
+        ],
+        "base_tables": [
+          "PAT_ENC"
+        ],
+        "filters": [
+          "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Unique encounter/appointment identifier (CSN)",
+      "business_domain": "Patient Encounters"
+    },
+    {
+      "column_name": "admission_date",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PAT_ENC.APPT_TIME",
+        "base_columns": [
+          "PAT_ENC.APPT_TIME"
+        ],
+        "base_tables": [
+          "PAT_ENC"
+        ],
+        "filters": [
+          "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Appointment date and time",
+      "business_domain": "Patient Encounters"
+    },
+    {
+      "column_name": "discharge_date",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PAT_ENC.CONTACT_DATE",
+        "base_columns": [
+          "PAT_ENC.CONTACT_DATE"
+        ],
+        "base_tables": [
+          "PAT_ENC"
+        ],
+        "filters": [
+          "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Contact date for the encounter",
+      "business_domain": "Financial"
+    },
+    {
+      "column_name": "length_of_stay",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "DATEDIFF(HOUR, e.APPT_TIME, CONTACT_DATE)",
+        "base_columns": [
+          "PAT_ENC.HOUR",
+          "PAT_ENC.APPT_TIME"
+        ],
+        "base_tables": [
+          "PAT_ENC"
+        ],
+        "filters": [
+          "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Number of hours between Appointment Time and Contact Date (filtered by: e.ENC_TYPE_C = 3 /* Hospital encounters only */)",
+      "business_domain": "Hospital Metrics"
+    },
+    {
+      "column_name": "readmission_flag",
+      "column_type": "case",
+      "technical_definition": {
+        "resolved_expression": "CASE WHEN EXISTS(SELECT 1 FROM PAT_ENC AS e2 WHERE e2.PAT_ID = e.PAT_ID AND e2.APPT_TIME > e.CONTACT_DATE AND DATEDIFF(DAY, e.CONTACT_DATE, APPT_TIME) <= 7) THEN 1 ELSE 0 END /* Readmission: Within 7 days (not 30!) using encounter dates */",
+        "base_columns": [
+          "PAT_ENC.PAT_ID",
+          "PAT_ENC.APPT_TIME",
+          "PAT_ENC.CONTACT_DATE",
+          "PAT_ENC.DAY"
+        ],
+        "base_tables": [
+          "PAT_ENC"
+        ],
+        "filters": [
+          "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Categorization with 1 condition(s) (filtered by: e.ENC_TYPE_C = 3 /* Hospital encounters only */)",
+      "business_domain": "Quality Metrics"
+    },
+    {
+      "column_name": "patient_age",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE())",
+        "base_columns": [
+          "PAT_ENC.YEAR",
+          "PATIENT.BIRTH_DATE"
+        ],
+        "base_tables": [
+          "PAT_ENC",
+          "PATIENT"
+        ],
+        "filters": [
+          "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Age in years (at Getdate() (filtered by: e.ENC_TYPE_C = 3 /* Hospital encounters only */)",
+      "business_domain": "Patient Demographics"
+    }
+  ]
+}

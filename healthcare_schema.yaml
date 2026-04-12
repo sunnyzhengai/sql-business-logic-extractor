@@ -1,0 +1,329 @@
+# Healthcare Data Schema Definition
+# Generic healthcare data dictionary for EHR systems
+# Use this schema for demos to avoid vendor-specific IP references
+
+tables:
+  - name: PATIENT
+    primary_key: PAT_ID
+    description: Patient demographic and registration information
+    columns:
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Unique patient identifier
+      - name: PAT_NAME
+        type: VARCHAR
+        description: Patient full name
+      - name: BIRTH_DATE
+        type: DATE
+        description: Patient date of birth
+      - name: SEX
+        type: VARCHAR(1)
+        description: Patient sex
+      - name: ADD_LINE_1
+        type: VARCHAR(254)
+        description: Patient address line 1
+      - name: CITY
+        type: VARCHAR(50)
+        description: Patient city
+      - name: STATE
+        type: VARCHAR(50)
+        description: Patient state
+      - name: ZIP
+        type: VARCHAR(20)
+        description: Patient zip code
+
+  - name: REFERRAL
+    primary_key: REFERRAL_ID
+    description: Referral orders and tracking
+    columns:
+      - name: REFERRAL_ID
+        type: INTEGER
+        description: Unique referral identifier
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient receiving referral
+      - name: PCP_PROV_ID
+        type: VARCHAR(18)
+        description: Primary care provider ID
+      - name: ENTRY_DATE
+        type: DATETIME
+        description: Date referral was created
+      - name: REFERRAL_STATUS_C
+        type: INTEGER
+        description: Referral status code
+      - name: REFERRING_PROV_ID
+        type: VARCHAR(18)
+        description: Provider who made the referral
+      - name: PROV_SPEC_C
+        type: INTEGER
+        description: Specialty code for referral
+      - name: RFL_TYPE_C
+        type: INTEGER
+        description: Referral type category
+      - name: RFL_CLASS_C
+        type: INTEGER
+        description: Referral class category
+      - name: ENTRY_SOURCE_C
+        type: INTEGER
+        description: Source of referral entry
+
+  - name: PAT_ENC
+    primary_key: PAT_ENC_CSN_ID
+    description: Patient encounters (appointments and visits)
+    columns:
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Unique encounter identifier
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient for this encounter
+      - name: APPT_TIME
+        type: DATETIME
+        description: Appointment date and time
+      - name: CONTACT_DATE
+        type: DATETIME
+        description: Date of patient contact
+      - name: APPT_STATUS_C
+        type: INTEGER
+        description: Appointment status code
+      - name: DEPARTMENT_ID
+        type: INTEGER
+        description: Department identifier
+      - name: VISIT_PROV_ID
+        type: VARCHAR(18)
+        description: Visit provider identifier
+      - name: APPT_MADE_DATE
+        type: DATETIME
+        description: When appointment was scheduled
+      - name: APPT_CANCEL_DATE
+        type: DATETIME
+        description: When appointment was cancelled
+      - name: ENC_TYPE_C
+        type: INTEGER
+        description: Encounter type code
+      - name: CHECKIN_TIME
+        type: DATETIME
+        description: Patient check-in time
+      - name: CHECKOUT_TIME
+        type: DATETIME
+        description: Patient checkout time
+
+  - name: PAT_ENC_HSP
+    primary_key: PAT_ENC_CSN_ID
+    description: Hospital patient encounters (inpatient, ED, observation)
+    columns:
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Unique hospital encounter identifier
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient for this hospital encounter
+      - name: HOSP_ADMSN_TIME
+        type: DATETIME
+        description: Hospital admission date and time
+      - name: HOSP_DISCH_TIME
+        type: DATETIME
+        description: Hospital discharge date and time
+      - name: ADT_PAT_CLASS_C
+        type: INTEGER
+        description: Patient class (Inpatient, Outpatient, etc.)
+      - name: DEPARTMENT_ID
+        type: INTEGER
+        description: Department identifier
+      - name: ADMIT_PROV_ID
+        type: VARCHAR(18)
+        description: Admitting provider identifier
+      - name: DISCH_DISP_C
+        type: INTEGER
+        description: Discharge disposition code
+      - name: TOTAL_CHARGES
+        type: DECIMAL
+        description: Total charges for encounter
+      - name: ACUITY_LEVEL_C
+        type: INTEGER
+        description: Patient acuity level
+
+  - name: HSP_ACCOUNT
+    primary_key: HSP_ACCOUNT_ID
+    description: Hospital account/billing information
+    columns:
+      - name: HSP_ACCOUNT_ID
+        type: INTEGER
+        description: Unique hospital account identifier
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient for this account
+      - name: ADM_DATE_TIME
+        type: DATETIME
+        description: Admission date and time
+      - name: DISCH_DATE_TIME
+        type: DATETIME
+        description: Discharge date and time
+      - name: ACCT_TYPE_C
+        type: INTEGER
+        description: Account type code
+      - name: TOTAL_CHARGES
+        type: DECIMAL
+        description: Total charges on account
+      - name: TOTAL_PAYMENTS
+        type: DECIMAL
+        description: Total payments received
+
+  - name: ARPB_TRANSACTIONS
+    primary_key: TX_ID
+    description: Billing transactions (charges, payments, adjustments)
+    columns:
+      - name: TX_ID
+        type: INTEGER
+        description: Unique transaction identifier
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient for this transaction
+      - name: SERVICE_DATE
+        type: DATE
+        description: Date of service
+      - name: POST_DATE
+        type: DATE
+        description: Date transaction was posted
+      - name: TX_TYPE_C
+        type: INTEGER
+        description: Transaction type code
+      - name: AMOUNT
+        type: DECIMAL
+        description: Transaction amount
+      - name: PROCEDURE_ID
+        type: INTEGER
+        description: Procedure identifier
+
+  - name: DEPARTMENT
+    primary_key: DEPARTMENT_ID
+    description: Department/location reference table
+    columns:
+      - name: DEPARTMENT_ID
+        type: INTEGER
+        description: Unique department identifier
+      - name: DEPARTMENT_NAME
+        type: VARCHAR(254)
+        description: Department name
+      - name: SPECIALTY_C
+        type: INTEGER
+        description: Department specialty code
+      - name: REV_LOC_ID
+        type: INTEGER
+        description: Revenue location identifier
+
+  - name: PROVIDER
+    primary_key: PROV_ID
+    description: Provider/physician reference table
+    columns:
+      - name: PROV_ID
+        type: VARCHAR(18)
+        description: Unique provider identifier
+      - name: PROV_NAME
+        type: VARCHAR(254)
+        description: Provider name
+      - name: SPECIALTY_C
+        type: INTEGER
+        description: Provider specialty code
+      - name: PROV_TYPE_C
+        type: INTEGER
+        description: Provider type code
+
+  # Enum/reference tables
+  - name: ZC_PAT_CLASS
+    description: Patient class codes
+    values:
+      - code: 1
+        name: Inpatient
+      - code: 2
+        name: Outpatient
+      - code: 3
+        name: Emergency
+      - code: 4
+        name: Observation
+      - code: 5
+        name: Day Surgery
+
+  - name: ZC_APPT_STATUS
+    description: Appointment status codes
+    values:
+      - code: 1
+        name: Scheduled
+      - code: 2
+        name: Completed
+      - code: 3
+        name: Cancelled
+      - code: 4
+        name: No Show
+      - code: 5
+        name: Left Without Being Seen
+
+  - name: ZC_DISCH_DISP
+    description: Discharge disposition codes
+    values:
+      - code: 1
+        name: Home
+      - code: 2
+        name: Skilled Nursing Facility
+      - code: 3
+        name: Rehab
+      - code: 4
+        name: Against Medical Advice
+      - code: 5
+        name: Expired
+      - code: 6
+        name: Hospice
+      - code: 7
+        name: Transfer to Another Facility
+
+  - name: ZC_ACUITY
+    description: Patient acuity level codes
+    values:
+      - code: 1
+        name: Critical
+      - code: 2
+        name: Acute
+      - code: 3
+        name: Moderate
+      - code: 4
+        name: Mild
+      - code: 5
+        name: Routine
+
+  - name: ZC_RFL_STATUS
+    description: Referral status codes
+    values:
+      - code: 1
+        name: Pending
+      - code: 2
+        name: Approved
+      - code: 3
+        name: Denied
+      - code: 4
+        name: Completed
+      - code: 5
+        name: Cancelled
+
+  - name: ZC_SPECIALTY
+    description: Medical specialty codes
+    values:
+      - code: 1
+        name: Internal Medicine
+      - code: 2
+        name: Family Medicine
+      - code: 3
+        name: Cardiology
+      - code: 4
+        name: Orthopedics
+      - code: 5
+        name: Neurology
+      - code: 6
+        name: Oncology
+      - code: 7
+        name: Pediatrics
+      - code: 8
+        name: Surgery
+      - code: 9
+        name: Emergency Medicine
+      - code: 10
+        name: Psychiatry

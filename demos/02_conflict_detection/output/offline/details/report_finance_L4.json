@@ -1,0 +1,196 @@
+{
+  "summary": {
+    "query_summary": "Query extracts 8 columns from 2 table(s) covering Financial, General, Hospital Metrics and 3 more domain(s)",
+    "primary_purpose": "Categorization and classification for financial analysis",
+    "key_entities": [
+      "PATIENT",
+      "PAT_ENC_HSP"
+    ],
+    "key_metrics": [
+      "length_of_stay",
+      "readmission_flag",
+      "patient_age"
+    ],
+    "source_tables": [
+      "PATIENT",
+      "PAT_ENC_HSP"
+    ],
+    "business_domains": [
+      "Financial",
+      "General",
+      "Hospital Metrics",
+      "Patient Demographics",
+      "Patient Encounters",
+      "Quality Metrics"
+    ],
+    "column_count": 8
+  },
+  "columns": [
+    {
+      "column_name": "PAT_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_ID",
+        "base_columns": [
+          "PATIENT.PAT_ID"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Unique patient identifier",
+      "business_domain": "General"
+    },
+    {
+      "column_name": "PAT_NAME",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_NAME",
+        "base_columns": [
+          "PATIENT.PAT_NAME"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Patient full name",
+      "business_domain": "General"
+    },
+    {
+      "column_name": "PAT_ENC_CSN_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+        "base_columns": [
+          "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Encounter CSN (FK to PAT_ENC)",
+      "business_domain": "Patient Encounters"
+    },
+    {
+      "column_name": "admission_date",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "base_columns": [
+          "PAT_ENC_HSP.HOSP_ADMSN_TIME"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Admission Time",
+      "business_domain": "Patient Encounters"
+    },
+    {
+      "column_name": "discharge_date",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PAT_ENC_HSP.HOSP_DISCH_TIME",
+        "base_columns": [
+          "PAT_ENC_HSP.HOSP_DISCH_TIME"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Direct value: Discharge Time",
+      "business_domain": "Financial"
+    },
+    {
+      "column_name": "length_of_stay",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME)",
+        "base_columns": [
+          "PAT_ENC_HSP.DAY",
+          "PAT_ENC_HSP.HOSP_ADMSN_TIME"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Number of days between Hospital Admission Time and Hospital Discharge Time (filtered by: NOT h.HOSP_DISCH_TIME IS NULL; filtered by: DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */)",
+      "business_domain": "Hospital Metrics"
+    },
+    {
+      "column_name": "readmission_flag",
+      "column_type": "case",
+      "technical_definition": {
+        "resolved_expression": "CASE WHEN EXISTS(SELECT 1 FROM PAT_ENC_HSP AS h2 WHERE h2.PAT_ID = h.PAT_ID AND h2.HOSP_ADMSN_TIME > h.HOSP_DISCH_TIME AND DATEDIFF(DAY, h.HOSP_DISCH_TIME, HOSP_ADMSN_TIME) <= 30) THEN 1 ELSE 0 END /* Readmission: Within 30 days of DISCHARGE */",
+        "base_columns": [
+          "PAT_ENC_HSP.PAT_ID",
+          "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+          "PAT_ENC_HSP.HOSP_DISCH_TIME",
+          "PAT_ENC_HSP.DAY"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Categorization with 1 condition(s) (filtered by: NOT h.HOSP_DISCH_TIME IS NULL; filtered by: DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */)",
+      "business_domain": "Quality Metrics"
+    },
+    {
+      "column_name": "patient_age",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, HOSP_ADMSN_TIME)",
+        "base_columns": [
+          "PAT_ENC_HSP.YEAR",
+          "PATIENT.BIRTH_DATE"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP",
+          "PATIENT"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Age in years (at Hospital Admission Time) (filtered by: NOT h.HOSP_DISCH_TIME IS NULL; filtered by: DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */)",
+      "business_domain": "Patient Demographics"
+    }
+  ]
+}

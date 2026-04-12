@@ -1,6 +1,6 @@
 """
-Test cases for Layer 3: Comparison — finding duplicate/similar business logic.
-Healthcare analytics focus — Epic Clarity patterns.
+Test cases for Layer 3: Comparison -- finding duplicate/similar business logic.
+Healthcare analytics focus -- Epic Clarity patterns.
 
 Run: python3 -m pytest tests/test_compare.py -v
 """
@@ -27,7 +27,7 @@ def make_report(*queries, dialect=None):
 class TestExactDuplicates:
 
     def test_01_same_los_different_aliases(self):
-        """Same DATEDIFF with different aliases → exact duplicate."""
+        """Same DATEDIFF with different aliases -> exact duplicate."""
         report = make_report(
             ("readmission.sql", """
                 SELECT DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days
@@ -52,7 +52,7 @@ class TestExactDuplicates:
         assert found, "Expected LOS duplicate group not found"
 
     def test_02_same_filter_different_queries(self):
-        """Same WHERE clause in multiple queries → exact duplicate filter."""
+        """Same WHERE clause in multiple queries -> exact duplicate filter."""
         report = make_report(
             ("report_a.sql", """
                 SELECT PAT_ENC_CSN_ID
@@ -68,7 +68,7 @@ class TestExactDuplicates:
         assert report.summary["exact_duplicate_groups"] >= 1
 
     def test_03_same_case_expression(self):
-        """Identical CASE logic across queries → exact duplicate."""
+        """Identical CASE logic across queries -> exact duplicate."""
         case_sql = """
             CASE
                 WHEN AGE_YEARS < 18 THEN 'Pediatric'
@@ -83,7 +83,7 @@ class TestExactDuplicates:
         assert report.summary["exact_duplicate_groups"] >= 1
 
     def test_04_no_false_positives(self):
-        """Completely different queries → no exact duplicates."""
+        """Completely different queries -> no exact duplicates."""
         report = make_report(
             ("query_a.sql", """
                 SELECT COUNT(*) AS total FROM PAT_ENC_HSP
@@ -102,7 +102,7 @@ class TestExactDuplicates:
 class TestStructuralMatches:
 
     def test_05_same_pattern_different_columns(self):
-        """Same DATEDIFF pattern on different columns → structural match."""
+        """Same DATEDIFF pattern on different columns -> structural match."""
         report = make_report(
             ("los.sql", """
                 SELECT DATEDIFF(DAY, HOSP_ADMSN_TIME, HOSP_DISCH_TIME) AS los_days
@@ -121,7 +121,7 @@ class TestStructuralMatches:
             "Expected structural or semantic match for same-pattern DATEDIFF"
 
     def test_06_same_case_structure_different_values(self):
-        """Same CASE branching structure, different thresholds → structural match."""
+        """Same CASE branching structure, different thresholds -> structural match."""
         report = make_report(
             ("risk_a.sql", """
                 SELECT CASE
@@ -145,7 +145,7 @@ class TestStructuralMatches:
         assert total_matches >= 1, "Expected match for same CASE structure"
 
     def test_07_row_number_patterns(self):
-        """Two ROW_NUMBER() with different PARTITION BY → structural match."""
+        """Two ROW_NUMBER() with different PARTITION BY -> structural match."""
         report = make_report(
             ("dedup_enc.sql", """
                 SELECT ROW_NUMBER() OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME DESC) AS rn
@@ -168,7 +168,7 @@ class TestStructuralMatches:
 class TestSemanticMatches:
 
     def test_08_same_table_different_aggregations(self):
-        """COUNT and SUM on same table → semantic match (both aggregations on PAT_ENC_HSP)."""
+        """COUNT and SUM on same table -> semantic match (both aggregations on PAT_ENC_HSP)."""
         report = make_report(
             ("volume.sql", """
                 SELECT DEPARTMENT_ID, COUNT(*) AS enc_count
@@ -186,7 +186,7 @@ class TestSemanticMatches:
                  + report.summary["structural_match_groups"]
                  + report.summary["semantic_match_groups"])
         # At minimum the filters (if any) or the aggregations should match semantically
-        # These might not match if they're too different — that's ok
+        # These might not match if they're too different -- that's ok
         assert report.summary["total_definitions"] >= 2
 
     def test_09_cte_definitions_compared(self):
@@ -244,7 +244,7 @@ class TestComplexComparison:
                 WHERE e.HOSP_DISCH_TIME IS NOT NULL
             """),
         )
-        # LOS calculation appears in all 3 → should be exact duplicate
+        # LOS calculation appears in all 3 -> should be exact duplicate
         assert report.summary["exact_duplicate_groups"] >= 1
 
         # visit_type CASE appears in 2 of 3
@@ -263,7 +263,7 @@ class TestComplexComparison:
                 WHERE ADT_PAT_CLASS_C = 1
             """),
         )
-        # Single query → no duplicates possible
+        # Single query -> no duplicates possible
         assert report.summary["exact_duplicate_groups"] == 0
         assert report.summary["structural_match_groups"] == 0
         assert report.summary["semantic_match_groups"] == 0

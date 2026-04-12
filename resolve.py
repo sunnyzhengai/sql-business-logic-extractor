@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-SQL Business Logic Extractor — Lineage Resolution
+SQL Business Logic Extractor -- Lineage Resolution
 
 Traces every output column through CTEs, subqueries, and derived tables
 all the way down to base table.column references.
@@ -41,13 +42,13 @@ class ResolvedQuery:
 
 
 # ---------------------------------------------------------------------------
-# Scope registry — maps scope outputs to their definitions
+# Scope registry -- maps scope outputs to their definitions
 # ---------------------------------------------------------------------------
 
 class ScopeRegistry:
     """Builds a lookup of all named outputs across all scopes (CTEs, subqueries, main query).
 
-    Each entry maps (scope_name, column_name) → output definition dict from Layer 1.
+    Each entry maps (scope_name, column_name) -> output definition dict from Layer 1.
     """
 
     def __init__(self):
@@ -65,11 +66,13 @@ class ScopeRegistry:
         for cte in logic.get("ctes", []):
             name = cte.get("name", "")
             cte_logic = cte.get("logic")
-            if name and cte_logic:
-                self._register_scope(name, cte_logic)
+            if name:
+                # Always mark CTE names as derived scopes, even if extraction failed
                 self._derived_scopes.add(name.lower())
-                # Recursively register nested CTEs/subqueries
-                self._register_nested(cte_logic)
+                if cte_logic:
+                    self._register_scope(name, cte_logic)
+                    # Recursively register nested CTEs/subqueries
+                    self._register_nested(cte_logic)
 
         # Register subqueries (derived tables in FROM)
         for sq in logic.get("subqueries", []):
@@ -162,7 +165,7 @@ class ScopeRegistry:
         return name.lower() in self._derived_scopes
 
     def get_alias_to_table(self, scope_name: str) -> dict[str, str]:
-        """Get alias→table mapping for a scope."""
+        """Get alias->table mapping for a scope."""
         logic = self._scope_logic.get(scope_name.lower(), {})
         mapping = {}
         for src in logic.get("sources", []):
@@ -206,15 +209,63 @@ class LineageResolver:
         for out in self.logic.get("outputs", []):
             name = out.get("name", "")
             if name == "*":
-                result.columns.append(ResolvedColumn(
-                    name="*", expression="*", type="star",
-                ))
+                # Expand * by finding the source scope(s) and resolving their columns
+                expanded = self._expand_star("__main__")
+                if expanded:
+                    result.columns.extend(expanded)
+                else:
+                    result.columns.append(ResolvedColumn(
+                        name="*", expression="*", type="star",
+                    ))
                 continue
 
             resolved = self._resolve_output(out, "__main__", [])
             result.columns.append(resolved)
 
         return result
+
+    def _expand_star(self, scope: str) -> list[ResolvedColumn]:
+        """Expand SELECT * by resolving all columns from the direct source scope(s).
+
+        Only expands from derived scopes (CTEs/subqueries) that are direct
+        sources of this scope. Avoids duplicating columns from nested CTEs.
+        """
+        logic = self.registry._scope_logic.get(scope.lower(), {})
+        expanded = []
+        seen_names = set()
+
+        # Collect direct source refs — only from sources and joins of THIS scope
+        source_refs = []
+        for src in logic.get("sources", []):
+            ref = src.get("alias") or src.get("name", "")
+            if ref and self.registry.is_derived(ref):
+                source_refs.append(ref)
+        for join in logic.get("joins", []):
+            ref = join.get("right_alias") or join.get("right_table", "")
+            if ref and self.registry.is_derived(ref):
+                source_refs.append(ref)
+
+        # If no derived sources found, try alias mapping
+        if not source_refs:
+            alias_map = self.registry.get_alias_to_table(scope)
+            for src in logic.get("sources", []):
+                ref = src.get("alias") or src.get("name", "")
+                real_name = alias_map.get(ref.lower(), ref)
+                if self.registry.is_derived(real_name):
+                    source_refs.append(real_name)
+
+        for ref in source_refs:
+            scope_outputs = self.registry._scopes.get(ref.lower(), {})
+            for col_name, out_def in scope_outputs.items():
+                # Deduplicate by column name (first source wins)
+                if col_name.lower() in seen_names:
+                    continue
+                seen_names.add(col_name.lower())
+                resolved = self._resolve_output(out_def, ref, [])
+                resolved.name = out_def.get("name", col_name)
+                expanded.append(resolved)
+
+        return expanded
 
     def _resolve_output(self, out: dict, scope: str, visited: list) -> ResolvedColumn:
         """Resolve a single output column, following references through scopes."""
@@ -238,7 +289,7 @@ class LineageResolver:
         }
 
         if col_type == "passthrough":
-            # This column comes from a source — trace it
+            # This column comes from a source -- trace it
             if source_cols:
                 src = source_cols[0]
                 src_table = src.get("table") or ""
@@ -283,7 +334,7 @@ class LineageResolver:
                             resolved_expression=inner_resolved.resolved_expression,
                         )
 
-                # Base table — terminal
+                # Base table -- terminal
                 qualified = f"{real_table}.{src_col}"
                 return ResolvedColumn(
                     name=name, expression=expr, type="passthrough",
@@ -294,7 +345,7 @@ class LineageResolver:
                     resolved_expression=qualified,
                 )
 
-            # No source columns — just return as-is
+            # No source columns -- just return as-is
             return ResolvedColumn(
                 name=name, expression=expr, type=col_type,
                 filters=scope_filters,
@@ -385,7 +436,7 @@ class LineageResolver:
             src_name = src.get("alias") or src.get("name", "")
             real_name = alias_map.get(src_name.lower(), src_name)
             if self.registry.is_base_table(real_name) and not self.registry.is_derived(real_name):
-                # It's a base table — return it
+                # It's a base table -- return it
                 return real_name
 
         return ""
@@ -411,7 +462,7 @@ class LineageResolver:
                 # Check if this references a derived scope
                 target_scope = real_table if real_table and self.registry.is_derived(real_table) else ""
                 if not target_scope:
-                    # Try without table qualifier — check all derived scopes
+                    # Try without table qualifier -- check all derived scopes
                     for dscope in self.registry._derived_scopes:
                         if self.registry.lookup(dscope, col_name):
                             target_scope = dscope
@@ -446,19 +497,348 @@ class LineageResolver:
 
 
 # ---------------------------------------------------------------------------
+# SSMS script preprocessor
+# ---------------------------------------------------------------------------
+
+import re
+
+
+def _normalize_meta_key(raw_key: str) -> str:
+    """Normalize header comment keys to consistent names."""
+    key = re.sub(r"\s+", "_", raw_key.strip()).lower()
+    aliases = {
+        "created_by": "author",
+        "modified_by": "modified_by",
+        "updated_by": "modified_by",
+        "revised_by": "modified_by",
+        "desc": "description",
+        "purpose": "description",
+        "summary": "description",
+        "notes": "notes",
+        "report_name": "report_name",
+        "report": "report_name",
+        "view_name": "object_name",
+        "proc_name": "object_name",
+        "procedure_name": "object_name",
+        "object_name": "object_name",
+        "revision": "version",
+        "rev": "version",
+        "version": "version",
+        "date": "date",
+        "created_date": "created_date",
+        "modified_date": "modified_date",
+        "updated_date": "modified_date",
+        "change_date": "modified_date",
+        "ticket": "ticket",
+        "jira": "ticket",
+        "story": "ticket",
+        "task": "ticket",
+        "issue": "ticket",
+        "cr": "ticket",
+        "change_request": "ticket",
+        "department": "department",
+        "team": "team",
+        "project": "project",
+        "parameters": "parameters",
+        "params": "parameters",
+        "returns": "returns",
+        "output": "returns",
+        "dependencies": "dependencies",
+        "depends_on": "dependencies",
+        "history": "history",
+        "change_log": "history",
+        "changelog": "history",
+    }
+    return aliases.get(key, key)
+
+
+def _add_meta(metadata: dict, key: str, value: str):
+    """Add a metadata value, appending to list if key already exists."""
+    if key in metadata and key in ("history", "notes"):
+        # Append to list for multi-line fields
+        if isinstance(metadata[key], list):
+            metadata[key].append(value)
+        else:
+            metadata[key] = [metadata[key], value]
+    else:
+        metadata[key] = value
+
+
+def _parse_header_comments(lines: list[str], metadata: dict):
+    """Parse collected header comment lines for metadata key-value pairs and revision history."""
+    _META_PATTERN = re.compile(
+        r"^[*\s]*"
+        r"(Author|Created\s*By|Modified\s*By|Updated\s*By|Revised\s*By"
+        r"|Description|Desc|Purpose|Summary|Notes"
+        r"|Report\s*Name|Report|View\s*Name|Proc(?:edure)?\s*Name|Object\s*Name"
+        r"|Revision|Version|Rev"
+        r"|Date|Created\s*Date|Modified\s*Date|Updated\s*Date|Change\s*Date"
+        r"|Ticket|Jira|Story|Task|Issue|CR|Change\s*Request"
+        r"|Department|Team|Project"
+        r"|Parameters|Params"
+        r"|Returns|Output"
+        r"|Dependencies|Depends\s*On"
+        r"|History|Change\s*Log|Changelog)"
+        r"\s*[:=]\s*(.*)",
+        re.IGNORECASE,
+    )
+
+    _REVISION_LINE = re.compile(
+        r"^[*\s]*"
+        r"(\d{1,4}[-/]\d{1,2}[-/]\d{1,4})"
+        r"\s+"
+        r"(\S+(?:\s+\S+)?)"
+        r"\s{2,}"
+        r"(.+)",
+    )
+
+    in_history = False
+    revisions = []
+
+    for line in lines:
+        clean = line.lstrip("* ").strip()
+        if not clean:
+            continue
+
+        meta_match = _META_PATTERN.match(clean)
+        if meta_match:
+            key = _normalize_meta_key(meta_match.group(1))
+            val = meta_match.group(2).strip()
+            if key == "history":
+                in_history = True
+                if val:
+                    revisions.append(val)
+            else:
+                in_history = False
+                if val:
+                    _add_meta(metadata, key, val)
+            continue
+
+        # Inside a history/changelog section, look for revision lines
+        if in_history:
+            rev_match = _REVISION_LINE.match(clean)
+            if rev_match:
+                revisions.append({
+                    "date": rev_match.group(1).strip(),
+                    "author": rev_match.group(2).strip(),
+                    "description": rev_match.group(3).strip(),
+                })
+            elif clean:
+                revisions.append(clean)
+            continue
+
+    if revisions:
+        metadata["revisions"] = revisions
+
+
+def preprocess_ssms(sql: str) -> tuple[str, dict]:
+    """Strip SSMS boilerplate from scripted views/procedures/functions.
+
+    Returns (clean_sql, metadata) where metadata contains the object name,
+    schema, type, script date, and any header comment metadata (author,
+    description, report name, revision history, etc.).
+    """
+    metadata = {}
+    lines = sql.split("\n")
+    clean_lines = []
+    body_started = False
+    in_header_comment = False
+    header_comment_lines = []
+
+    # Known metadata keys in header comments (case-insensitive matching)
+    # Matches patterns like:  Author: John Smith
+    #                         Description: This view calculates ...
+    #                         Report Name: Monthly Revenue
+    #                         Revision: 2.1
+    #                         Modified By: Jane Doe
+    #                         Modified Date: 2024-01-15
+    _META_PATTERN = re.compile(
+        r"^[-*\s]*"  # leading dashes, stars, whitespace
+        r"(Author|Created\s*By|Modified\s*By|Updated\s*By|Revised\s*By"
+        r"|Description|Desc|Purpose|Summary|Notes"
+        r"|Report\s*Name|Report|View\s*Name|Proc(?:edure)?\s*Name|Object\s*Name"
+        r"|Revision|Version|Rev"
+        r"|Date|Created\s*Date|Modified\s*Date|Updated\s*Date|Change\s*Date"
+        r"|Ticket|Jira|Story|Task|Issue|CR|Change\s*Request"
+        r"|Department|Team|Project"
+        r"|Parameters|Params"
+        r"|Returns|Output"
+        r"|Dependencies|Depends\s*On"
+        r"|History|Change\s*Log|Changelog)"
+        r"\s*[:=]\s*(.*)",
+        re.IGNORECASE,
+    )
+
+    # Revision history line: date + author + description
+    # Pattern: 2024-01-15  John Smith  Added new column
+    #      or: 01/15/2024  jsmith      Fixed join
+    _REVISION_LINE = re.compile(
+        r"^[-*\s]*"
+        r"(\d{1,4}[-/]\d{1,2}[-/]\d{1,4})"  # date
+        r"\s+"
+        r"(\S+(?:\s+\S+)?)"  # author (1-2 words)
+        r"\s{2,}"  # gap
+        r"(.+)",  # description
+    )
+
+    for line in lines:
+        stripped = line.strip()
+        upper = stripped.upper()
+
+        # Extract object info from the SSMS header comment
+        # Pattern: /****** Object:  View [schema].[name]    Script Date: ... ******/
+        obj_match = re.match(
+            r"/\*+\s*Object:\s+(\w+)\s+\[([^\]]*)\]\.\[([^\]]*)\]"
+            r"(?:\s+Script Date:\s*(.+?))?\s*\*+/",
+            stripped,
+        )
+        if obj_match:
+            metadata["object_type"] = obj_match.group(1)
+            metadata["schema"] = obj_match.group(2)
+            metadata["name"] = obj_match.group(3)
+            if obj_match.group(4):
+                metadata["script_date"] = obj_match.group(4).strip()
+            continue
+
+        # Track block comments that may contain metadata
+        if not body_started:
+            if "/*" in stripped and "*/" not in stripped:
+                in_header_comment = True
+                # Check if this line itself has metadata after /*
+                after_open = stripped.split("/*", 1)[1].strip()
+                if after_open:
+                    header_comment_lines.append(after_open)
+                continue
+            if in_header_comment:
+                if "*/" in stripped:
+                    in_header_comment = False
+                    before_close = stripped.split("*/", 1)[0].strip()
+                    if before_close:
+                        header_comment_lines.append(before_close)
+                    # Parse all collected header comment lines
+                    _parse_header_comments(header_comment_lines, metadata)
+                    header_comment_lines = []
+                else:
+                    header_comment_lines.append(stripped)
+                continue
+
+            # Single-line comments before the body (-- Author: xxx)
+            if stripped.startswith("--"):
+                comment_text = stripped.lstrip("-").strip()
+                meta_match = _META_PATTERN.match(comment_text)
+                if meta_match:
+                    key = _normalize_meta_key(meta_match.group(1))
+                    val = meta_match.group(2).strip()
+                    if val:
+                        _add_meta(metadata, key, val)
+                continue
+
+        # Skip SET statements and GO batch separators
+        if upper in ("GO", "GO;"):
+            continue
+        if upper.startswith("SET ") and any(
+            kw in upper for kw in ("ANSI_NULLS", "QUOTED_IDENTIFIER", "NOCOUNT")
+        ):
+            continue
+
+        # Strip CREATE/ALTER VIEW/PROCEDURE wrapper -- keep everything after AS
+        if not body_started:
+            # Match: CREATE VIEW [schema].[name] AS
+            # or:    CREATE OR ALTER VIEW [schema].[name] AS
+            # or:    ALTER VIEW [schema].[name] AS
+            create_match = re.match(
+                r"(?:CREATE\s+(?:OR\s+ALTER\s+)?|ALTER\s+)"
+                r"(?:VIEW|PROCEDURE|PROC|FUNCTION)\s+"
+                r"(?:\[?[\w]+\]?\.)?\[?[\w]+\]?\s*"
+                r"(?:\(.*?\))?\s*"  # optional params for procs/functions
+                r"(?:AS)?\s*$",
+                stripped,
+                re.IGNORECASE,
+            )
+            if create_match:
+                # Extract name if we didn't get it from the header
+                if "name" not in metadata:
+                    name_match = re.search(
+                        r"(?:\[([^\]]+)\]\.)?\[([^\]]+)\]",
+                        stripped,
+                    )
+                    if name_match:
+                        metadata["schema"] = name_match.group(1) or "dbo"
+                        metadata["name"] = name_match.group(2)
+                body_started = True
+                continue
+
+            # Also handle "AS" on its own line after CREATE VIEW
+            if upper == "AS":
+                body_started = True
+                continue
+
+            # Skip blank lines and comments before body
+            if not stripped or stripped.startswith("--") or stripped.startswith("/*"):
+                continue
+
+        # Once we hit a SELECT or WITH, we're definitely in the body
+        if not body_started and (upper.startswith("SELECT") or upper.startswith("WITH")):
+            body_started = True
+
+        if body_started or upper.startswith("SELECT") or upper.startswith("WITH"):
+            body_started = True
+            clean_lines.append(line)
+
+    clean_sql = "\n".join(clean_lines).strip()
+
+    # Remove trailing GO if it slipped through
+    if clean_sql.upper().endswith("\nGO"):
+        clean_sql = clean_sql[:-3].strip()
+
+    return clean_sql, metadata
+
+
+# ---------------------------------------------------------------------------
 # Convenience functions
 # ---------------------------------------------------------------------------
 
 def resolve_query(sql: str, dialect: str = None) -> ResolvedQuery:
     """Parse, extract, and resolve lineage for a SQL query."""
+    # Preprocess SSMS script boilerplate
+    clean_sql, metadata = preprocess_ssms(sql)
+    if not clean_sql:
+        clean_sql = sql  # fallback if preprocessing removed everything
+
     extractor = SQLBusinessLogicExtractor(dialect=dialect)
-    logic = to_dict(extractor.extract(sql))
+    logic = to_dict(extractor.extract(clean_sql))
+
+    # Attach metadata to logic if present
+    if metadata:
+        logic["_object"] = metadata
+
     resolver = LineageResolver(logic)
-    return resolver.resolve_all()
+    resolved = resolver.resolve_all()
+
+    # Store metadata on the result
+    resolved._metadata = metadata if metadata else {}
+    if metadata:
+        resolved.raw_sql = f"-- {metadata.get('object_type', 'Object')}: [{metadata.get('schema', 'dbo')}].[{metadata.get('name', '?')}]\n{clean_sql}"
+
+    return resolved
 
 
 def resolved_to_dict(resolved: ResolvedQuery) -> dict:
     """Convert resolved query to plain dict."""
+    result = {}
+
+    # Extract object metadata stored by resolve_query
+    if hasattr(resolved, '_metadata') and resolved._metadata:
+        for k, v in resolved._metadata.items():
+            result[k] = v
+    else:
+        # Fallback: extract from raw_sql header
+        meta_match = re.match(r"-- (\w+): \[([^\]]*)\]\.\[([^\]]*)\]", resolved.raw_sql or "")
+        if meta_match:
+            result["object_type"] = meta_match.group(1)
+            result["schema"] = meta_match.group(2)
+            result["name"] = meta_match.group(3)
+
     columns = []
     for col in resolved.columns:
         entry = {"name": col.name, "type": col.type}
@@ -475,68 +855,162 @@ def resolved_to_dict(resolved: ResolvedQuery) -> dict:
         if col.transformation_chain and len(col.transformation_chain) > 1:
             entry["transformation_chain"] = col.transformation_chain
         columns.append(entry)
-    return {"columns": columns}
+    result["columns"] = columns
+    return result
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
+def _format_text(resolved) -> str:
+    """Format resolved query as human-readable text."""
+    lines = []
+    result_dict = resolved_to_dict(resolved)
+    if result_dict.get("name"):
+        schema = result_dict.get("schema", "dbo")
+        obj_type = result_dict.get("object_type", "Object")
+        lines.append(f"{obj_type}: [{schema}].[{result_dict['name']}]")
+        for key in ("author", "description", "report_name", "version",
+                    "ticket", "department", "team", "project",
+                    "created_date", "modified_date", "modified_by",
+                    "dependencies", "parameters", "returns", "notes"):
+            if key in result_dict:
+                label = key.replace("_", " ").title()
+                lines.append(f"  {label}: {result_dict[key]}")
+        if result_dict.get("revisions"):
+            lines.append("  Revisions:")
+            for rev in result_dict["revisions"]:
+                if isinstance(rev, dict):
+                    lines.append(f"    {rev['date']}  {rev['author']}  {rev['description']}")
+                else:
+                    lines.append(f"    {rev}")
+        lines.append("=" * 60)
+    for col in resolved.columns:
+        lines.append(f"\n{col.name} ({col.type})")
+        if col.resolved_expression:
+            lines.append(f"  Resolved: {col.resolved_expression}")
+        if col.base_columns:
+            lines.append(f"  Base columns: {', '.join(col.base_columns)}")
+        if col.base_tables:
+            lines.append(f"  Base tables: {', '.join(col.base_tables)}")
+        if col.filters:
+            lines.append("  Filters:")
+            for flt in col.filters:
+                lines.append(f"    - {flt}")
+        if col.transformation_chain and len(col.transformation_chain) > 1:
+            lines.append("  Chain:")
+            for i, step in enumerate(col.transformation_chain):
+                pad = "    " + "  " * i
+                scope = step.get("scope", "")
+                sname = step.get("name", "")
+                stype = step.get("type", "")
+                sexpr = step.get("expression", "")
+                if stype == "passthrough":
+                    lines.append(f"{pad}-> {scope}.{sname} (passthrough)")
+                else:
+                    lines.append(f"{pad}-> {scope}.{sname} = {sexpr} ({stype})")
+    return "\n".join(lines)
+
+
+def _get_output_filename(resolved, input_path=None):
+    """Derive output filename from view name or input file."""
+    meta = getattr(resolved, '_metadata', {})
+    name = meta.get("name")
+    if name:
+        return f"parsed_{name}"
+    if input_path:
+        import os
+        base = os.path.splitext(os.path.basename(input_path))[0]
+        return f"parsed_{base}"
+    return "parsed_output"
+
+
+def _process_one(sql, dialect, text_mode, compact):
+    """Process a single SQL string. Returns (resolved, output_text)."""
+    resolved = resolve_query(sql.strip(), dialect=dialect)
+    if text_mode:
+        return resolved, _format_text(resolved)
+    else:
+        indent = None if compact else 2
+        return resolved, json.dumps(resolved_to_dict(resolved), indent=indent)
+
+
 def main():
     import argparse
     import sys
+    import os
+    import glob as globmod
 
     parser = argparse.ArgumentParser(description="Resolve SQL lineage to base table.column")
     parser.add_argument("sql", nargs="?", help="SQL query")
-    parser.add_argument("--file", "-f", help="SQL file")
+    parser.add_argument("--file", "-f", help="SQL file (or glob pattern like '*.sql')")
     parser.add_argument("--stdin", action="store_true")
     parser.add_argument("--dialect", "-d", default=None)
     parser.add_argument("--compact", action="store_true")
     parser.add_argument("--text", action="store_true", help="Human-readable output")
+    parser.add_argument("--output-dir", "-o", default=None,
+                        help="Output directory. Files named parsed_<view_name>.<ext>")
 
     args = parser.parse_args()
 
+    # Collect input files
+    input_files = []
     if args.file:
-        with open(args.file) as f:
-            sql = f.read()
+        # Support glob patterns
+        matched = globmod.glob(args.file)
+        if matched:
+            input_files = sorted(matched)
+        else:
+            input_files = [args.file]
+
+    if input_files and len(input_files) > 1 and not args.output_dir:
+        # Multiple files require --output-dir
+        print("Error: multiple input files require --output-dir / -o", file=sys.stderr)
+        sys.exit(1)
+
+    ext = ".txt" if args.text else ".json"
+
+    # Create output dir if needed
+    if args.output_dir:
+        os.makedirs(args.output_dir, exist_ok=True)
+
+    if input_files:
+        for fpath in input_files:
+            with open(fpath) as fh:
+                sql = fh.read()
+            resolved, output = _process_one(sql, args.dialect, args.text, args.compact)
+
+            if args.output_dir:
+                out_name = _get_output_filename(resolved, fpath) + ext
+                out_path = os.path.join(args.output_dir, out_name)
+                with open(out_path, "w") as fh:
+                    fh.write(output + "\n")
+                meta = getattr(resolved, '_metadata', {})
+                view_name = meta.get('name', os.path.basename(fpath))
+                print(f"  {view_name} -> {out_path}")
+            else:
+                print(output)
+
     elif args.stdin:
         sql = sys.stdin.read()
+        resolved, output = _process_one(sql, args.dialect, args.text, args.compact)
+        if args.output_dir:
+            out_name = _get_output_filename(resolved) + ext
+            out_path = os.path.join(args.output_dir, out_name)
+            with open(out_path, "w") as fh:
+                fh.write(output + "\n")
+            print(f"  -> {out_path}")
+        else:
+            print(output)
+
     elif args.sql:
-        sql = args.sql
+        resolved, output = _process_one(args.sql, args.dialect, args.text, args.compact)
+        print(output)
+
     else:
         parser.print_help()
         sys.exit(1)
-
-    resolved = resolve_query(sql.strip(), dialect=args.dialect)
-
-    if args.text:
-        for col in resolved.columns:
-            print(f"\n{col.name} ({col.type})")
-            if col.resolved_expression:
-                print(f"  Resolved: {col.resolved_expression}")
-            if col.base_columns:
-                print(f"  Base columns: {', '.join(col.base_columns)}")
-            if col.base_tables:
-                print(f"  Base tables: {', '.join(col.base_tables)}")
-            if col.filters:
-                print(f"  Filters:")
-                for f in col.filters:
-                    print(f"    - {f}")
-            if col.transformation_chain and len(col.transformation_chain) > 1:
-                print(f"  Chain:")
-                for i, step in enumerate(col.transformation_chain):
-                    indent = "    " + "  " * i
-                    scope = step.get("scope", "")
-                    sname = step.get("name", "")
-                    stype = step.get("type", "")
-                    sexpr = step.get("expression", "")
-                    if stype == "passthrough":
-                        print(f"{indent}→ {scope}.{sname} (passthrough)")
-                    else:
-                        print(f"{indent}→ {scope}.{sname} = {sexpr} ({stype})")
-    else:
-        indent = None if args.compact else 2
-        print(json.dumps(resolved_to_dict(resolved), indent=indent))
 
 
 if __name__ == "__main__":

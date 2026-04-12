@@ -1,6 +1,6 @@
 """
 Test cases for SQL Business Logic Extractor
-Healthcare analytics focus — Epic Clarity patterns, simple to complex.
+Healthcare analytics focus -- Epic Clarity patterns, simple to complex.
 
 Run: python3 -m pytest tests/test_queries.py -v
 """
@@ -38,7 +38,7 @@ def filter_exprs(filters, scope=None):
 class TestLevel1_Simple:
 
     def test_01_basic_select(self):
-        """Plain column select — no transformations."""
+        """Plain column select -- no transformations."""
         sql = """
         SELECT PAT_MRN_ID, PAT_FIRST_NAME, PAT_LAST_NAME
         FROM PATIENT
@@ -48,10 +48,10 @@ class TestLevel1_Simple:
         assert all(o["type"] == "passthrough" for o in r["outputs"])
         assert r["sources"][0]["name"] == "PATIENT"
         # No lineage for pure passthrough with no filters
-        # (or minimal lineage — depends on design choice)
+        # (or minimal lineage -- depends on design choice)
 
     def test_02_select_with_alias(self):
-        """Column aliases — still passthrough."""
+        """Column aliases -- still passthrough."""
         sql = """
         SELECT PAT_MRN_ID AS mrn,
                PAT_FIRST_NAME AS first_name,
@@ -63,7 +63,7 @@ class TestLevel1_Simple:
         assert all(o["type"] == "passthrough" for o in r["outputs"])
 
     def test_03_where_filter(self):
-        """Simple WHERE — single filter condition."""
+        """Simple WHERE -- single filter condition."""
         sql = """
         SELECT PAT_MRN_ID, PAT_FIRST_NAME
         FROM PATIENT
@@ -75,7 +75,7 @@ class TestLevel1_Simple:
         assert "PAT_STATUS" in where_filters[0]
 
     def test_04_multiple_where(self):
-        """Multiple AND conditions — should split into separate filters."""
+        """Multiple AND conditions -- should split into separate filters."""
         sql = """
         SELECT PAT_MRN_ID
         FROM PATIENT
@@ -88,7 +88,7 @@ class TestLevel1_Simple:
         assert len(where_filters) == 3
 
     def test_05_calculated_column(self):
-        """Basic arithmetic — age calculation from birth date."""
+        """Basic arithmetic -- age calculation from birth date."""
         sql = """
         SELECT PAT_MRN_ID,
                DATEDIFF(YEAR, BIRTH_DATE, GETDATE()) AS age
@@ -120,7 +120,7 @@ class TestLevel1_Simple:
 class TestLevel2_Joins:
 
     def test_07_inner_join(self):
-        """Standard inner join — encounter to patient."""
+        """Standard inner join -- encounter to patient."""
         sql = """
         SELECT p.PAT_MRN_ID,
                e.PAT_ENC_CSN_ID,
@@ -136,7 +136,7 @@ class TestLevel2_Joins:
         assert "e.PAT_ID = p.PAT_ID" in r["joins"][0]["on_expression"]
 
     def test_08_left_join(self):
-        """Left join — encounters with optional diagnosis."""
+        """Left join -- encounters with optional diagnosis."""
         sql = """
         SELECT e.PAT_ENC_CSN_ID,
                dx.DX_NAME
@@ -203,7 +203,7 @@ class TestLevel3_Case:
         assert r["case_expressions"][0]["else_result"] is not None
 
     def test_11_nested_case(self):
-        """CASE with multiple business rules — readmission risk."""
+        """CASE with multiple business rules -- readmission risk."""
         sql = """
         SELECT e.PAT_ENC_CSN_ID,
                CASE
@@ -254,7 +254,7 @@ class TestLevel4_Aggregation:
         assert any("DEPARTMENT_NAME" in g for agg in r["aggregations"] for g in agg.get("group_by", []))
 
     def test_13_having_filter(self):
-        """HAVING clause — post-aggregation filter."""
+        """HAVING clause -- post-aggregation filter."""
         sql = """
         SELECT p.PRIMARY_DX_CODE,
                COUNT(*) AS patient_count,
@@ -270,7 +270,7 @@ class TestLevel4_Aggregation:
         assert len(having) == 2
 
     def test_14_aggregate_with_case(self):
-        """Conditional aggregation — pivot-style counting."""
+        """Conditional aggregation -- pivot-style counting."""
         sql = """
         SELECT dep.DEPARTMENT_NAME,
                COUNT(CASE WHEN e.DISCH_DISPOSITION_C = 1 THEN 1 END) AS discharged_home,
@@ -293,7 +293,7 @@ class TestLevel4_Aggregation:
 class TestLevel5_Window:
 
     def test_15_row_number(self):
-        """ROW_NUMBER for deduplication — common Epic pattern."""
+        """ROW_NUMBER for deduplication -- common Epic pattern."""
         sql = """
         SELECT *
         FROM (
@@ -315,7 +315,7 @@ class TestLevel5_Window:
         assert any(s["type"] == "subquery" for s in r.get("sources", []))
 
     def test_16_lag_readmission(self):
-        """LAG for readmission detection — days since last discharge."""
+        """LAG for readmission detection -- days since last discharge."""
         sql = """
         SELECT PAT_ID,
                PAT_ENC_CSN_ID,
@@ -340,7 +340,7 @@ class TestLevel5_Window:
         assert len(r["window_functions"]) >= 1
 
     def test_17_running_total(self):
-        """SUM OVER for running totals — cumulative charges."""
+        """SUM OVER for running totals -- cumulative charges."""
         sql = """
         SELECT PAT_ENC_CSN_ID,
                SERVICE_DATE,
@@ -364,7 +364,7 @@ class TestLevel5_Window:
 class TestLevel6_CTE:
 
     def test_18_simple_cte(self):
-        """Single CTE — encounter base."""
+        """Single CTE -- encounter base."""
         sql = """
         WITH encounters AS (
             SELECT e.PAT_ENC_CSN_ID,
@@ -391,7 +391,7 @@ class TestLevel6_CTE:
         assert cte_logic  # should not be empty
 
     def test_19_chained_ctes(self):
-        """Multiple CTEs referencing each other — readmission analysis."""
+        """Multiple CTEs referencing each other -- readmission analysis."""
         sql = """
         WITH discharges AS (
             SELECT PAT_ID,
@@ -436,7 +436,7 @@ class TestLevel6_CTE:
 class TestLevel7_Subquery:
 
     def test_20_subquery_in_where(self):
-        """IN subquery — patients with a specific diagnosis."""
+        """IN subquery -- patients with a specific diagnosis."""
         sql = """
         SELECT p.PAT_MRN_ID, p.PAT_FIRST_NAME, p.PAT_LAST_NAME
         FROM PATIENT p
@@ -455,7 +455,7 @@ class TestLevel7_Subquery:
         assert sub.get("logic") is not None
 
     def test_21_exists_subquery(self):
-        """EXISTS — encounters with at least one medication order."""
+        """EXISTS -- encounters with at least one medication order."""
         sql = """
         SELECT e.PAT_ENC_CSN_ID, e.HOSP_ADMSN_TIME
         FROM PAT_ENC_HSP e
@@ -470,7 +470,7 @@ class TestLevel7_Subquery:
         assert any(s["context"] == "exists" for s in r["subqueries"])
 
     def test_22_scalar_subquery(self):
-        """Scalar subquery in SELECT — latest vitals."""
+        """Scalar subquery in SELECT -- latest vitals."""
         sql = """
         SELECT e.PAT_ENC_CSN_ID,
                (SELECT MAX(fm.RECORDED_TIME)
@@ -485,7 +485,7 @@ class TestLevel7_Subquery:
         assert len(r["subqueries"]) >= 1
 
     def test_23_derived_table(self):
-        """Subquery in FROM — inline view."""
+        """Subquery in FROM -- inline view."""
         sql = """
         SELECT dept_stats.DEPARTMENT_NAME,
                dept_stats.avg_los,
@@ -513,7 +513,7 @@ class TestLevel7_Subquery:
 class TestLevel8_SetOps:
 
     def test_24_union_all(self):
-        """UNION ALL — combining inpatient and ED encounters."""
+        """UNION ALL -- combining inpatient and ED encounters."""
         sql = """
         SELECT PAT_ENC_CSN_ID, PAT_ID, HOSP_ADMSN_TIME, 'Inpatient' AS source
         FROM PAT_ENC_HSP
@@ -529,7 +529,7 @@ class TestLevel8_SetOps:
         assert len(r.get("set_operations", [])) >= 1
 
     def test_25_union_in_cte(self):
-        """UNION inside a CTE — all encounter types."""
+        """UNION inside a CTE -- all encounter types."""
         sql = """
         WITH all_encounters AS (
             SELECT PAT_ID, PAT_ENC_CSN_ID, 'IP' AS enc_type FROM PAT_ENC_HSP WHERE ADT_PAT_CLASS_C = 1
@@ -556,7 +556,7 @@ class TestLevel8_SetOps:
 class TestLevel9_Complex:
 
     def test_26_readmission_report(self):
-        """Full 30-day readmission report — CTEs, window, CASE, aggregation."""
+        """Full 30-day readmission report -- CTEs, window, CASE, aggregation."""
         sql = """
         WITH index_encounters AS (
             SELECT e.PAT_ID,
@@ -630,7 +630,7 @@ class TestLevel9_Complex:
         assert len(r.get("order_by", [])) >= 1
 
     def test_27_cost_attribution(self):
-        """Cost attribution — joins, CASE, aggregation, multiple calculated fields."""
+        """Cost attribution -- joins, CASE, aggregation, multiple calculated fields."""
         sql = """
         SELECT p.PAT_MRN_ID,
                e.PAT_ENC_CSN_ID,
@@ -675,13 +675,13 @@ class TestLevel9_Complex:
         assert t["collection_rate_pct"] == "case"
         assert t["los_category"] == "case"
         assert len(r["joins"]) >= 5
-        # Derived table in JOIN — may appear as subquery source or as a join with subquery content
+        # Derived table in JOIN -- may appear as subquery source or as a join with subquery content
         has_subquery_source = any(s["type"] == "subquery" for s in r.get("sources", []))
         has_subquery_join = any("SELECT" in j.get("right_table", "") for j in r.get("joins", []))
         assert has_subquery_source or has_subquery_join
 
     def test_28_medication_timing(self):
-        """Window + CTE + CASE — medication administration timing analysis."""
+        """Window + CTE + CASE -- medication administration timing analysis."""
         sql = """
         WITH med_events AS (
             SELECT om.PAT_ENC_CSN_ID,
@@ -738,7 +738,7 @@ class TestLevel9_Complex:
 class TestLevel10_EdgeCases:
 
     def test_29_select_star(self):
-        """SELECT * — should detect star."""
+        """SELECT * -- should detect star."""
         sql = "SELECT * FROM PATIENT WHERE PAT_STATUS = 'Active'"
         r = extract(sql)
         assert any(o["type"] == "star" for o in r["outputs"])
@@ -750,7 +750,7 @@ class TestLevel10_EdgeCases:
         assert r.get("distinct") is True
 
     def test_31_or_conditions(self):
-        """OR in WHERE — should NOT split (only AND splits)."""
+        """OR in WHERE -- should NOT split (only AND splits)."""
         sql = """
         SELECT PAT_MRN_ID
         FROM PATIENT
@@ -762,7 +762,7 @@ class TestLevel10_EdgeCases:
         assert len(where_filters) == 1
 
     def test_32_coalesce_and_functions(self):
-        """COALESCE, ISNULL, string functions — all calculated."""
+        """COALESCE, ISNULL, string functions -- all calculated."""
         sql = """
         SELECT PAT_MRN_ID,
                COALESCE(PAT_FIRST_NAME, 'Unknown') AS first_name,
@@ -790,7 +790,7 @@ class TestLevel10_EdgeCases:
         assert len(where_filters) == 3
 
     def test_34_multiple_statements(self):
-        """Multiple SQL statements — should handle gracefully."""
+        """Multiple SQL statements -- should handle gracefully."""
         sql = """
         SELECT 1 AS a FROM DUAL;
         SELECT 2 AS b FROM DUAL;

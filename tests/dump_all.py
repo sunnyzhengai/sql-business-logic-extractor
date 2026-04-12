@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Dump extraction output for every test query across all test files.
 
 Generates per-query output files with:
@@ -355,7 +356,7 @@ QUERIES = {
     """,
 
     # =======================================================================
-    # Layer 2 tests (test_normalize.py) — additional queries
+    # Layer 2 tests (test_normalize.py) -- additional queries
     # =======================================================================
     "L2_06_date_calculation": """
         SELECT DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days FROM PAT_ENC_HSP e
@@ -378,7 +379,7 @@ QUERIES = {
     """,
 
     # =======================================================================
-    # Layer 3 tests (test_compare.py) — comparison pairs
+    # Layer 3 tests (test_compare.py) -- comparison pairs
     # =======================================================================
     "L3_los_query_a": """
         SELECT DATEDIFF(DAY, e.HOSP_ADMSN_TIME, e.HOSP_DISCH_TIME) AS los_days FROM PAT_ENC_HSP e
@@ -394,7 +395,7 @@ QUERIES = {
     """,
 
     # =======================================================================
-    # Layer 5 tests (test_resolve.py) — lineage resolution
+    # Layer 5 tests (test_resolve.py) -- lineage resolution
     # =======================================================================
     "L5_04_cte_passthrough": """
         WITH enc AS (

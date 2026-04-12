@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-SQL Business Logic Extractor — Layer 3: Compare
+SQL Business Logic Extractor -- Layer 3: Compare
 
 Compares business definitions across multiple SQL queries to find:
   - Exact duplicates (same normalized expression)

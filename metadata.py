@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-SQL Business Logic Extractor — Metadata Layer
+SQL Business Logic Extractor -- Metadata Layer
 
 Column/table descriptions for Epic Clarity (mock data for development).
 In production, replace COLUMN_DESCRIPTIONS and TABLE_DESCRIPTIONS with
@@ -50,7 +51,7 @@ COLUMN_DESCRIPTIONS = {
     ("PATIENT", "PRIMARY_DX_CODE"): "Patient primary diagnosis code",
 
     # PAT_ENC_HSP
-    ("PAT_ENC_HSP", "PAT_ENC_CSN_ID"): "Contact Serial Number — unique encounter identifier",
+    ("PAT_ENC_HSP", "PAT_ENC_CSN_ID"): "Contact Serial Number -- unique encounter identifier",
     ("PAT_ENC_HSP", "PAT_ID"): "Internal patient identifier (FK to PATIENT)",
     ("PAT_ENC_HSP", "HOSP_ADMSN_TIME"): "Hospital admission date and time",
     ("PAT_ENC_HSP", "HOSP_DISCH_TIME"): "Hospital discharge date and time",
@@ -65,7 +66,7 @@ COLUMN_DESCRIPTIONS = {
 
     # PAT_ENC
     ("PAT_ENC", "PAT_ID"): "Internal patient identifier",
-    ("PAT_ENC", "PAT_ENC_CSN_ID"): "Contact Serial Number — unique encounter identifier",
+    ("PAT_ENC", "PAT_ENC_CSN_ID"): "Contact Serial Number -- unique encounter identifier",
     ("PAT_ENC", "ENC_TYPE_C"): "Encounter type category",
 
     # CLARITY_DEP

@@ -1,5 +1,5 @@
 """
-Test cases for Lineage Resolution — tracing every output to base table.column.
+Test cases for Lineage Resolution -- tracing every output to base table.column.
 
 Run: python3 -m pytest tests/test_resolve.py -v
 """
@@ -25,7 +25,7 @@ def base_tables(col):
 
 
 # ============================================================
-# Simple queries — should already resolve to base tables
+# Simple queries -- should already resolve to base tables
 # ============================================================
 
 class TestSimpleResolution:
@@ -59,7 +59,7 @@ class TestSimpleResolution:
 
 
 # ============================================================
-# Single CTE — passthrough should resolve through
+# Single CTE -- passthrough should resolve through
 # ============================================================
 
 class TestSingleCTE:
@@ -109,7 +109,7 @@ class TestSingleCTE:
 
 
 # ============================================================
-# Chained CTEs — multiple hops
+# Chained CTEs -- multiple hops
 # ============================================================
 
 class TestChainedCTEs:
@@ -122,7 +122,7 @@ class TestChainedCTEs:
             SELECT PAT_ID FROM b
         """)
         assert "PAT_ENC_HSP.PAT_ID" in cols["PAT_ID"].base_columns
-        # Chain should have 3 entries: query → b → a
+        # Chain should have 3 entries: query -> b -> a
         assert len(cols["PAT_ID"].transformation_chain) >= 3
 
     def test_08_calculated_through_chain(self):
@@ -227,7 +227,7 @@ class TestDerivedTables:
 class TestMixed:
 
     def test_13_cte_join_base_table(self):
-        """CTE joined with base table — both resolve correctly."""
+        """CTE joined with base table -- both resolve correctly."""
         cols = resolve("""
             WITH enc AS (
                 SELECT e.PAT_ID,
@@ -243,7 +243,7 @@ class TestMixed:
         assert "PAT_ENC_HSP" in cols["los_days"].base_tables
 
     def test_14_readmission_full_chain(self):
-        """Full readmission report — 3 CTEs, everything resolves to PAT_ENC_HSP."""
+        """Full readmission report -- 3 CTEs, everything resolves to PAT_ENC_HSP."""
         cols = resolve("""
             WITH base AS (
                 SELECT e.PAT_ID, e.PAT_ENC_CSN_ID,
@@ -265,15 +265,15 @@ class TestMixed:
             )
             SELECT disch_status, discharges, avg_los FROM summary
         """)
-        # disch_status should trace: summary(passthrough) → base(CASE) → PAT_ENC_HSP
+        # disch_status should trace: summary(passthrough) -> base(CASE) -> PAT_ENC_HSP
         assert cols["disch_status"].type == "case"
         assert "PAT_ENC_HSP" in cols["disch_status"].base_tables
 
-        # avg_los should trace: summary(AVG(los_days)) → base(DATEDIFF) → PAT_ENC_HSP
+        # avg_los should trace: summary(AVG(los_days)) -> base(DATEDIFF) -> PAT_ENC_HSP
         assert cols["avg_los"].type == "aggregate"
         assert "PAT_ENC_HSP" in cols["avg_los"].base_tables
 
-        # discharges is COUNT(*) — no base columns but filters should be there
+        # discharges is COUNT(*) -- no base columns but filters should be there
         assert cols["discharges"].type == "aggregate"
 
     def test_15_no_infinite_loop(self):

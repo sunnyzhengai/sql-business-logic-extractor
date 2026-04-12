@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-SQL Business Logic Extractor — Layer 4: Translate
+SQL Business Logic Extractor -- Layer 4: Translate
 
 Converts normalized business definitions into plain English descriptions
 using pattern templates + column/table metadata.
 
-No LLM required — deterministic template-based translation.
+No LLM required -- deterministic template-based translation.
 """
 
 import json
@@ -34,7 +35,7 @@ def _col_desc(qualified: str) -> str:
 
 
 def _col_desc_short(qualified: str) -> str:
-    """Short version — just the description without the qualified name."""
+    """Short version -- just the description without the qualified name."""
     parts = qualified.split(".")
     if len(parts) == 2:
         desc = metadata.get_column_description(parts[0], parts[1])
@@ -412,7 +413,7 @@ def translate_query(sql: str, query_label: str = "", dialect: str = None) -> lis
 
 
 def translate_resolved(sql: str, dialect: str = None) -> list[dict]:
-    """Translate with full resolved lineage — complete business definitions.
+    """Translate with full resolved lineage -- complete business definitions.
 
     Unlike translate_query which only looks one scope deep, this uses
     Layer 5 lineage resolution to trace every column to base tables,

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-SQL Business Logic Extractor — Layer 2: Normalize
+SQL Business Logic Extractor -- Layer 2: Normalize
 
 Takes Layer 1 extraction output and produces normalized, comparable
 business definitions with:
-  - Alias resolution (e.table → real_table.column)
+  - Alias resolution (e.table -> real_table.column)
   - Canonical expression forms (sorted ANDs, lowercased functions)
   - AST-based signatures for equality/similarity matching
   - Pattern classification (date_calculation, classification, aggregation, etc.)
@@ -80,12 +81,12 @@ class AliasResolver:
             if ra and ra != rt:
                 self._alias_map[ra.lower()] = rt
 
-        # CTEs — the CTE name IS the table name (don't resolve further)
+        # CTEs -- the CTE name IS the table name (don't resolve further)
         for cte in logic.get("ctes", []):
             cte_name = cte.get("name", "")
             self._alias_map[cte_name.lower()] = cte_name
 
-        # Subquery sources — treat aliases as opaque names (don't resolve to raw SQL)
+        # Subquery sources -- treat aliases as opaque names (don't resolve to raw SQL)
         for src in logic.get("sources", []):
             if src.get("type") == "subquery" and src.get("alias"):
                 alias = src["alias"]
@@ -130,7 +131,7 @@ def canonicalize_expression(sql_expr: str) -> str:
         return ""
     try:
         parsed = sqlglot.parse_one(sql_expr)
-        # Strip alias — we only care about the expression, not its name
+        # Strip alias -- we only care about the expression, not its name
         if isinstance(parsed, exp.Alias):
             parsed = parsed.this
         canonical = parsed.sql(pretty=False, normalize=True)
@@ -395,7 +396,7 @@ def classify_filter(f: dict) -> tuple[str, Optional[str]]:
 
 
 # ---------------------------------------------------------------------------
-# Normalizer: Layer 1 → Layer 2
+# Normalizer: Layer 1 -> Layer 2
 # ---------------------------------------------------------------------------
 
 class BusinessLogicNormalizer:

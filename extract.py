@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-SQL Business Logic Extractor — Layer 1
+SQL Business Logic Extractor -- Layer 1
 
 Parses SQL queries and extracts transformations, filters, joins, aggregations,
 window functions, CTEs, and column-level lineage into a structured format.
@@ -135,11 +136,11 @@ class QueryLogic:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _sql(node) -> str:
+def _sql(node, dialect=None) -> str:
     if node is None:
         return ""
     try:
-        return node.sql(pretty=False)
+        return node.sql(pretty=False, dialect=dialect)
     except Exception:
         return str(node)
 
@@ -306,7 +307,7 @@ class SQLBusinessLogicExtractor:
 
         for cte in with_clause.find_all(exp.CTE):
             cte_name = cte.alias
-            cte_sql = _sql(cte.this)
+            cte_sql = _sql(cte.this, dialect=self.dialect)
             sub_logic = None
             try:
                 sub_logic = to_dict(SQLBusinessLogicExtractor(dialect=self.dialect).extract(cte_sql))
@@ -338,10 +339,10 @@ class SQLBusinessLogicExtractor:
                 schema=schema, type="table",
             ))
 
-        # Derived tables (subqueries in FROM) — extract recursively
+        # Derived tables (subqueries in FROM) -- extract recursively
         for subq in from_clause.find_all(exp.Subquery):
             alias = subq.alias or None
-            inner_sql = _sql(subq.this)
+            inner_sql = _sql(subq.this, dialect=self.dialect)
             sub_logic = None
             try:
                 sub_logic = to_dict(SQLBusinessLogicExtractor(dialect=self.dialect).extract(inner_sql))
@@ -551,7 +552,7 @@ class SQLBusinessLogicExtractor:
         ))
 
     def _add_subquery_from_select(self, select_node, context: str, logic: QueryLogic):
-        inner_sql = _sql(select_node)
+        inner_sql = _sql(select_node, dialect=self.dialect)
         sub_logic = None
         try:
             sub_logic = to_dict(SQLBusinessLogicExtractor(dialect=self.dialect).extract(inner_sql))

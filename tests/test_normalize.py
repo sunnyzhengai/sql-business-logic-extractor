@@ -1,6 +1,6 @@
 """
 Test cases for Layer 2: Normalization and Business Definition extraction.
-Healthcare analytics focus — Epic Clarity patterns.
+Healthcare analytics focus -- Epic Clarity patterns.
 
 Run: python3 -m pytest tests/test_normalize.py -v
 """

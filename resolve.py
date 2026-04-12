@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SQL Business Logic Extractor -- Lineage Resolution
+SQL Business Logic Extractor -- L3: Resolve Lineage
 
 Traces every output column through CTEs, subqueries, and derived tables
 all the way down to base table.column references.
 
-Takes Layer 1 extraction output and produces a fully resolved lineage
+Takes L1 extraction output and produces a fully resolved lineage
 where every passthrough is inlined to show the complete transformation chain.
+
+Pipeline: L1 (parse) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
 """
 
 import json

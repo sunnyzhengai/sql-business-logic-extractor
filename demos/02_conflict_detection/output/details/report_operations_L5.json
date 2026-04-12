@@ -1,0 +1,130 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_ID",
+      "direct_expression": "p.PAT_ID",
+      "base_columns": [
+        "PATIENT.PAT_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+      ]
+    },
+    {
+      "name": "PAT_NAME",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_NAME",
+      "direct_expression": "p.PAT_NAME",
+      "base_columns": [
+        "PATIENT.PAT_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+      ]
+    },
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC.PAT_ENC_CSN_ID",
+      "direct_expression": "e.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC"
+      ],
+      "filters": [
+        "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+      ]
+    },
+    {
+      "name": "admission_date",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC.APPT_TIME",
+      "direct_expression": "e.APPT_TIME AS admission_date",
+      "base_columns": [
+        "PAT_ENC.APPT_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC"
+      ],
+      "filters": [
+        "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+      ]
+    },
+    {
+      "name": "discharge_date",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC.CONTACT_DATE",
+      "direct_expression": "e.CONTACT_DATE AS discharge_date",
+      "base_columns": [
+        "PAT_ENC.CONTACT_DATE"
+      ],
+      "base_tables": [
+        "PAT_ENC"
+      ],
+      "filters": [
+        "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+      ]
+    },
+    {
+      "name": "length_of_stay",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(HOUR, e.APPT_TIME, CONTACT_DATE)",
+      "direct_expression": "DATEDIFF(HOUR, e.APPT_TIME, CONTACT_DATE) AS length_of_stay",
+      "base_columns": [
+        "PAT_ENC.HOUR",
+        "PAT_ENC.APPT_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC"
+      ],
+      "filters": [
+        "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+      ]
+    },
+    {
+      "name": "readmission_flag",
+      "type": "case",
+      "resolved_expression": "CASE WHEN EXISTS(SELECT 1 FROM PAT_ENC AS e2 WHERE e2.PAT_ID = e.PAT_ID AND e2.APPT_TIME > e.CONTACT_DATE AND DATEDIFF(DAY, e.CONTACT_DATE, APPT_TIME) <= 7) THEN 1 ELSE 0 END /* Readmission: Within 7 days (not 30!) using encounter dates */",
+      "direct_expression": "CASE WHEN EXISTS(SELECT 1 FROM PAT_ENC AS e2 WHERE e2.PAT_ID = e.PAT_ID AND e2.APPT_TIME > e.CONTACT_DATE AND DATEDIFF(DAY, e.CONTACT_DATE, APPT_TIME) <= 7) THEN 1 ELSE 0 END /* Readmission: Within 7 days (not 30!) using encounter dates */ AS readmission_flag",
+      "base_columns": [
+        "PAT_ENC.PAT_ID",
+        "PAT_ENC.APPT_TIME",
+        "PAT_ENC.CONTACT_DATE",
+        "PAT_ENC.DAY"
+      ],
+      "base_tables": [
+        "PAT_ENC"
+      ],
+      "filters": [
+        "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+      ]
+    },
+    {
+      "name": "patient_age",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE())",
+      "direct_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) AS patient_age",
+      "base_columns": [
+        "PAT_ENC.YEAR",
+        "PATIENT.BIRTH_DATE"
+      ],
+      "base_tables": [
+        "PAT_ENC",
+        "PATIENT"
+      ],
+      "filters": [
+        "e.ENC_TYPE_C = 3 /* Hospital encounters only */"
+      ]
+    }
+  ]
+}

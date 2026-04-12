@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SQL Business Logic Extractor -- Lineage-Based Comparison
+SQL Business Logic Extractor -- L5: Compare
 
-Compares resolved lineage (L5 output) across multiple SQL queries to find:
+Compares resolved lineage (L3 output) across multiple SQL queries to find:
   - Exact duplicates (same resolved expression + base columns)
   - Structural matches (same pattern, different base tables/columns)
   - Semantic matches (same transformation type + overlapping base tables)
+  - Conflicts (same name, different logic)
 
-This is more accurate than L2 comparison because:
+This is more accurate than comparing normalized expressions because:
   - CTEs are fully inlined to base tables
   - Comparison is on actual business logic, not SQL structure
   - Filters are included in the comparison
+
+Pipeline: L1 (parse) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
 """
 
 import hashlib

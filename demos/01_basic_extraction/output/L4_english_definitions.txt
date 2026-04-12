@@ -1,0 +1,688 @@
+================================================================================
+SQL QUERY BUSINESS LOGIC DOCUMENTATION
+================================================================================
+
+# QUERY SUMMARY
+
+   This query produces a detailed report on patient referrals, including patient demographics, referral details, appointment outcomes, and risk assessments. It focuses on referrals with at least 10 distinct entries in the past two years, providing metrics such as age category, active problem count, appointment lead times, and specialty conversion and completion rates. The query also assesses patient risk levels and referral success based on appointment outcomes.
+
+   Primary Purpose: To analyze patient referral patterns and outcomes, assessing both the efficiency of the referral process and patient risk levels.
+
+   Key Entities: patients, referrals, appointments
+   Key Metrics: age category, active problem count, days to appointment, lead time days, visit duration, cumulative no shows, specialty conversion rate, specialty completion rate, patient risk flag, referral success flag
+   Source Tables: CLARITY_DEP, CLARITY_SER, F_SCHED_APPT, PATIENT, REFERRAL, ZC_RFL_STATUS, ZC_SPECIALTY, pl
+   Business Domains: Appointment Metrics, Clinical Risk, Organizational Structure, Patient Demographics, Referral Classification, Referral Management, Referral Tracking
+   Total Columns: 26
+
+================================================================================
+
+# COLUMN DEFINITIONS
+
+## REFERRAL_ID (passthrough)
+   Domain: Referral Tracking
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: REFERRAL.REFERRAL_ID
+
+   Base Tables: REFERRAL
+   Base Columns: REFERRAL.REFERRAL_ID
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+   Transformation Chain:
+     -> query.REFERRAL_ID (passthrough)
+     -> referral_appointments.REFERRAL_ID (passthrough)
+     -> base_referrals.REFERRAL_ID (passthrough)
+
+   ### Business Definition (for business users)
+
+   Unique identifier for a referral, filtered to include only those with the first appointment in the sequence or no sequence, with at least 10 distinct referrals, entered in the last 2 years, and with a non-null status.
+
+--------------------------------------------------------------------------------
+
+## PAT_ID (passthrough)
+   Domain: Referral Tracking
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: REFERRAL.PAT_ID
+
+   Base Tables: REFERRAL
+   Base Columns: REFERRAL.PAT_ID
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+   Transformation Chain:
+     -> query.PAT_ID (passthrough)
+     -> referral_appointments.PAT_ID (passthrough)
+     -> base_referrals.PAT_ID (passthrough)
+
+   ### Business Definition (for business users)
+
+   Patient ID from the REFERRAL table for patients with at least 10 distinct referrals, where the first or no appointment sequence is recorded, the referral entry date is within the last 2 years, and the referral status is not null.
+
+--------------------------------------------------------------------------------
+
+## PAT_NAME (passthrough)
+   Domain: Patient Demographics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: PATIENT.PAT_NAME
+
+   Base Tables: PATIENT
+   Base Columns: PATIENT.PAT_NAME
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - pl.PAT_ID = p.PAT_ID
+     - pl.RESOLVED_DATE IS NULL
+   Transformation Chain:
+     -> query.PAT_NAME (passthrough)
+     -> referral_appointments.PAT_NAME (passthrough)
+     -> patient_risk.PAT_NAME (passthrough)
+
+   ### Business Definition (for business users)
+
+   The full name of the patient.
+
+--------------------------------------------------------------------------------
+
+## age_years (calculated)
+   Domain: Patient Demographics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE())
+
+   Base Tables: PATIENT
+   Base Columns: PATIENT.YEAR, PATIENT.BIRTH_DATE
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - pl.PAT_ID = p.PAT_ID
+     - pl.RESOLVED_DATE IS NULL
+   Transformation Chain:
+     -> query.age_years (passthrough)
+     -> referral_appointments.age_years (passthrough)
+     -> patient_risk.age_years (calculated)
+
+   ### Business Definition (for business users)
+
+   The number of years between the patient's birth date and the current date.
+
+--------------------------------------------------------------------------------
+
+## age_category (case)
+   Domain: Patient Demographics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: CASE WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) < 18 THEN 'Pediatric' WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) BETWEEN 18 AND 40 THEN 'Young Adult' WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) BETWEEN 41 AND 65 THEN 'Middle Age' ELSE 'Senior' END /* Age-based risk category */
+
+   Base Tables: PATIENT
+   Base Columns: PATIENT.YEAR, PATIENT.BIRTH_DATE
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - pl.PAT_ID = p.PAT_ID
+     - pl.RESOLVED_DATE IS NULL
+   Transformation Chain:
+     -> query.age_category (passthrough)
+     -> referral_appointments.age_category (passthrough)
+     -> patient_risk.age_category (case)
+
+   ### Business Definition (for business users)
+
+   Categorizes age as 'Pediatric' if under 18, 'Young Adult' if between 18 and 40, 'Middle Age' if between 41 and 65, and 'Senior' if over 65, based on the difference in years between birth date and today.
+
+--------------------------------------------------------------------------------
+
+## active_problem_count (subquery)
+   Domain: Clinical Risk
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: (SELECT COUNT(*) FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL) /* Count of active problems (subquery) */
+
+   Base Tables: pl, PATIENT
+   Base Columns: pl.PAT_ID, PATIENT.PAT_ID, pl.RESOLVED_DATE
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - pl.PAT_ID = p.PAT_ID
+     - pl.RESOLVED_DATE IS NULL
+   Transformation Chain:
+     -> query.active_problem_count (passthrough)
+     -> referral_appointments.active_problem_count (passthrough)
+     -> patient_risk.active_problem_count (subquery)
+
+   ### Business Definition (for business users)
+
+   Counts the number of unresolved problems for a patient.
+
+--------------------------------------------------------------------------------
+
+## referral_date (passthrough)
+   Domain: Referral Tracking
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: REFERRAL.ENTRY_DATE
+
+   Base Tables: REFERRAL
+   Base Columns: REFERRAL.ENTRY_DATE
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+   Transformation Chain:
+     -> query.referral_date (passthrough)
+     -> referral_appointments.referral_date (passthrough)
+     -> base_referrals.referral_date (passthrough)
+
+   ### Business Definition (for business users)
+
+   The date a referral was created, filtered for the first appointment sequence or no sequence, with at least 10 distinct referrals, created in the last 2 years, and with a non-null status.
+
+--------------------------------------------------------------------------------
+
+## referral_status_name (passthrough)
+   Domain: Referral Management
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: ZC_RFL_STATUS.NAME
+
+   Base Tables: ZC_RFL_STATUS
+   Base Columns: ZC_RFL_STATUS.NAME
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+   Transformation Chain:
+     -> query.referral_status_name (passthrough)
+     -> referral_appointments.referral_status_name (passthrough)
+     -> base_referrals.referral_status_name (passthrough)
+
+   ### Business Definition (for business users)
+
+   The name of the referral status from the ZC_RFL_STATUS table, such as Authorized, Open, Pending Review, Canceled, Denied, Closed, New Request, or Incomplete.
+
+--------------------------------------------------------------------------------
+
+## specialty_name (passthrough)
+   Domain: Patient Demographics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: ZC_SPECIALTY.NAME
+
+   Base Tables: ZC_SPECIALTY
+   Base Columns: ZC_SPECIALTY.NAME
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+   Transformation Chain:
+     -> query.specialty_name (passthrough)
+     -> referral_appointments.specialty_name (passthrough)
+     -> base_referrals.specialty_name (passthrough)
+
+   ### Business Definition (for business users)
+
+   The specialty name from the ZC_SPECIALTY table.
+
+--------------------------------------------------------------------------------
+
+## referral_class (case)
+   Domain: Referral Classification
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: CASE r.RFL_CLASS_C WHEN 1 THEN 'Internal' WHEN 2 THEN 'Incoming' WHEN 3 THEN 'Outgoing' ELSE 'Unknown' END
+
+   Base Tables: REFERRAL
+   Base Columns: REFERRAL.RFL_CLASS_C
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+   Transformation Chain:
+     -> query.referral_class (passthrough)
+     -> referral_appointments.referral_class (passthrough)
+     -> base_referrals.referral_class (case)
+
+   ### Business Definition (for business users)
+
+   Assigns 'Internal' for value 1, 'Incoming' for value 2, 'Outgoing' for value 3, and 'Unknown' for other values in the referral class category.
+
+--------------------------------------------------------------------------------
+
+## referral_category (case)
+   Domain: Referral Management
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: CASE WHEN r.REFERRAL_STATUS_C IN (1, 2) THEN 'Active' WHEN r.REFERRAL_STATUS_C IN (4, 5) THEN 'Closed-Negative' WHEN r.REFERRAL_STATUS_C = 6 THEN 'Closed-Complete' ELSE 'Pending' END
+
+   Base Tables: REFERRAL
+   Base Columns: REFERRAL.REFERRAL_STATUS_C
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+   Transformation Chain:
+     -> query.referral_category (passthrough)
+     -> referral_appointments.referral_category (passthrough)
+     -> base_referrals.referral_category (case)
+
+   ### Business Definition (for business users)
+
+   Categorizes referral status as 'Active' for status codes 1 or 2, 'Closed-Negative' for codes 4 or 5, 'Closed-Complete' for code 6, and 'Pending' for all other codes.
+
+--------------------------------------------------------------------------------
+
+## first_appt_csn (passthrough)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: F_SCHED_APPT.PAT_ENC_CSN_ID
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.PAT_ENC_CSN_ID
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+   Transformation Chain:
+     -> query.first_appt_csn (passthrough)
+     -> referral_appointments.PAT_ENC_CSN_ID (passthrough)
+     -> appointment_history.PAT_ENC_CSN_ID (passthrough)
+
+   ### Business Definition (for business users)
+
+   Scheduled appointment identifier for the first appointment in a referral sequence, with at least 10 distinct referrals in the past 2 years.
+
+--------------------------------------------------------------------------------
+
+## first_appt_date (passthrough)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: F_SCHED_APPT.APPT_DTTM
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.APPT_DTTM
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+   Transformation Chain:
+     -> query.first_appt_date (passthrough)
+     -> referral_appointments.APPT_DTTM (passthrough)
+     -> appointment_history.APPT_DTTM (passthrough)
+
+   ### Business Definition (for business users)
+
+   The date and time of the first appointment for referrals with at least 10 distinct referrals, scheduled within the last 2 years.
+
+--------------------------------------------------------------------------------
+
+## first_appt_outcome (case)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END /* Appointment outcome classification */
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.APPT_STATUS_C
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+   Transformation Chain:
+     -> query.first_appt_outcome (passthrough)
+     -> referral_appointments.appt_outcome (passthrough)
+     -> appointment_history.appt_outcome (case)
+
+   ### Business Definition (for business users)
+
+   Classifies appointment status as 'Completed', 'Cancelled', 'No Show', 'Left Without Seen', 'Arrived', or 'Scheduled' based on the value of APPT_STATUS_C.
+
+--------------------------------------------------------------------------------
+
+## DEPARTMENT_NAME (passthrough)
+   Domain: Organizational Structure
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: CLARITY_DEP.DEPARTMENT_NAME
+
+   Base Tables: CLARITY_DEP
+   Base Columns: CLARITY_DEP.DEPARTMENT_NAME
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+   Transformation Chain:
+     -> query.DEPARTMENT_NAME (passthrough)
+     -> referral_appointments.DEPARTMENT_NAME (passthrough)
+     -> appointment_history.DEPARTMENT_NAME (passthrough)
+
+   ### Business Definition (for business users)
+
+   The name of the department as listed in the department master file.
+
+--------------------------------------------------------------------------------
+
+## first_appt_provider (passthrough)
+   Domain: Patient Demographics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: CLARITY_SER.PROV_NAME
+
+   Base Tables: CLARITY_SER
+   Base Columns: CLARITY_SER.PROV_NAME
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+   Transformation Chain:
+     -> query.first_appt_provider (passthrough)
+     -> referral_appointments.PROV_NAME (passthrough)
+     -> appointment_history.PROV_NAME (passthrough)
+
+   ### Business Definition (for business users)
+
+   Provider's full name from the provider master file.
+
+--------------------------------------------------------------------------------
+
+## days_to_appointment (calculated)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: DATEDIFF(DAY, br.referral_date, APPT_DTTM)
+
+   Base Tables: REFERRAL
+   Base Columns: .DAY, REFERRAL.ENTRY_DATE
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+   Transformation Chain:
+     -> query.days_to_appointment (passthrough)
+     -> referral_appointments.days_to_appointment (calculated)
+     -> base_referrals.referral_date (passthrough)
+
+   ### Business Definition (for business users)
+
+   Number of days between the referral date and the appointment date.
+
+--------------------------------------------------------------------------------
+
+## lead_time_days (calculated)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: DATEDIFF(DAY, fa.APPT_MADE_DTTM, APPT_DTTM)
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.DAY, F_SCHED_APPT.APPT_MADE_DTTM
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+   Transformation Chain:
+     -> query.lead_time_days (passthrough)
+     -> referral_appointments.lead_time_days (passthrough)
+     -> appointment_history.lead_time_days (calculated)
+
+   ### Business Definition (for business users)
+
+   The number of days between when the appointment was scheduled and the appointment date.
+
+--------------------------------------------------------------------------------
+
+## visit_duration_minutes (case)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: CASE WHEN NOT fa.CHECKIN_DTTM IS NULL AND NOT fa.CHECKOUT_DTTM IS NULL THEN DATEDIFF(MINUTE, fa.CHECKIN_DTTM, CHECKOUT_DTTM) ELSE NULL END /* Wait time in minutes (check-in to checkout) */
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.MINUTE, F_SCHED_APPT.CHECKIN_DTTM, F_SCHED_APPT.CHECKOUT_DTTM
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+   Transformation Chain:
+     -> query.visit_duration_minutes (passthrough)
+     -> referral_appointments.visit_duration_minutes (passthrough)
+     -> appointment_history.visit_duration_minutes (case)
+
+   ### Business Definition (for business users)
+
+   Calculates the difference in minutes between the check-in and check-out times if both are available; otherwise, returns NULL.
+
+--------------------------------------------------------------------------------
+
+## cumulative_no_shows (window)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: SUM(CASE WHEN fa.APPT_STATUS_C = 4 THEN 1 ELSE 0 END) OVER (PARTITION BY fa.PAT_ID ORDER BY fa.APPT_DTTM ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.PAT_ID, F_SCHED_APPT.APPT_DTTM, F_SCHED_APPT.APPT_STATUS_C
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+   Transformation Chain:
+     -> query.cumulative_no_shows (passthrough)
+     -> referral_appointments.cumulative_no_shows (passthrough)
+     -> appointment_history.cumulative_no_shows (window)
+
+   ### Business Definition (for business users)
+
+   Cumulative count of appointments with status code 4 for each patient, ordered by appointment date and time.
+
+--------------------------------------------------------------------------------
+
+## specialty_avg_days (aggregate)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: AVG(CAST(DATEDIFF(DAY, br.referral_date, APPT_DTTM) AS FLOAT))
+
+   Base Tables: REFERRAL
+   Base Columns: .DAY, REFERRAL.ENTRY_DATE
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+   Transformation Chain:
+     -> query.specialty_avg_days (passthrough)
+     -> specialty_metrics.avg_days_to_first_appt (aggregate)
+     -> referral_appointments.days_to_appointment (calculated)
+     -> base_referrals.referral_date (passthrough)
+
+   ### Business Definition (for business users)
+
+   Average number of days between the referral date and the appointment date for first or only appointments, calculated for referrals created in the last two years with at least 10 distinct referrals and a non-null status.
+
+--------------------------------------------------------------------------------
+
+## days_vs_specialty_avg (calculated)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: COALESCE(DATEDIFF(DAY, br.referral_date, APPT_DTTM), 0) - COALESCE(AVG(CAST(days_to_appointment AS FLOAT)), 0)
+
+   Base Tables: REFERRAL
+   Base Columns: .DAY, REFERRAL.ENTRY_DATE
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+     - appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL
+   Transformation Chain:
+     -> query.days_vs_specialty_avg (calculated)
+     -> referral_appointments.days_to_appointment (calculated)
+     -> base_referrals.referral_date (passthrough)
+     -> specialty_metrics.avg_days_to_first_appt (aggregate)
+     -> referral_appointments.days_to_appointment (calculated)
+     ... (1 more steps)
+
+   ### Business Definition (for business users)
+
+   Difference in days between the referral date and appointment date minus the average days to appointment, with defaults of 0 if values are missing.
+
+--------------------------------------------------------------------------------
+
+## specialty_conversion_rate (aggregate)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: CAST(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END) AS FLOAT) / NULLIF(COUNT(DISTINCT REFERRAL_ID), 0) * 100
+
+   Base Tables: REFERRAL, F_SCHED_APPT
+   Base Columns: REFERRAL.REFERRAL_ID, F_SCHED_APPT.PAT_ENC_CSN_ID
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+   Transformation Chain:
+     -> query.specialty_conversion_rate (passthrough)
+     -> specialty_metrics.conversion_rate_pct (aggregate)
+     -> referral_appointments.REFERRAL_ID (passthrough)
+     -> base_referrals.REFERRAL_ID (passthrough)
+     -> referral_appointments.REFERRAL_ID (passthrough)
+     ... (3 more steps)
+
+   ### Business Definition (for business users)
+
+   Percentage of unique referrals with a non-null appointment identifier out of all unique referrals, calculated only if there are at least 10 unique referrals.
+
+--------------------------------------------------------------------------------
+
+## specialty_completion_rate (aggregate)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: CAST(COUNT(DISTINCT CASE WHEN appt_outcome = 'Completed' THEN REFERRAL_ID END) AS FLOAT) / NULLIF(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END), 0) * 100
+
+   Base Tables: REFERRAL, F_SCHED_APPT
+   Base Columns: REFERRAL.REFERRAL_ID, F_SCHED_APPT.APPT_STATUS_C, F_SCHED_APPT.PAT_ENC_CSN_ID
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+   Transformation Chain:
+     -> query.specialty_completion_rate (passthrough)
+     -> specialty_metrics.completion_rate_pct (aggregate)
+     -> referral_appointments.REFERRAL_ID (passthrough)
+     -> base_referrals.REFERRAL_ID (passthrough)
+     -> referral_appointments.REFERRAL_ID (passthrough)
+     ... (5 more steps)
+
+   ### Business Definition (for business users)
+
+   Percentage of distinct referrals with a 'Completed' appointment outcome, divided by the total distinct referrals with a scheduled appointment, multiplied by 100.
+
+--------------------------------------------------------------------------------
+
+## patient_risk_flag (case)
+   Domain: Clinical Risk
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: CASE WHEN ra.cumulative_no_shows >= 3 THEN 'High Risk - Multiple No Shows' WHEN ra.cumulative_no_shows >= 1 AND ra.age_category = 'Senior' THEN 'Medium Risk - Senior with No Show History' WHEN ra.active_problem_count >= 5 THEN 'Medium Risk - Complex Patient' WHEN DATEDIFF(DAY, br.referral_date, APPT_DTTM) > AVG(CAST(days_to_appointment AS FLOAT)) * 2 THEN 'Medium Risk - Long Wait Time' ELSE 'Standard' END /* Risk flags */
+
+   Base Tables: F_SCHED_APPT, pl, PATIENT, REFERRAL
+   Base Columns: F_SCHED_APPT.PAT_ID, F_SCHED_APPT.APPT_DTTM, F_SCHED_APPT.APPT_STATUS_C, pl.PAT_ID, PATIENT.PAT_ID, pl.RESOLVED_DATE, .DAY, REFERRAL.ENTRY_DATE, PATIENT.YEAR, PATIENT.BIRTH_DATE
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+     - pl.PAT_ID = p.PAT_ID
+     - pl.RESOLVED_DATE IS NULL
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+     - appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL
+   Transformation Chain:
+     -> query.patient_risk_flag (case)
+     -> referral_appointments.cumulative_no_shows (passthrough)
+     -> appointment_history.cumulative_no_shows (window)
+     -> referral_appointments.active_problem_count (passthrough)
+     -> patient_risk.active_problem_count (subquery)
+     ... (9 more steps)
+
+   ### Business Definition (for business users)
+
+   Assigns 'High Risk - Multiple No Shows' if cumulative no-shows are 3 or more; 'Medium Risk - Senior with No Show History' if cumulative no-shows are 1 or more and age category is 'Senior'; 'Medium Risk - Complex Patient' if active problem count is 5 or more; 'Medium Risk - Long Wait Time' if the wait time from referral to appointment is more than twice the average wait time; otherwise assigns 'Standard'.
+
+--------------------------------------------------------------------------------
+
+## referral_success_flag (case)
+   Domain: Appointment Metrics
+
+   ### Technical Definition (for SQL developers)
+
+   Expression: CASE WHEN ra.appt_outcome = 'Completed' THEN 1 WHEN ra.appt_outcome IN ('Cancelled', 'No Show') THEN 0 WHEN ra.PAT_ENC_CSN_ID IS NULL AND ra.referral_category = 'Active' THEN NULL /* Still pending */ ELSE 0 END /* Referral success indicator */
+
+   Base Tables: F_SCHED_APPT, REFERRAL
+   Base Columns: F_SCHED_APPT.APPT_STATUS_C, F_SCHED_APPT.PAT_ENC_CSN_ID, REFERRAL.REFERRAL_STATUS_C
+   Filters:
+     - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+     - COUNT(DISTINCT REFERRAL_ID) >= 10
+     - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+     - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+     - NOT r.REFERRAL_STATUS_C IS NULL
+   Transformation Chain:
+     -> query.referral_success_flag (case)
+     -> referral_appointments.appt_outcome (passthrough)
+     -> appointment_history.appt_outcome (case)
+     -> referral_appointments.appt_outcome (passthrough)
+     -> appointment_history.appt_outcome (case)
+     ... (4 more steps)
+
+   ### Business Definition (for business users)
+
+   1 if the appointment outcome is 'Completed'; 0 if the outcome is 'Cancelled' or 'No Show'; NULL if the appointment ID is NULL and the referral category is 'Active'; otherwise, 0.
+
+--------------------------------------------------------------------------------

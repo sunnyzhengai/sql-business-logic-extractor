@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SQL Business Logic Extractor -- Layer 1
+SQL Business Logic Extractor -- L1: Parse
 
 Parses SQL queries and extracts transformations, filters, joins, aggregations,
 window functions, CTEs, and column-level lineage into a structured format.
+
+Pipeline: L1 (parse) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
 
 Requirements: pip install sqlglot
 """

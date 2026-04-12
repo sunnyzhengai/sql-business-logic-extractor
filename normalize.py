@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SQL Business Logic Extractor -- Layer 2: Normalize
+SQL Business Logic Extractor -- L2: Normalize
 
-Takes Layer 1 extraction output and produces normalized, comparable
+Takes L1 extraction output and produces normalized, comparable
 business definitions with:
   - Alias resolution (e.table -> real_table.column)
   - Canonical expression forms (sorted ANDs, lowercased functions)
   - AST-based signatures for equality/similarity matching
   - Pattern classification (date_calculation, classification, aggregation, etc.)
+
+Pipeline: L1 (parse) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
 """
 
 import hashlib

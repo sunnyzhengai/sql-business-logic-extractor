@@ -1,0 +1,122 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_ID",
+      "direct_expression": "p.PAT_ID",
+      "base_columns": [
+        "PATIENT.PAT_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "t.TX_TYPE_C = 1 /* Charges only */"
+      ]
+    },
+    {
+      "name": "PAT_NAME",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_NAME",
+      "direct_expression": "p.PAT_NAME",
+      "base_columns": [
+        "PATIENT.PAT_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "t.TX_TYPE_C = 1 /* Charges only */"
+      ]
+    },
+    {
+      "name": "TX_ID",
+      "type": "passthrough",
+      "resolved_expression": "ARPB_TRANSACTIONS.TX_ID",
+      "direct_expression": "t.TX_ID",
+      "base_columns": [
+        "ARPB_TRANSACTIONS.TX_ID"
+      ],
+      "base_tables": [
+        "ARPB_TRANSACTIONS"
+      ],
+      "filters": [
+        "t.TX_TYPE_C = 1 /* Charges only */"
+      ]
+    },
+    {
+      "name": "admission_date",
+      "type": "passthrough",
+      "resolved_expression": "ARPB_TRANSACTIONS.SERVICE_DATE",
+      "direct_expression": "t.SERVICE_DATE AS admission_date",
+      "base_columns": [
+        "ARPB_TRANSACTIONS.SERVICE_DATE"
+      ],
+      "base_tables": [
+        "ARPB_TRANSACTIONS"
+      ],
+      "filters": [
+        "t.TX_TYPE_C = 1 /* Charges only */"
+      ]
+    },
+    {
+      "name": "discharge_date",
+      "type": "passthrough",
+      "resolved_expression": "ARPB_TRANSACTIONS.POST_DATE",
+      "direct_expression": "t.POST_DATE AS discharge_date",
+      "base_columns": [
+        "ARPB_TRANSACTIONS.POST_DATE"
+      ],
+      "base_tables": [
+        "ARPB_TRANSACTIONS"
+      ],
+      "filters": [
+        "t.TX_TYPE_C = 1 /* Charges only */"
+      ]
+    },
+    {
+      "name": "length_of_stay",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(DAY, CAST(t.SERVICE_DATE AS DATE), CAST(t.POST_DATE AS DATE))",
+      "direct_expression": "DATEDIFF(DAY, CAST(t.SERVICE_DATE AS DATE), CAST(t.POST_DATE AS DATE)) AS length_of_stay",
+      "base_columns": [
+        "ARPB_TRANSACTIONS.DAY",
+        "ARPB_TRANSACTIONS.SERVICE_DATE",
+        "ARPB_TRANSACTIONS.POST_DATE"
+      ],
+      "base_tables": [
+        "ARPB_TRANSACTIONS"
+      ],
+      "filters": [
+        "t.TX_TYPE_C = 1 /* Charges only */"
+      ]
+    },
+    {
+      "name": "readmission_flag",
+      "type": "literal",
+      "resolved_expression": "NULL /* Readmission: Not tracked in billing report */",
+      "direct_expression": "NULL /* Readmission: Not tracked in billing report */ AS readmission_flag",
+      "filters": [
+        "t.TX_TYPE_C = 1 /* Charges only */"
+      ]
+    },
+    {
+      "name": "patient_age",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, SERVICE_DATE)",
+      "direct_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, SERVICE_DATE) AS patient_age",
+      "base_columns": [
+        "ARPB_TRANSACTIONS.YEAR",
+        "PATIENT.BIRTH_DATE"
+      ],
+      "base_tables": [
+        "ARPB_TRANSACTIONS",
+        "PATIENT"
+      ],
+      "filters": [
+        "t.TX_TYPE_C = 1 /* Charges only */"
+      ]
+    }
+  ]
+}

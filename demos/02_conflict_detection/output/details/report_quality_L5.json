@@ -1,0 +1,129 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_ID",
+      "direct_expression": "p.PAT_ID",
+      "base_columns": [
+        "PATIENT.PAT_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "NOT a.DISCH_DATE_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "PAT_NAME",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_NAME",
+      "direct_expression": "p.PAT_NAME",
+      "base_columns": [
+        "PATIENT.PAT_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "NOT a.DISCH_DATE_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "HSP_ACCOUNT_ID",
+      "type": "passthrough",
+      "resolved_expression": "HSP_ACCOUNT.HSP_ACCOUNT_ID",
+      "direct_expression": "a.HSP_ACCOUNT_ID",
+      "base_columns": [
+        "HSP_ACCOUNT.HSP_ACCOUNT_ID"
+      ],
+      "base_tables": [
+        "HSP_ACCOUNT"
+      ],
+      "filters": [
+        "NOT a.DISCH_DATE_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "admission_date",
+      "type": "passthrough",
+      "resolved_expression": "HSP_ACCOUNT.ADM_DATE_TIME",
+      "direct_expression": "a.ADM_DATE_TIME AS admission_date",
+      "base_columns": [
+        "HSP_ACCOUNT.ADM_DATE_TIME"
+      ],
+      "base_tables": [
+        "HSP_ACCOUNT"
+      ],
+      "filters": [
+        "NOT a.DISCH_DATE_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "discharge_date",
+      "type": "passthrough",
+      "resolved_expression": "HSP_ACCOUNT.DISCH_DATE_TIME",
+      "direct_expression": "a.DISCH_DATE_TIME AS discharge_date",
+      "base_columns": [
+        "HSP_ACCOUNT.DISCH_DATE_TIME"
+      ],
+      "base_tables": [
+        "HSP_ACCOUNT"
+      ],
+      "filters": [
+        "NOT a.DISCH_DATE_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "length_of_stay",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(DAY, a.ADM_DATE_TIME, DISCH_DATE_TIME) + 1",
+      "direct_expression": "DATEDIFF(DAY, a.ADM_DATE_TIME, DISCH_DATE_TIME) + 1 AS length_of_stay",
+      "base_columns": [
+        "HSP_ACCOUNT.DAY",
+        "HSP_ACCOUNT.ADM_DATE_TIME"
+      ],
+      "base_tables": [
+        "HSP_ACCOUNT"
+      ],
+      "filters": [
+        "NOT a.DISCH_DATE_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "readmission_flag",
+      "type": "case",
+      "resolved_expression": "CASE WHEN EXISTS(SELECT 1 FROM HSP_ACCOUNT AS a2 WHERE a2.PAT_ID = a.PAT_ID AND a2.ADM_DATE_TIME > a.ADM_DATE_TIME AND DATEDIFF(DAY, a.ADM_DATE_TIME, ADM_DATE_TIME) <= 30) THEN 1 ELSE 0 END /* Readmission: Within 30 days of ADMISSION (not discharge!) */",
+      "direct_expression": "CASE WHEN EXISTS(SELECT 1 FROM HSP_ACCOUNT AS a2 WHERE a2.PAT_ID = a.PAT_ID AND a2.ADM_DATE_TIME > a.ADM_DATE_TIME AND DATEDIFF(DAY, a.ADM_DATE_TIME, ADM_DATE_TIME) <= 30) THEN 1 ELSE 0 END /* Readmission: Within 30 days of ADMISSION (not discharge!) */ AS readmission_flag",
+      "base_columns": [
+        "HSP_ACCOUNT.PAT_ID",
+        "HSP_ACCOUNT.ADM_DATE_TIME",
+        "HSP_ACCOUNT.DAY"
+      ],
+      "base_tables": [
+        "HSP_ACCOUNT"
+      ],
+      "filters": [
+        "NOT a.DISCH_DATE_TIME IS NULL"
+      ]
+    },
+    {
+      "name": "patient_age",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, DISCH_DATE_TIME)",
+      "direct_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, DISCH_DATE_TIME) AS patient_age",
+      "base_columns": [
+        "HSP_ACCOUNT.YEAR",
+        "PATIENT.BIRTH_DATE"
+      ],
+      "base_tables": [
+        "HSP_ACCOUNT",
+        "PATIENT"
+      ],
+      "filters": [
+        "NOT a.DISCH_DATE_TIME IS NULL"
+      ]
+    }
+  ]
+}

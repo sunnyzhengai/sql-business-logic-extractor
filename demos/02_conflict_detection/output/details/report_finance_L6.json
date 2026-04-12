@@ -1,0 +1,193 @@
+{
+  "summary": {
+    "query_summary": "The query retrieves information about patients with hospital stays longer than one day, including their identifiers, names, admission and discharge dates, length of stay, readmission status, and age at admission.",
+    "primary_purpose": "To analyze hospital stays longer than one day and identify potential readmissions within 30 days.",
+    "key_entities": [
+      "patients",
+      "hospital encounters"
+    ],
+    "key_metrics": [
+      "length_of_stay",
+      "readmission_flag",
+      "patient_age"
+    ],
+    "source_tables": [
+      "PATIENT",
+      "PAT_ENC_HSP"
+    ],
+    "business_domains": [
+      "Clinical Risk",
+      "Hospital Stay Metrics",
+      "Patient Demographics"
+    ],
+    "column_count": 8
+  },
+  "columns": [
+    {
+      "column_name": "PAT_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_ID",
+        "base_columns": [
+          "PATIENT.PAT_ID"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Unique patient identifier from the PATIENT table.",
+      "business_domain": "Patient Demographics"
+    },
+    {
+      "column_name": "PAT_NAME",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_NAME",
+        "base_columns": [
+          "PATIENT.PAT_NAME"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "The patient's full name.",
+      "business_domain": "Patient Demographics"
+    },
+    {
+      "column_name": "PAT_ENC_CSN_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+        "base_columns": [
+          "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "The unique identifier for hospital encounters where the patient was not discharged on the same day.",
+      "business_domain": "Patient Demographics"
+    },
+    {
+      "column_name": "admission_date",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "base_columns": [
+          "PAT_ENC_HSP.HOSP_ADMSN_TIME"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "The date and time a patient was admitted to the hospital, excluding records with a discharge time on the same day.",
+      "business_domain": "Patient Demographics"
+    },
+    {
+      "column_name": "discharge_date",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PAT_ENC_HSP.HOSP_DISCH_TIME",
+        "base_columns": [
+          "PAT_ENC_HSP.HOSP_DISCH_TIME"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "The discharge date for hospital encounters where the discharge time is not null and the stay is longer than one day.",
+      "business_domain": "Patient Demographics"
+    },
+    {
+      "column_name": "length_of_stay",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME)",
+        "base_columns": [
+          "PAT_ENC_HSP.DAY",
+          "PAT_ENC_HSP.HOSP_ADMSN_TIME"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Number of days between hospital admission and discharge, excluding same-day discharges.",
+      "business_domain": "Hospital Stay Metrics"
+    },
+    {
+      "column_name": "readmission_flag",
+      "column_type": "case",
+      "technical_definition": {
+        "resolved_expression": "CASE WHEN EXISTS(SELECT 1 FROM PAT_ENC_HSP AS h2 WHERE h2.PAT_ID = h.PAT_ID AND h2.HOSP_ADMSN_TIME > h.HOSP_DISCH_TIME AND DATEDIFF(DAY, h.HOSP_DISCH_TIME, HOSP_ADMSN_TIME) <= 30) THEN 1 ELSE 0 END /* Readmission: Within 30 days of DISCHARGE */",
+        "base_columns": [
+          "PAT_ENC_HSP.PAT_ID",
+          "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+          "PAT_ENC_HSP.HOSP_DISCH_TIME",
+          "PAT_ENC_HSP.DAY"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "1 if the patient was readmitted within 30 days after discharge, otherwise 0.",
+      "business_domain": "Clinical Risk"
+    },
+    {
+      "column_name": "patient_age",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, HOSP_ADMSN_TIME)",
+        "base_columns": [
+          "PAT_ENC_HSP.YEAR",
+          "PATIENT.BIRTH_DATE"
+        ],
+        "base_tables": [
+          "PAT_ENC_HSP",
+          "PATIENT"
+        ],
+        "filters": [
+          "NOT h.HOSP_DISCH_TIME IS NULL",
+          "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "The number of years between the patient's birth date and their hospital admission time.",
+      "business_domain": "Patient Demographics"
+    }
+  ]
+}

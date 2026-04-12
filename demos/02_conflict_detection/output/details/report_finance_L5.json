@@ -1,0 +1,138 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_ID",
+      "direct_expression": "p.PAT_ID",
+      "base_columns": [
+        "PATIENT.PAT_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "NOT h.HOSP_DISCH_TIME IS NULL",
+        "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+      ]
+    },
+    {
+      "name": "PAT_NAME",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_NAME",
+      "direct_expression": "p.PAT_NAME",
+      "base_columns": [
+        "PATIENT.PAT_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "NOT h.HOSP_DISCH_TIME IS NULL",
+        "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+      ]
+    },
+    {
+      "name": "PAT_ENC_CSN_ID",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.PAT_ENC_CSN_ID",
+      "direct_expression": "h.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT h.HOSP_DISCH_TIME IS NULL",
+        "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+      ]
+    },
+    {
+      "name": "admission_date",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+      "direct_expression": "h.HOSP_ADMSN_TIME AS admission_date",
+      "base_columns": [
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT h.HOSP_DISCH_TIME IS NULL",
+        "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+      ]
+    },
+    {
+      "name": "discharge_date",
+      "type": "passthrough",
+      "resolved_expression": "PAT_ENC_HSP.HOSP_DISCH_TIME",
+      "direct_expression": "h.HOSP_DISCH_TIME AS discharge_date",
+      "base_columns": [
+        "PAT_ENC_HSP.HOSP_DISCH_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT h.HOSP_DISCH_TIME IS NULL",
+        "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+      ]
+    },
+    {
+      "name": "length_of_stay",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME)",
+      "direct_expression": "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) AS length_of_stay",
+      "base_columns": [
+        "PAT_ENC_HSP.DAY",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT h.HOSP_DISCH_TIME IS NULL",
+        "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+      ]
+    },
+    {
+      "name": "readmission_flag",
+      "type": "case",
+      "resolved_expression": "CASE WHEN EXISTS(SELECT 1 FROM PAT_ENC_HSP AS h2 WHERE h2.PAT_ID = h.PAT_ID AND h2.HOSP_ADMSN_TIME > h.HOSP_DISCH_TIME AND DATEDIFF(DAY, h.HOSP_DISCH_TIME, HOSP_ADMSN_TIME) <= 30) THEN 1 ELSE 0 END /* Readmission: Within 30 days of DISCHARGE */",
+      "direct_expression": "CASE WHEN EXISTS(SELECT 1 FROM PAT_ENC_HSP AS h2 WHERE h2.PAT_ID = h.PAT_ID AND h2.HOSP_ADMSN_TIME > h.HOSP_DISCH_TIME AND DATEDIFF(DAY, h.HOSP_DISCH_TIME, HOSP_ADMSN_TIME) <= 30) THEN 1 ELSE 0 END /* Readmission: Within 30 days of DISCHARGE */ AS readmission_flag",
+      "base_columns": [
+        "PAT_ENC_HSP.PAT_ID",
+        "PAT_ENC_HSP.HOSP_ADMSN_TIME",
+        "PAT_ENC_HSP.HOSP_DISCH_TIME",
+        "PAT_ENC_HSP.DAY"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP"
+      ],
+      "filters": [
+        "NOT h.HOSP_DISCH_TIME IS NULL",
+        "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+      ]
+    },
+    {
+      "name": "patient_age",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, HOSP_ADMSN_TIME)",
+      "direct_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, HOSP_ADMSN_TIME) AS patient_age",
+      "base_columns": [
+        "PAT_ENC_HSP.YEAR",
+        "PATIENT.BIRTH_DATE"
+      ],
+      "base_tables": [
+        "PAT_ENC_HSP",
+        "PATIENT"
+      ],
+      "filters": [
+        "NOT h.HOSP_DISCH_TIME IS NULL",
+        "DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME) > 0 /* Exclude same-day */"
+      ]
+    }
+  ]
+}

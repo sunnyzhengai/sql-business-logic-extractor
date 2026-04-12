@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SQL Business Logic Extractor -- Layer 6: LLM-based Translation
+SQL Business Logic Extractor -- L4: Translate (LLM-based)
 
-Takes L5 lineage resolution output and translates each column's technical
+Takes L3 lineage resolution output and translates each column's technical
 definition into plain English business descriptions using an LLM.
 
 Uses OpenAI API (GPT-4) with context from clarity_schema.yaml data dictionary.
+
+Pipeline: L1 (parse) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
 """
 
 import json

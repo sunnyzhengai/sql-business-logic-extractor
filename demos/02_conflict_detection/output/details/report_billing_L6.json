@@ -1,0 +1,179 @@
+{
+  "summary": {
+    "query_summary": "The query retrieves patient identifiers, names, and ages, along with details of their billing transactions for charges, including transaction IDs, admission and discharge dates, and length of stay.",
+    "primary_purpose": "To provide details of charge transactions for patients, including demographics and transaction-specific information.",
+    "key_entities": [
+      "patients",
+      "billing transactions"
+    ],
+    "key_metrics": [
+      "length_of_stay",
+      "patient_age"
+    ],
+    "source_tables": [
+      "ARPB_TRANSACTIONS",
+      "PATIENT"
+    ],
+    "business_domains": [
+      "Billing",
+      "Billing Metrics",
+      "Billing Transactions",
+      "Patient Demographics"
+    ],
+    "column_count": 8
+  },
+  "columns": [
+    {
+      "column_name": "PAT_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_ID",
+        "base_columns": [
+          "PATIENT.PAT_ID"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Unique identifier for a patient.",
+      "business_domain": "Patient Demographics"
+    },
+    {
+      "column_name": "PAT_NAME",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_NAME",
+        "base_columns": [
+          "PATIENT.PAT_NAME"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Full name of the patient.",
+      "business_domain": "Patient Demographics"
+    },
+    {
+      "column_name": "TX_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "ARPB_TRANSACTIONS.TX_ID",
+        "base_columns": [
+          "ARPB_TRANSACTIONS.TX_ID"
+        ],
+        "base_tables": [
+          "ARPB_TRANSACTIONS"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Unique ID of a professional billing transaction where the transaction type is 'Charges'.",
+      "business_domain": "Billing Transactions"
+    },
+    {
+      "column_name": "admission_date",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "ARPB_TRANSACTIONS.SERVICE_DATE",
+        "base_columns": [
+          "ARPB_TRANSACTIONS.SERVICE_DATE"
+        ],
+        "base_tables": [
+          "ARPB_TRANSACTIONS"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "The date the service was performed for transactions classified as charges.",
+      "business_domain": "Billing Transactions"
+    },
+    {
+      "column_name": "discharge_date",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "ARPB_TRANSACTIONS.POST_DATE",
+        "base_columns": [
+          "ARPB_TRANSACTIONS.POST_DATE"
+        ],
+        "base_tables": [
+          "ARPB_TRANSACTIONS"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "The date a charge transaction was entered into the billing system.",
+      "business_domain": "Billing Transactions"
+    },
+    {
+      "column_name": "length_of_stay",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "DATEDIFF(DAY, CAST(t.SERVICE_DATE AS DATE), CAST(t.POST_DATE AS DATE))",
+        "base_columns": [
+          "ARPB_TRANSACTIONS.DAY",
+          "ARPB_TRANSACTIONS.SERVICE_DATE",
+          "ARPB_TRANSACTIONS.POST_DATE"
+        ],
+        "base_tables": [
+          "ARPB_TRANSACTIONS"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "The number of days between the service date and the post date for billing transactions classified as charges.",
+      "business_domain": "Billing Metrics"
+    },
+    {
+      "column_name": "readmission_flag",
+      "column_type": "literal",
+      "technical_definition": {
+        "resolved_expression": "NULL /* Readmission: Not tracked in billing report */",
+        "base_columns": [],
+        "base_tables": [],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "Always NULL; readmission not tracked in billing report.",
+      "business_domain": "Billing"
+    },
+    {
+      "column_name": "patient_age",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "DATEDIFF(YEAR, p.BIRTH_DATE, SERVICE_DATE)",
+        "base_columns": [
+          "ARPB_TRANSACTIONS.YEAR",
+          "PATIENT.BIRTH_DATE"
+        ],
+        "base_tables": [
+          "ARPB_TRANSACTIONS",
+          "PATIENT"
+        ],
+        "filters": [
+          "t.TX_TYPE_C = 1 /* Charges only */"
+        ],
+        "transformation_chain": []
+      },
+      "english_definition": "The number of years between the patient's birth date and the service date.",
+      "business_domain": "Patient Demographics"
+    }
+  ]
+}

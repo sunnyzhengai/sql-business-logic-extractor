@@ -236,8 +236,97 @@ Output JSON:
         }
 
 
-def translate_query(l5_json_path: str, schema_path: str, api_key: Optional[str] = None) -> list[dict]:
-    """Translate all columns in an L5 output file to English.
+def summarize_query(column_results: list[dict], l5_data: dict, client) -> dict:
+    """Generate a summary of the entire SQL query based on column definitions.
+
+    Args:
+        column_results: List of translated column definitions from L6
+        l5_data: Original L5 JSON data
+        client: OpenAI client instance
+
+    Returns:
+        Dict with query summary
+    """
+    # Collect all unique base tables
+    all_tables = set()
+    all_domains = set()
+    column_summaries = []
+
+    for col in column_results:
+        tech_def = col.get('technical_definition', {})
+        for table in tech_def.get('base_tables', []):
+            all_tables.add(table)
+        if col.get('business_domain'):
+            all_domains.add(col['business_domain'])
+        column_summaries.append(f"- {col['column_name']}: {col.get('english_definition', '')}")
+
+    # Build context for LLM
+    context_parts = [
+        f"## Source Tables ({len(all_tables)})",
+        ", ".join(sorted(all_tables)),
+        "",
+        f"## Business Domains",
+        ", ".join(sorted(all_domains)),
+        "",
+        f"## Output Columns ({len(column_results)})",
+        "\n".join(column_summaries)
+    ]
+    context = "\n".join(context_parts)
+
+    system_prompt = """You summarize SQL queries based on their output columns and source tables.
+
+Rules:
+1. Be ACCURATE: Only describe what the query actually produces.
+2. Be SUCCINCT: 2-4 sentences max.
+3. Identify the PRIMARY PURPOSE of the query (what business question does it answer?)
+4. Mention the key entities involved (patients, referrals, appointments, etc.)
+5. Note any key metrics or calculations.
+6. Do NOT speculate on use cases or downstream applications.
+
+Output JSON:
+{
+  "query_summary": "Succinct description of what this query produces",
+  "primary_purpose": "The main business question this query answers",
+  "key_entities": ["list", "of", "main", "entities"],
+  "key_metrics": ["list", "of", "key", "calculations", "or", "metrics"]
+}"""
+
+    user_prompt = f"""Summarize this SQL query based on its columns and source tables:
+
+{context}"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.3,
+            response_format={"type": "json_object"}
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        result['source_tables'] = sorted(all_tables)
+        result['business_domains'] = sorted(all_domains)
+        result['column_count'] = len(column_results)
+
+        return result
+
+    except Exception as e:
+        return {
+            'query_summary': f"[Summary error: {str(e)}]",
+            'primary_purpose': "",
+            'key_entities': [],
+            'key_metrics': [],
+            'source_tables': sorted(all_tables),
+            'business_domains': sorted(all_domains),
+            'column_count': len(column_results)
+        }
+
+
+def translate_query(l5_json_path: str, schema_path: str, api_key: Optional[str] = None) -> dict:
+    """Translate all columns in an L5 output file to English and generate query summary.
 
     Args:
         l5_json_path: Path to L5 JSON output
@@ -245,7 +334,7 @@ def translate_query(l5_json_path: str, schema_path: str, api_key: Optional[str] 
         api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
 
     Returns:
-        List of translated column definitions
+        Dict with 'columns' (list of translated definitions) and 'summary' (query summary)
     """
     from openai import OpenAI
 
@@ -265,7 +354,7 @@ def translate_query(l5_json_path: str, schema_path: str, api_key: Optional[str] 
     columns = l5_data.get('columns', [])
 
     # Translate each column
-    results = []
+    column_results = []
     total = len(columns)
 
     for i, col in enumerate(columns, 1):
@@ -273,16 +362,23 @@ def translate_query(l5_json_path: str, schema_path: str, api_key: Optional[str] 
         print(f"  [{i}/{total}] Translating: {name}...")
 
         result = translate_column(col, schema, client)
-        results.append(result)
+        column_results.append(result)
 
-    return results
+    # Generate query summary
+    print(f"  Generating query summary...")
+    summary = summarize_query(column_results, l5_data, client)
+
+    return {
+        'summary': summary,
+        'columns': column_results
+    }
 
 
-def format_output(results: list[dict], format: str = 'json') -> str:
+def format_output(results: dict, format: str = 'json') -> str:
     """Format translation results for output.
 
     Args:
-        results: List of translated column definitions
+        results: Dict with 'summary' and 'columns' keys
         format: 'json' or 'text'
 
     Returns:
@@ -294,11 +390,34 @@ def format_output(results: list[dict], format: str = 'json') -> str:
     # Text format
     lines = []
     lines.append("=" * 80)
-    lines.append("SQL BUSINESS LOGIC - COLUMN DEFINITIONS")
+    lines.append("SQL QUERY BUSINESS LOGIC DOCUMENTATION")
     lines.append("=" * 80)
     lines.append("")
 
-    for r in results:
+    # Query Summary section
+    summary = results.get('summary', {})
+    lines.append("# QUERY SUMMARY")
+    lines.append("")
+    lines.append(f"   {summary.get('query_summary', 'No summary available')}")
+    lines.append("")
+    lines.append(f"   Primary Purpose: {summary.get('primary_purpose', 'Unknown')}")
+    lines.append("")
+    if summary.get('key_entities'):
+        lines.append(f"   Key Entities: {', '.join(summary['key_entities'])}")
+    if summary.get('key_metrics'):
+        lines.append(f"   Key Metrics: {', '.join(summary['key_metrics'])}")
+    if summary.get('source_tables'):
+        lines.append(f"   Source Tables: {', '.join(summary['source_tables'])}")
+    if summary.get('business_domains'):
+        lines.append(f"   Business Domains: {', '.join(summary['business_domains'])}")
+    lines.append(f"   Total Columns: {summary.get('column_count', 0)}")
+    lines.append("")
+    lines.append("=" * 80)
+    lines.append("")
+    lines.append("# COLUMN DEFINITIONS")
+    lines.append("")
+
+    for r in results.get('columns', []):
         lines.append(f"## {r['column_name']} ({r.get('column_type', 'unknown')})")
         lines.append(f"   Domain: {r.get('business_domain', 'Unknown')}")
         lines.append("")

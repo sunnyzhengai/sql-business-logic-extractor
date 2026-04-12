@@ -1,6 +1,22 @@
 ================================================================================
-SQL BUSINESS LOGIC - COLUMN DEFINITIONS
+SQL QUERY BUSINESS LOGIC DOCUMENTATION
 ================================================================================
+
+# QUERY SUMMARY
+
+   This query produces a detailed report on patient referrals, including patient demographics, referral details, appointment outcomes, and risk assessments. It focuses on referrals with at least 10 distinct entries in the past two years, providing metrics such as age category, active problem count, appointment lead times, and specialty conversion and completion rates. The query also assesses patient risk levels and referral success based on appointment outcomes.
+
+   Primary Purpose: To analyze patient referral patterns and outcomes, assessing both the efficiency of the referral process and patient risk levels.
+
+   Key Entities: patients, referrals, appointments
+   Key Metrics: age category, active problem count, days to appointment, lead time days, visit duration, cumulative no shows, specialty conversion rate, specialty completion rate, patient risk flag, referral success flag
+   Source Tables: CLARITY_DEP, CLARITY_SER, F_SCHED_APPT, PATIENT, REFERRAL, ZC_RFL_STATUS, ZC_SPECIALTY, pl
+   Business Domains: Appointment Metrics, Clinical Risk, Organizational Structure, Patient Demographics, Referral Classification, Referral Management, Referral Tracking
+   Total Columns: 26
+
+================================================================================
+
+# COLUMN DEFINITIONS
 
 ## REFERRAL_ID (passthrough)
    Domain: Referral Tracking
@@ -23,12 +39,12 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Unique identifier for referrals that are either the first appointment in a sequence or have no sequence, with at least 10 distinct referrals, entered in the last 2 years, and have a non-null status.
+   Unique identifier for a referral, filtered to include only those with the first appointment in the sequence or no sequence, with at least 10 distinct referrals, entered in the last 2 years, and with a non-null status.
 
 --------------------------------------------------------------------------------
 
 ## PAT_ID (passthrough)
-   Domain: Patient Demographics
+   Domain: Referral Tracking
 
    ### Technical Definition (for SQL developers)
 
@@ -48,7 +64,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Patient ID from the REFERRAL table for patients with at least one referral appointment sequence of 1 or null, at least 10 distinct referrals, an entry date within the last 2 years, and a non-null referral status.
+   Patient ID from the REFERRAL table for patients with at least 10 distinct referrals, where the first or no appointment sequence is recorded, the referral entry date is within the last 2 years, and the referral status is not null.
 
 --------------------------------------------------------------------------------
 
@@ -73,7 +89,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   The full name of the patient as recorded in the PATIENT table.
+   The full name of the patient.
 
 --------------------------------------------------------------------------------
 
@@ -123,7 +139,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Categorizes age as 'Pediatric' if under 18, 'Young Adult' if between 18 and 40, 'Middle Age' if between 41 and 65, and 'Senior' if over 65, based on the difference in years between the current date and the birth date.
+   Categorizes age as 'Pediatric' if under 18, 'Young Adult' if between 18 and 40, 'Middle Age' if between 41 and 65, and 'Senior' if over 65, based on the difference in years between birth date and today.
 
 --------------------------------------------------------------------------------
 
@@ -148,7 +164,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Counts the number of problems for a patient that have not been resolved.
+   Counts the number of unresolved problems for a patient.
 
 --------------------------------------------------------------------------------
 
@@ -173,7 +189,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   The date a referral was created, filtered for first or null appointment sequence, at least 10 distinct referrals, created in the last two years, and with a non-null status.
+   The date a referral was created, filtered for the first appointment sequence or no sequence, with at least 10 distinct referrals, created in the last 2 years, and with a non-null status.
 
 --------------------------------------------------------------------------------
 
@@ -198,7 +214,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   The name of the referral status, such as Authorized, Open, Pending Review, Canceled, Denied, Closed, New Request, or Incomplete.
+   The name of the referral status from the ZC_RFL_STATUS table, such as Authorized, Open, Pending Review, Canceled, Denied, Closed, New Request, or Incomplete.
 
 --------------------------------------------------------------------------------
 
@@ -223,12 +239,12 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   The name of the medical specialty from the ZC_SPECIALTY table.
+   The specialty name from the ZC_SPECIALTY table.
 
 --------------------------------------------------------------------------------
 
 ## referral_class (case)
-   Domain: Referral Management
+   Domain: Referral Classification
 
    ### Technical Definition (for SQL developers)
 
@@ -248,7 +264,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Categorizes referrals as 'Internal' for value 1, 'Incoming' for value 2, 'Outgoing' for value 3, and 'Unknown' for any other value.
+   Assigns 'Internal' for value 1, 'Incoming' for value 2, 'Outgoing' for value 3, and 'Unknown' for other values in the referral class category.
 
 --------------------------------------------------------------------------------
 
@@ -297,7 +313,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Scheduled appointment identifier for the first appointment in a referral sequence, with at least 10 distinct referrals and appointment date within the last 2 years.
+   Scheduled appointment identifier for the first appointment in a referral sequence, with at least 10 distinct referrals in the past 2 years.
 
 --------------------------------------------------------------------------------
 
@@ -321,7 +337,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   The date and time of an appointment from the F_SCHED_APPT table, filtered to include only the first appointment in a referral sequence or where no sequence is specified, with at least 10 distinct referrals, and scheduled within the last two years.
+   The date and time of the first appointment for referrals with at least 10 distinct referrals, scheduled within the last 2 years.
 
 --------------------------------------------------------------------------------
 
@@ -345,12 +361,12 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Classifies appointment status as 'Completed', 'Cancelled', 'No Show', 'Left Without Seen', 'Arrived', or 'Scheduled' based on specific status codes.
+   Classifies appointment status as 'Completed', 'Cancelled', 'No Show', 'Left Without Seen', 'Arrived', or 'Scheduled' based on the value of APPT_STATUS_C.
 
 --------------------------------------------------------------------------------
 
 ## DEPARTMENT_NAME (passthrough)
-   Domain: Patient Demographics
+   Domain: Organizational Structure
 
    ### Technical Definition (for SQL developers)
 
@@ -369,7 +385,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   The department name from the department master file.
+   The name of the department as listed in the department master file.
 
 --------------------------------------------------------------------------------
 
@@ -393,7 +409,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   The provider's full name from the provider master file.
+   Provider's full name from the provider master file.
 
 --------------------------------------------------------------------------------
 
@@ -466,7 +482,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Calculates the time in minutes between check-in and checkout if both timestamps are available; otherwise, returns NULL.
+   Calculates the difference in minutes between the check-in and check-out times if both are available; otherwise, returns NULL.
 
 --------------------------------------------------------------------------------
 
@@ -490,7 +506,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Counts the number of appointments with status code 4 (no-show) for each patient, cumulatively up to each appointment date.
+   Cumulative count of appointments with status code 4 for each patient, ordered by appointment date and time.
 
 --------------------------------------------------------------------------------
 
@@ -517,7 +533,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Average number of days between the referral date and the appointment date for the first appointment in a referral, calculated for referrals created in the last two years with at least 10 distinct referrals.
+   Average number of days between the referral date and the appointment date for first or only appointments, calculated for referrals created in the last two years with at least 10 distinct referrals and a non-null status.
 
 --------------------------------------------------------------------------------
 
@@ -546,7 +562,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Difference in days between the referral date and the appointment date, minus the average days to appointment for the specialty.
+   Difference in days between the referral date and appointment date minus the average days to appointment, with defaults of 0 if values are missing.
 
 --------------------------------------------------------------------------------
 
@@ -576,7 +592,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Percentage of unique referrals with a non-null appointment ID divided by total unique referrals, multiplied by 100, considering only referrals with at least one appointment or none, and within the last two years.
+   Percentage of unique referrals with a non-null appointment identifier out of all unique referrals, calculated only if there are at least 10 unique referrals.
 
 --------------------------------------------------------------------------------
 
@@ -606,7 +622,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Percentage of distinct referrals with a 'Completed' appointment outcome out of all distinct referrals with a non-null scheduled appointment ID, multiplied by 100.
+   Percentage of distinct referrals with a 'Completed' appointment outcome, divided by the total distinct referrals with a scheduled appointment, multiplied by 100.
 
 --------------------------------------------------------------------------------
 
@@ -638,7 +654,7 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   Assigns 'High Risk - Multiple No Shows' if cumulative no-shows are 3 or more; 'Medium Risk - Senior with No Show History' if cumulative no-shows are 1 or more and age category is 'Senior'; 'Medium Risk - Complex Patient' if active problem count is 5 or more; 'Medium Risk - Long Wait Time' if days from referral to appointment exceed twice the average days to appointment; otherwise 'Standard'.
+   Assigns 'High Risk - Multiple No Shows' if cumulative no-shows are 3 or more; 'Medium Risk - Senior with No Show History' if cumulative no-shows are 1 or more and age category is 'Senior'; 'Medium Risk - Complex Patient' if active problem count is 5 or more; 'Medium Risk - Long Wait Time' if the wait time from referral to appointment is more than twice the average wait time; otherwise assigns 'Standard'.
 
 --------------------------------------------------------------------------------
 
@@ -667,6 +683,6 @@ SQL BUSINESS LOGIC - COLUMN DEFINITIONS
 
    ### Business Definition (for business users)
 
-   1 if the appointment outcome is 'Completed', 0 if the outcome is 'Cancelled' or 'No Show', NULL if the appointment ID is missing and the referral category is 'Active', otherwise 0.
+   1 if the appointment outcome is 'Completed'; 0 if the outcome is 'Cancelled' or 'No Show'; NULL if the appointment ID is NULL and the referral category is 'Active'; otherwise, 0.
 
 --------------------------------------------------------------------------------

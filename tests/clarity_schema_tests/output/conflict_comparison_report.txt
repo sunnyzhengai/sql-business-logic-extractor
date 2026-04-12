@@ -1,0 +1,94 @@
+================================================================================
+LINEAGE-BASED COMPARISON REPORT
+================================================================================
+
+# SUMMARY
+
+   Total Queries: 4
+   Total Definitions: 32
+   Non-Trivial Definitions: 11
+
+   ⚠️  CONFLICTS (same name, different logic): 3
+   Exact Duplicate Groups: 0
+   Structural Match Groups: 1
+   Semantic Match Groups: 0
+   Unique Definitions: 8
+
+================================================================================
+
+# ⚠️  CONFLICTS - SAME NAME, DIFFERENT LOGIC
+   (These require review for data governance)
+
+## Conflict 1: 'length_of_stay' defined differently in 4 queries
+
+   ❌ Different source tables: report_billing: ARPB_TRANSACTIONS; report_finance: PAT_ENC_HSP; report_operations: PAT_ENC; report_quality: HSP_ACCOUNT
+   ❌ Different expressions (4 variations)
+   ❌ Different filters: report_billing: 1 filters; report_finance: 2 filters; report_operations: 1 filters; report_quality: 1 filters
+
+   Definitions:
+   - report_billing: length_of_stay (calculated)
+     Expression: DATEDIFF(DAY, CAST(t.SERVICE_DATE AS DATE), CAST(t.POST_DATE AS DATE))...
+     Tables: ARPB_TRANSACTIONS
+   - report_finance: length_of_stay (calculated)
+     Expression: DATEDIFF(DAY, h.HOSP_ADMSN_TIME, HOSP_DISCH_TIME)...
+     Tables: PAT_ENC_HSP
+   - report_operations: length_of_stay (calculated)
+     Expression: DATEDIFF(HOUR, e.APPT_TIME, CONTACT_DATE)...
+     Tables: PAT_ENC
+   - report_quality: length_of_stay (calculated)
+     Expression: DATEDIFF(DAY, a.ADM_DATE_TIME, DISCH_DATE_TIME) + 1...
+     Tables: HSP_ACCOUNT
+
+## Conflict 2: 'patient_age' defined differently in 4 queries
+
+   ❌ Different source tables: report_billing: ARPB_TRANSACTIONS, PATIENT; report_finance: PAT_ENC_HSP, PATIENT; report_operations: PAT_ENC, PATIENT; report_quality: HSP_ACCOUNT, PATIENT
+   ❌ Different expressions (4 variations)
+   ❌ Different filters: report_billing: 1 filters; report_finance: 2 filters; report_operations: 1 filters; report_quality: 1 filters
+
+   Definitions:
+   - report_billing: patient_age (calculated)
+     Expression: DATEDIFF(YEAR, p.BIRTH_DATE, SERVICE_DATE)...
+     Tables: ARPB_TRANSACTIONS, PATIENT
+   - report_finance: patient_age (calculated)
+     Expression: DATEDIFF(YEAR, p.BIRTH_DATE, HOSP_ADMSN_TIME)...
+     Tables: PAT_ENC_HSP, PATIENT
+   - report_operations: patient_age (calculated)
+     Expression: DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE())...
+     Tables: PAT_ENC, PATIENT
+   - report_quality: patient_age (calculated)
+     Expression: DATEDIFF(YEAR, p.BIRTH_DATE, DISCH_DATE_TIME)...
+     Tables: HSP_ACCOUNT, PATIENT
+
+## Conflict 3: 'readmission_flag' defined differently in 3 queries
+
+   ❌ Different source tables: report_finance: PAT_ENC_HSP; report_operations: PAT_ENC; report_quality: HSP_ACCOUNT
+   ❌ Different expressions (3 variations)
+   ❌ Different filters: report_finance: 2 filters; report_operations: 1 filters; report_quality: 1 filters
+
+   Definitions:
+   - report_finance: readmission_flag (case)
+     Expression: CASE WHEN EXISTS(SELECT 1 FROM PAT_ENC_HSP AS h2 WHERE h2.PAT_ID = h.PAT_ID AND h2.HOSP_ADMSN_TIME >...
+     Tables: PAT_ENC_HSP
+   - report_operations: readmission_flag (case)
+     Expression: CASE WHEN EXISTS(SELECT 1 FROM PAT_ENC AS e2 WHERE e2.PAT_ID = e.PAT_ID AND e2.APPT_TIME > e.CONTACT...
+     Tables: PAT_ENC
+   - report_quality: readmission_flag (case)
+     Expression: CASE WHEN EXISTS(SELECT 1 FROM HSP_ACCOUNT AS a2 WHERE a2.PAT_ID = a.PAT_ID AND a2.ADM_DATE_TIME > a...
+     Tables: HSP_ACCOUNT
+
+--------------------------------------------------------------------------------
+
+# STRUCTURAL MATCHES
+   (Same pattern, different tables/columns)
+
+## Group 1: Same pattern across 3 queries
+   Pattern: datediff(year, $C$, $C$)
+
+   - report_billing: patient_age (calculated)
+     Tables: ARPB_TRANSACTIONS, PATIENT
+   - report_finance: patient_age (calculated)
+     Tables: PAT_ENC_HSP, PATIENT
+   - report_quality: patient_age (calculated)
+     Tables: HSP_ACCOUNT, PATIENT
+
+--------------------------------------------------------------------------------

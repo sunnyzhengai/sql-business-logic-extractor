@@ -1,0 +1,31 @@
+================================================================================
+LINEAGE-BASED COMPARISON REPORT
+================================================================================
+
+# SUMMARY
+
+   Total Queries: 4
+   Total Definitions: 32
+   Non-Trivial Definitions: 11
+
+   Exact Duplicate Groups: 0
+   Structural Match Groups: 1
+   Semantic Match Groups: 0
+   Unique Definitions: 8
+
+================================================================================
+
+# STRUCTURAL MATCHES
+   (Same pattern, different tables/columns)
+
+## Group 1: Same pattern across 3 queries
+   Pattern: datediff(year, $C$, $C$)
+
+   - report_billing: patient_age (calculated)
+     Tables: ARPB_TRANSACTIONS, PATIENT
+   - report_finance: patient_age (calculated)
+     Tables: PAT_ENC_HSP, PATIENT
+   - report_quality: patient_age (calculated)
+     Tables: HSP_ACCOUNT, PATIENT
+
+--------------------------------------------------------------------------------

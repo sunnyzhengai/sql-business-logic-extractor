@@ -107,12 +107,21 @@ class ResolvedDefinition:
 @dataclass
 class MatchGroup:
     """A group of definitions that match each other."""
-    match_type: str              # exact, structural, semantic
+    match_type: str              # exact, structural, semantic, conflict
     signature: str               # the signature they share
     description: str             # human-readable description
     definitions: list[dict] = field(default_factory=list)
     similarity: float = 1.0      # 1.0 for exact, <1.0 for fuzzy
     pattern: str = ""            # the abstracted pattern (for structural matches)
+
+
+@dataclass
+class ConflictGroup:
+    """A group of definitions with same name but different logic."""
+    column_name: str
+    description: str
+    definitions: list[dict] = field(default_factory=list)
+    differences: list[str] = field(default_factory=list)  # What's different
 
 
 @dataclass
@@ -123,6 +132,7 @@ class ComparisonReport:
     exact_duplicates: list[MatchGroup] = field(default_factory=list)
     structural_matches: list[MatchGroup] = field(default_factory=list)
     semantic_matches: list[MatchGroup] = field(default_factory=list)
+    conflicts: list[ConflictGroup] = field(default_factory=list)  # Same name, different logic
     unique_definitions: list[dict] = field(default_factory=list)
     summary: dict = field(default_factory=dict)
 
@@ -250,6 +260,10 @@ class LineageComparator:
         semantic = self._find_semantic_matches(candidates, exact, structural)
         report.semantic_matches = semantic
 
+        # Find conflicts: same column name, different logic
+        conflicts = self._find_conflicts(candidates, exact)
+        report.conflicts = conflicts
+
         # Find unique definitions
         matched_ids = set()
         for group in exact + structural + semantic:
@@ -271,6 +285,7 @@ class LineageComparator:
             "structural_match_groups": len(structural),
             "structural_match_definitions": sum(len(g.definitions) for g in structural),
             "semantic_match_groups": len(semantic),
+            "conflict_groups": len(conflicts),
             "unique_definitions": len(report.unique_definitions),
         }
 
@@ -367,6 +382,81 @@ class LineageComparator:
 
         return results
 
+    def _find_conflicts(self, candidates: list[ResolvedDefinition],
+                        exact_groups: list[MatchGroup]) -> list[ConflictGroup]:
+        """Find columns with same name but different logic across queries.
+
+        This is critical for data governance - same business term defined differently.
+        """
+        # Get IDs of exact matches (these are NOT conflicts)
+        exact_ids = set()
+        for g in exact_groups:
+            for d in g.definitions:
+                exact_ids.add(d["id"])
+
+        # Group all definitions by column name (case-insensitive)
+        name_groups: dict[str, list[ResolvedDefinition]] = defaultdict(list)
+        for d in candidates:
+            name_lower = d.column_name.lower()
+            name_groups[name_lower].append(d)
+
+        results = []
+        for name, defs in name_groups.items():
+            # Need definitions from 2+ different queries
+            query_sources = set(d.query_label for d in defs)
+            if len(query_sources) < 2:
+                continue
+
+            # Check if ALL definitions in this group are exact matches to each other
+            all_exact_match = all(d.id in exact_ids for d in defs)
+            if all_exact_match:
+                continue  # Not a conflict - they all match
+
+            # Check if there are different signatures (different logic)
+            signatures = set(d.exact_signature for d in defs)
+            if len(signatures) <= 1:
+                continue  # All same logic
+
+            # Found a conflict! Same name, different logic
+            differences = self._describe_differences(defs)
+
+            results.append(ConflictGroup(
+                column_name=defs[0].column_name,
+                description=f"'{defs[0].column_name}' defined differently in {len(query_sources)} queries",
+                definitions=[_def_to_dict(d) for d in defs],
+                differences=differences,
+            ))
+
+        return results
+
+    def _describe_differences(self, defs: list[ResolvedDefinition]) -> list[str]:
+        """Describe what's different between definitions with same name."""
+        differences = []
+
+        # Check for different source tables
+        all_tables = [set(d.base_tables) for d in defs]
+        if len(set(frozenset(t) for t in all_tables)) > 1:
+            table_summary = [f"{d.query_label}: {', '.join(d.base_tables) or 'none'}" for d in defs]
+            differences.append(f"Different source tables: {'; '.join(table_summary)}")
+
+        # Check for different expressions
+        expressions = set(d.resolved_expression for d in defs)
+        if len(expressions) > 1:
+            differences.append(f"Different expressions ({len(expressions)} variations)")
+
+        # Check for different column types
+        types = set(d.column_type for d in defs)
+        if len(types) > 1:
+            differences.append(f"Different types: {', '.join(types)}")
+
+        # Check for different filters
+        all_filters = [set(d.filters) for d in defs]
+        if len(set(frozenset(f) for f in all_filters)) > 1:
+            filter_counts = [f"{d.query_label}: {len(d.filters)} filters" for d in defs]
+            differences.append(f"Different filters: {'; '.join(filter_counts)}")
+
+        return differences
+
 
 # ---------------------------------------------------------------------------
 # Output formatting
@@ -376,6 +466,15 @@ def report_to_dict(report: ComparisonReport) -> dict:
     """Convert a ComparisonReport to a JSON-serializable dict."""
     return {
         "summary": report.summary,
+        "conflicts": [
+            {
+                "column_name": g.column_name,
+                "description": g.description,
+                "differences": g.differences,
+                "definitions": g.definitions,
+            }
+            for g in report.conflicts
+        ],
         "exact_duplicates": [
             {
                 "match_type": g.match_type,
@@ -431,6 +530,8 @@ def format_report(report: ComparisonReport, format: str = 'json') -> str:
     lines.append(f"   Total Definitions: {s.get('total_definitions', 0)}")
     lines.append(f"   Non-Trivial Definitions: {s.get('non_trivial_definitions', 0)}")
     lines.append("")
+    if s.get('conflict_groups', 0) > 0:
+        lines.append(f"   ⚠️  CONFLICTS (same name, different logic): {s.get('conflict_groups', 0)}")
     lines.append(f"   Exact Duplicate Groups: {s.get('exact_duplicate_groups', 0)}")
     lines.append(f"   Structural Match Groups: {s.get('structural_match_groups', 0)}")
     lines.append(f"   Semantic Match Groups: {s.get('semantic_match_groups', 0)}")
@@ -438,6 +539,26 @@ def format_report(report: ComparisonReport, format: str = 'json') -> str:
     lines.append("")
     lines.append("=" * 80)
     lines.append("")
+
+    # Conflicts (most important - show first)
+    if report.conflicts:
+        lines.append("# ⚠️  CONFLICTS - SAME NAME, DIFFERENT LOGIC")
+        lines.append("   (These require review for data governance)")
+        lines.append("")
+        for i, group in enumerate(report.conflicts, 1):
+            lines.append(f"## Conflict {i}: {group.description}")
+            lines.append("")
+            for diff in group.differences:
+                lines.append(f"   ❌ {diff}")
+            lines.append("")
+            lines.append("   Definitions:")
+            for d in group.definitions:
+                lines.append(f"   - {d['query_label']}: {d['column_name']} ({d['column_type']})")
+                lines.append(f"     Expression: {d['resolved_expression'][:100]}...")
+                lines.append(f"     Tables: {', '.join(d['base_tables'])}")
+            lines.append("")
+        lines.append("-" * 80)
+        lines.append("")
 
     # Exact duplicates
     if report.exact_duplicates:

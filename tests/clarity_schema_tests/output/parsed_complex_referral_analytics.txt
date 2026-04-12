@@ -1,0 +1,400 @@
+
+REFERRAL_ID (passthrough)
+  Resolved: REFERRAL.REFERRAL_ID
+  Base columns: REFERRAL.REFERRAL_ID
+  Base tables: REFERRAL
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+  Chain:
+    -> query.REFERRAL_ID (passthrough)
+      -> referral_appointments.REFERRAL_ID (passthrough)
+        -> base_referrals.REFERRAL_ID (passthrough)
+
+PAT_ID (passthrough)
+  Resolved: REFERRAL.PAT_ID
+  Base columns: REFERRAL.PAT_ID
+  Base tables: REFERRAL
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+  Chain:
+    -> query.PAT_ID (passthrough)
+      -> referral_appointments.PAT_ID (passthrough)
+        -> base_referrals.PAT_ID (passthrough)
+
+PAT_NAME (passthrough)
+  Resolved: PATIENT.PAT_NAME
+  Base columns: PATIENT.PAT_NAME
+  Base tables: PATIENT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - pl.PAT_ID = p.PAT_ID
+    - pl.RESOLVED_DATE IS NULL
+  Chain:
+    -> query.PAT_NAME (passthrough)
+      -> referral_appointments.PAT_NAME (passthrough)
+        -> patient_risk.PAT_NAME (passthrough)
+
+age_years (calculated)
+  Resolved: DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE())
+  Base columns: PATIENT.YEAR, PATIENT.BIRTH_DATE
+  Base tables: PATIENT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - pl.PAT_ID = p.PAT_ID
+    - pl.RESOLVED_DATE IS NULL
+  Chain:
+    -> query.age_years (passthrough)
+      -> referral_appointments.age_years (passthrough)
+        -> patient_risk.age_years = DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) AS age_years (calculated)
+
+age_category (case)
+  Resolved: CASE WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) < 18 THEN 'Pediatric' WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) BETWEEN 18 AND 40 THEN 'Young Adult' WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) BETWEEN 41 AND 65 THEN 'Middle Age' ELSE 'Senior' END /* Age-based risk category */
+  Base columns: PATIENT.YEAR, PATIENT.BIRTH_DATE
+  Base tables: PATIENT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - pl.PAT_ID = p.PAT_ID
+    - pl.RESOLVED_DATE IS NULL
+  Chain:
+    -> query.age_category (passthrough)
+      -> referral_appointments.age_category (passthrough)
+        -> patient_risk.age_category = CASE WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) < 18 THEN 'Pediatric' WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) BETWEEN 18 AND 40 THEN 'Young Adult' WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) BETWEEN 41 AND 65 THEN 'Middle Age' ELSE 'Senior' END /* Age-based risk category */ AS age_category (case)
+
+active_problem_count (subquery)
+  Resolved: (SELECT COUNT(*) FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL) /* Count of active problems (subquery) */
+  Base columns: pl.PAT_ID, PATIENT.PAT_ID, pl.RESOLVED_DATE
+  Base tables: pl, PATIENT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - pl.PAT_ID = p.PAT_ID
+    - pl.RESOLVED_DATE IS NULL
+  Chain:
+    -> query.active_problem_count (passthrough)
+      -> referral_appointments.active_problem_count (passthrough)
+        -> patient_risk.active_problem_count = (SELECT COUNT(*) FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL) /* Count of active problems (subquery) */ AS active_problem_count (subquery)
+
+referral_date (passthrough)
+  Resolved: REFERRAL.ENTRY_DATE
+  Base columns: REFERRAL.ENTRY_DATE
+  Base tables: REFERRAL
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+  Chain:
+    -> query.referral_date (passthrough)
+      -> referral_appointments.referral_date (passthrough)
+        -> base_referrals.referral_date (passthrough)
+
+referral_status_name (passthrough)
+  Resolved: ZC_RFL_STATUS.NAME
+  Base columns: ZC_RFL_STATUS.NAME
+  Base tables: ZC_RFL_STATUS
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+  Chain:
+    -> query.referral_status_name (passthrough)
+      -> referral_appointments.referral_status_name (passthrough)
+        -> base_referrals.referral_status_name (passthrough)
+
+specialty_name (passthrough)
+  Resolved: ZC_SPECIALTY.NAME
+  Base columns: ZC_SPECIALTY.NAME
+  Base tables: ZC_SPECIALTY
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+  Chain:
+    -> query.specialty_name (passthrough)
+      -> referral_appointments.specialty_name (passthrough)
+        -> base_referrals.specialty_name (passthrough)
+
+referral_class (case)
+  Resolved: CASE r.RFL_CLASS_C WHEN 1 THEN 'Internal' WHEN 2 THEN 'Incoming' WHEN 3 THEN 'Outgoing' ELSE 'Unknown' END
+  Base columns: REFERRAL.RFL_CLASS_C
+  Base tables: REFERRAL
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+  Chain:
+    -> query.referral_class (passthrough)
+      -> referral_appointments.referral_class (passthrough)
+        -> base_referrals.referral_class = CASE r.RFL_CLASS_C WHEN 1 THEN 'Internal' WHEN 2 THEN 'Incoming' WHEN 3 THEN 'Outgoing' ELSE 'Unknown' END AS referral_class (case)
+
+referral_category (case)
+  Resolved: CASE WHEN r.REFERRAL_STATUS_C IN (1, 2) THEN 'Active' WHEN r.REFERRAL_STATUS_C IN (4, 5) THEN 'Closed-Negative' WHEN r.REFERRAL_STATUS_C = 6 THEN 'Closed-Complete' ELSE 'Pending' END
+  Base columns: REFERRAL.REFERRAL_STATUS_C
+  Base tables: REFERRAL
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+  Chain:
+    -> query.referral_category (passthrough)
+      -> referral_appointments.referral_category (passthrough)
+        -> base_referrals.referral_category = CASE WHEN r.REFERRAL_STATUS_C IN (1, 2) THEN 'Active' WHEN r.REFERRAL_STATUS_C IN (4, 5) THEN 'Closed-Negative' WHEN r.REFERRAL_STATUS_C = 6 THEN 'Closed-Complete' ELSE 'Pending' END AS referral_category (case)
+
+first_appt_csn (passthrough)
+  Resolved: F_SCHED_APPT.PAT_ENC_CSN_ID
+  Base columns: F_SCHED_APPT.PAT_ENC_CSN_ID
+  Base tables: F_SCHED_APPT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+  Chain:
+    -> query.first_appt_csn (passthrough)
+      -> referral_appointments.PAT_ENC_CSN_ID (passthrough)
+        -> appointment_history.PAT_ENC_CSN_ID (passthrough)
+
+first_appt_date (passthrough)
+  Resolved: F_SCHED_APPT.APPT_DTTM
+  Base columns: F_SCHED_APPT.APPT_DTTM
+  Base tables: F_SCHED_APPT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+  Chain:
+    -> query.first_appt_date (passthrough)
+      -> referral_appointments.APPT_DTTM (passthrough)
+        -> appointment_history.APPT_DTTM (passthrough)
+
+first_appt_outcome (case)
+  Resolved: CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END /* Appointment outcome classification */
+  Base columns: F_SCHED_APPT.APPT_STATUS_C
+  Base tables: F_SCHED_APPT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+  Chain:
+    -> query.first_appt_outcome (passthrough)
+      -> referral_appointments.appt_outcome (passthrough)
+        -> appointment_history.appt_outcome = CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END /* Appointment outcome classification */ AS appt_outcome (case)
+
+DEPARTMENT_NAME (passthrough)
+  Resolved: CLARITY_DEP.DEPARTMENT_NAME
+  Base columns: CLARITY_DEP.DEPARTMENT_NAME
+  Base tables: CLARITY_DEP
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+  Chain:
+    -> query.DEPARTMENT_NAME (passthrough)
+      -> referral_appointments.DEPARTMENT_NAME (passthrough)
+        -> appointment_history.DEPARTMENT_NAME (passthrough)
+
+first_appt_provider (passthrough)
+  Resolved: CLARITY_SER.PROV_NAME
+  Base columns: CLARITY_SER.PROV_NAME
+  Base tables: CLARITY_SER
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+  Chain:
+    -> query.first_appt_provider (passthrough)
+      -> referral_appointments.PROV_NAME (passthrough)
+        -> appointment_history.PROV_NAME (passthrough)
+
+days_to_appointment (calculated)
+  Resolved: DATEDIFF(DAY, br.referral_date, APPT_DTTM)
+  Base columns: .DAY, REFERRAL.ENTRY_DATE
+  Base tables: REFERRAL
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+  Chain:
+    -> query.days_to_appointment (passthrough)
+      -> referral_appointments.days_to_appointment = DATEDIFF(DAY, br.referral_date, APPT_DTTM) AS days_to_appointment (calculated)
+        -> base_referrals.referral_date (passthrough)
+
+lead_time_days (calculated)
+  Resolved: DATEDIFF(DAY, fa.APPT_MADE_DTTM, APPT_DTTM)
+  Base columns: F_SCHED_APPT.DAY, F_SCHED_APPT.APPT_MADE_DTTM
+  Base tables: F_SCHED_APPT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+  Chain:
+    -> query.lead_time_days (passthrough)
+      -> referral_appointments.lead_time_days (passthrough)
+        -> appointment_history.lead_time_days = DATEDIFF(DAY, fa.APPT_MADE_DTTM, APPT_DTTM) AS lead_time_days (calculated)
+
+visit_duration_minutes (case)
+  Resolved: CASE WHEN NOT fa.CHECKIN_DTTM IS NULL AND NOT fa.CHECKOUT_DTTM IS NULL THEN DATEDIFF(MINUTE, fa.CHECKIN_DTTM, CHECKOUT_DTTM) ELSE NULL END /* Wait time in minutes (check-in to checkout) */
+  Base columns: F_SCHED_APPT.MINUTE, F_SCHED_APPT.CHECKIN_DTTM, F_SCHED_APPT.CHECKOUT_DTTM
+  Base tables: F_SCHED_APPT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+  Chain:
+    -> query.visit_duration_minutes (passthrough)
+      -> referral_appointments.visit_duration_minutes (passthrough)
+        -> appointment_history.visit_duration_minutes = CASE WHEN NOT fa.CHECKIN_DTTM IS NULL AND NOT fa.CHECKOUT_DTTM IS NULL THEN DATEDIFF(MINUTE, fa.CHECKIN_DTTM, CHECKOUT_DTTM) ELSE NULL END /* Wait time in minutes (check-in to checkout) */ AS visit_duration_minutes (case)
+
+cumulative_no_shows (window)
+  Resolved: SUM(CASE WHEN fa.APPT_STATUS_C = 4 THEN 1 ELSE 0 END) OVER (PARTITION BY fa.PAT_ID ORDER BY fa.APPT_DTTM ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+  Base columns: F_SCHED_APPT.PAT_ID, F_SCHED_APPT.APPT_DTTM, F_SCHED_APPT.APPT_STATUS_C
+  Base tables: F_SCHED_APPT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+  Chain:
+    -> query.cumulative_no_shows (passthrough)
+      -> referral_appointments.cumulative_no_shows (passthrough)
+        -> appointment_history.cumulative_no_shows = SUM(CASE WHEN fa.APPT_STATUS_C = 4 THEN 1 ELSE 0 END) OVER (PARTITION BY fa.PAT_ID ORDER BY fa.APPT_DTTM ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_no_shows (window)
+
+specialty_avg_days (aggregate)
+  Resolved: AVG(CAST(DATEDIFF(DAY, br.referral_date, APPT_DTTM) AS FLOAT))
+  Base columns: .DAY, REFERRAL.ENTRY_DATE
+  Base tables: REFERRAL
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+  Chain:
+    -> query.specialty_avg_days (passthrough)
+      -> specialty_metrics.avg_days_to_first_appt = AVG(CAST(days_to_appointment AS FLOAT)) AS avg_days_to_first_appt (aggregate)
+        -> referral_appointments.days_to_appointment = DATEDIFF(DAY, br.referral_date, APPT_DTTM) AS days_to_appointment (calculated)
+          -> base_referrals.referral_date (passthrough)
+
+days_vs_specialty_avg (calculated)
+  Resolved: COALESCE(DATEDIFF(DAY, br.referral_date, APPT_DTTM), 0) - COALESCE(AVG(CAST(days_to_appointment AS FLOAT)), 0)
+  Base columns: .DAY, REFERRAL.ENTRY_DATE
+  Base tables: REFERRAL
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+    - appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL
+  Chain:
+    -> query.days_vs_specialty_avg = COALESCE(ra.days_to_appointment, 0) - COALESCE(sm.avg_days_to_first_appt, 0) AS days_vs_specialty_avg (calculated)
+      -> referral_appointments.days_to_appointment = DATEDIFF(DAY, br.referral_date, APPT_DTTM) AS days_to_appointment (calculated)
+        -> base_referrals.referral_date (passthrough)
+          -> specialty_metrics.avg_days_to_first_appt = AVG(CAST(days_to_appointment AS FLOAT)) AS avg_days_to_first_appt (aggregate)
+            -> referral_appointments.days_to_appointment = DATEDIFF(DAY, br.referral_date, APPT_DTTM) AS days_to_appointment (calculated)
+              -> base_referrals.referral_date (passthrough)
+
+specialty_conversion_rate (aggregate)
+  Resolved: CAST(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END) AS FLOAT) / NULLIF(COUNT(DISTINCT REFERRAL_ID), 0) * 100
+  Base columns: REFERRAL.REFERRAL_ID, F_SCHED_APPT.PAT_ENC_CSN_ID
+  Base tables: REFERRAL, F_SCHED_APPT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+  Chain:
+    -> query.specialty_conversion_rate (passthrough)
+      -> specialty_metrics.conversion_rate_pct = CAST(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END) AS FLOAT) / NULLIF(COUNT(DISTINCT REFERRAL_ID), 0) * 100 AS conversion_rate_pct (aggregate)
+        -> referral_appointments.REFERRAL_ID (passthrough)
+          -> base_referrals.REFERRAL_ID (passthrough)
+            -> referral_appointments.REFERRAL_ID (passthrough)
+              -> base_referrals.REFERRAL_ID (passthrough)
+                -> referral_appointments.PAT_ENC_CSN_ID (passthrough)
+                  -> appointment_history.PAT_ENC_CSN_ID (passthrough)
+
+specialty_completion_rate (aggregate)
+  Resolved: CAST(COUNT(DISTINCT CASE WHEN appt_outcome = 'Completed' THEN REFERRAL_ID END) AS FLOAT) / NULLIF(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END), 0) * 100
+  Base columns: REFERRAL.REFERRAL_ID, F_SCHED_APPT.APPT_STATUS_C, F_SCHED_APPT.PAT_ENC_CSN_ID
+  Base tables: REFERRAL, F_SCHED_APPT
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+  Chain:
+    -> query.specialty_completion_rate (passthrough)
+      -> specialty_metrics.completion_rate_pct = CAST(COUNT(DISTINCT CASE WHEN appt_outcome = 'Completed' THEN REFERRAL_ID END) AS FLOAT) / NULLIF(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END), 0) * 100 AS completion_rate_pct (aggregate)
+        -> referral_appointments.REFERRAL_ID (passthrough)
+          -> base_referrals.REFERRAL_ID (passthrough)
+            -> referral_appointments.REFERRAL_ID (passthrough)
+              -> base_referrals.REFERRAL_ID (passthrough)
+                -> referral_appointments.appt_outcome (passthrough)
+                  -> appointment_history.appt_outcome = CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END /* Appointment outcome classification */ AS appt_outcome (case)
+                    -> referral_appointments.PAT_ENC_CSN_ID (passthrough)
+                      -> appointment_history.PAT_ENC_CSN_ID (passthrough)
+
+patient_risk_flag (case)
+  Resolved: CASE WHEN ra.cumulative_no_shows >= 3 THEN 'High Risk - Multiple No Shows' WHEN ra.cumulative_no_shows >= 1 AND ra.age_category = 'Senior' THEN 'Medium Risk - Senior with No Show History' WHEN ra.active_problem_count >= 5 THEN 'Medium Risk - Complex Patient' WHEN DATEDIFF(DAY, br.referral_date, APPT_DTTM) > AVG(CAST(days_to_appointment AS FLOAT)) * 2 THEN 'Medium Risk - Long Wait Time' ELSE 'Standard' END /* Risk flags */
+  Base columns: F_SCHED_APPT.PAT_ID, F_SCHED_APPT.APPT_DTTM, F_SCHED_APPT.APPT_STATUS_C, pl.PAT_ID, PATIENT.PAT_ID, pl.RESOLVED_DATE, .DAY, REFERRAL.ENTRY_DATE, PATIENT.YEAR, PATIENT.BIRTH_DATE
+  Base tables: F_SCHED_APPT, pl, PATIENT, REFERRAL
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+    - pl.PAT_ID = p.PAT_ID
+    - pl.RESOLVED_DATE IS NULL
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+    - appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL
+  Chain:
+    -> query.patient_risk_flag = CASE WHEN ra.cumulative_no_shows >= 3 THEN 'High Risk - Multiple No Shows' WHEN ra.cumulative_no_shows >= 1 AND ra.age_category = 'Senior' THEN 'Medium Risk - Senior with No Show History' WHEN ra.active_problem_count >= 5 THEN 'Medium Risk - Complex Patient' WHEN ra.days_to_appointment > sm.avg_days_to_first_appt * 2 THEN 'Medium Risk - Long Wait Time' ELSE 'Standard' END /* Risk flags */ AS patient_risk_flag (case)
+      -> referral_appointments.cumulative_no_shows (passthrough)
+        -> appointment_history.cumulative_no_shows = SUM(CASE WHEN fa.APPT_STATUS_C = 4 THEN 1 ELSE 0 END) OVER (PARTITION BY fa.PAT_ID ORDER BY fa.APPT_DTTM ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_no_shows (window)
+          -> referral_appointments.active_problem_count (passthrough)
+            -> patient_risk.active_problem_count = (SELECT COUNT(*) FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL) /* Count of active problems (subquery) */ AS active_problem_count (subquery)
+              -> referral_appointments.days_to_appointment = DATEDIFF(DAY, br.referral_date, APPT_DTTM) AS days_to_appointment (calculated)
+                -> base_referrals.referral_date (passthrough)
+                  -> referral_appointments.cumulative_no_shows (passthrough)
+                    -> appointment_history.cumulative_no_shows = SUM(CASE WHEN fa.APPT_STATUS_C = 4 THEN 1 ELSE 0 END) OVER (PARTITION BY fa.PAT_ID ORDER BY fa.APPT_DTTM ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_no_shows (window)
+                      -> referral_appointments.age_category (passthrough)
+                        -> patient_risk.age_category = CASE WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) < 18 THEN 'Pediatric' WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) BETWEEN 18 AND 40 THEN 'Young Adult' WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) BETWEEN 41 AND 65 THEN 'Middle Age' ELSE 'Senior' END /* Age-based risk category */ AS age_category (case)
+                          -> specialty_metrics.avg_days_to_first_appt = AVG(CAST(days_to_appointment AS FLOAT)) AS avg_days_to_first_appt (aggregate)
+                            -> referral_appointments.days_to_appointment = DATEDIFF(DAY, br.referral_date, APPT_DTTM) AS days_to_appointment (calculated)
+                              -> base_referrals.referral_date (passthrough)
+
+referral_success_flag (case)
+  Resolved: CASE WHEN ra.appt_outcome = 'Completed' THEN 1 WHEN ra.appt_outcome IN ('Cancelled', 'No Show') THEN 0 WHEN ra.PAT_ENC_CSN_ID IS NULL AND ra.referral_category = 'Active' THEN NULL /* Still pending */ ELSE 0 END /* Referral success indicator */
+  Base columns: F_SCHED_APPT.APPT_STATUS_C, F_SCHED_APPT.PAT_ENC_CSN_ID, REFERRAL.REFERRAL_STATUS_C
+  Base tables: F_SCHED_APPT, REFERRAL
+  Filters:
+    - ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL
+    - COUNT(DISTINCT REFERRAL_ID) >= 10
+    - fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())
+    - r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())
+    - NOT r.REFERRAL_STATUS_C IS NULL
+  Chain:
+    -> query.referral_success_flag = CASE WHEN ra.appt_outcome = 'Completed' THEN 1 WHEN ra.appt_outcome IN ('Cancelled', 'No Show') THEN 0 WHEN ra.PAT_ENC_CSN_ID IS NULL AND ra.referral_category = 'Active' THEN NULL /* Still pending */ ELSE 0 END /* Referral success indicator */ AS referral_success_flag (case)
+      -> referral_appointments.appt_outcome (passthrough)
+        -> appointment_history.appt_outcome = CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END /* Appointment outcome classification */ AS appt_outcome (case)
+          -> referral_appointments.appt_outcome (passthrough)
+            -> appointment_history.appt_outcome = CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END /* Appointment outcome classification */ AS appt_outcome (case)
+              -> referral_appointments.PAT_ENC_CSN_ID (passthrough)
+                -> appointment_history.PAT_ENC_CSN_ID (passthrough)
+                  -> referral_appointments.referral_category (passthrough)
+                    -> base_referrals.referral_category = CASE WHEN r.REFERRAL_STATUS_C IN (1, 2) THEN 'Active' WHEN r.REFERRAL_STATUS_C IN (4, 5) THEN 'Closed-Negative' WHEN r.REFERRAL_STATUS_C = 6 THEN 'Closed-Complete' ELSE 'Pending' END AS referral_category (case)

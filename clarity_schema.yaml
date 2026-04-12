@@ -1,0 +1,1857 @@
+# Epic Clarity Schema Graph Definition
+# Initial subset for MVP (Referrals, Appointments, Visits domain)
+# Expanded with Inpatient, Surgery, and Billing Diagnosis workflows
+
+tables:
+  - name: PATIENT
+    data_source: Epic Clarity
+    primary_key: PAT_ID
+    description: Patient demographic and registration information. Contains patient names - filter on PAT_NAME when searching by patient name.
+    is_enum_table: true
+    enum_column: PAT_NAME
+    columns:
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Unique patient identifier
+      - name: PAT_NAME
+        type: VARCHAR
+        description: Patient full name
+      - name: BIRTH_DATE
+        type: DATE
+        description: Patient date of birth
+      - name: SEX
+        type: VARCHAR(1)
+        description: Patient sex
+      - name: ADD_LINE_1
+        type: VARCHAR(254)
+        description: Patient address line 1
+      - name: CITY
+        type: VARCHAR(50)
+        description: Patient city
+      - name: STATE
+        type: VARCHAR(50)
+        description: Patient state
+      - name: ZIP
+        type: VARCHAR(20)
+        description: Patient zip code
+
+  - name: REFERRAL
+    data_source: Epic Clarity
+    primary_key: REFERRAL_ID
+    description: Referral orders and tracking
+    columns:
+      - name: REFERRAL_ID
+        type: INTEGER
+        description: Unique referral identifier
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient receiving referral
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: PCP_PROV_ID
+        type: VARCHAR(18)
+        description: The ID of thePrimary care provider at the time the referral was created.
+        foreign_key:
+          table: CLARITY_SER
+          column: PROV_ID
+          cardinality: many-to-one
+      - name: ENTRY_DATE
+        type: DATETIME
+        description: Date referral was created
+      - name: REFERRAL_STATUS_C
+        type: INTEGER
+        description: The category value corresponding to the status of each referral record.
+        foreign_key:
+          table: ZC_RFL_STATUS
+          column: RFL_STATUS_C
+          cardinality: many-to-one
+      - name: REFERRING_PROV_ID
+        type: VARCHAR(18)
+        description: Provider who made the referral
+        foreign_key:
+          table: CLARITY_SER
+          column: PROV_ID
+          cardinality: many-to-one
+      - name: PROV_SPEC_C
+        type: INTEGER
+        description: Specialty code for referral
+        foreign_key:
+          table: ZC_SPECIALTY
+          column: SPECIALTY_C
+          cardinality: many-to-one
+      - name: RFL_TYPE_C
+        type: INTEGER
+        description: The category value indicating the type of each referral record.
+        foreign_key:
+          table: ZC_RFL_TYPE
+          column: RFL_TYPE_C
+          cardinality: many-to-one
+      - name: RFL_CLASS_C
+        type: INTEGER
+        description: The category value indicating the class of each referral record.
+        foreign_key:
+          table: ZC_RFL_CLASS
+          column: RFL_CLASS_C
+          cardinality: many-to-one
+      - name: ENTRY_SOURCE_C
+        type: INTEGER
+        description: Source of referral
+        foreign_key:
+          table: ZC_ENTRY_SOURCE
+          column: ENTRY_SOURCE_C
+          cardinality: many-to-one
+
+  - name: PAT_ENC
+    data_source: Epic Clarity
+    primary_key: PAT_ENC_CSN_ID
+    description: Patient encounters (appointments and visits)
+    columns:
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Unique encounter/appointment identifier (CSN)
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient for this encounter
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: APPT_TIME
+        type: DATETIME
+        description: Appointment date and time
+      - name: APPT_STATUS_C
+        type: INTEGER
+        description: Appointment status
+        foreign_key:
+          table: ZC_APPT_STATUS
+          column: APPT_STATUS_C
+          cardinality: many-to-one
+      - name: DEPARTMENT_ID
+        type: INTEGER
+        description: Department for appointment
+        foreign_key:
+          table: CLARITY_DEP
+          column: DEPARTMENT_ID
+          cardinality: many-to-one
+      - name: VISIT_PROV_ID
+        type: VARCHAR(18)
+        description: Provider for appointment
+        foreign_key:
+          table: CLARITY_SER
+          column: PROV_ID
+          cardinality: many-to-one
+      - name: APPT_MADE_DATE
+        type: DATETIME
+        description: When appointment was scheduled
+      - name: APPT_CANCEL_DATE
+        type: DATETIME
+        description: When appointment was cancelled
+      - name: APPT_DATE
+        type: DATE
+        description: Appointment date (for filtering/grouping)
+      - name: CONTACT_DATE
+        type: DATE
+        description: Contact date for the encounter
+      - name: ENC_TYPE_C
+        type: INTEGER
+        description: Encounter type (1-Registration, 2-Walk-In, 3-Hospital, 5-Canceled, etc.)
+        foreign_key:
+          table: ZC_DISP_ENC_TYPE
+          column: ENC_TYPE_C
+          cardinality: many-to-one
+      - name: REFERRAL_ID
+        type: INTEGER
+        description: Referral associated with this encounter
+        foreign_key:
+          table: REFERRAL
+          column: REFERRAL_ID
+          cardinality: many-to-one
+      - name: CANCEL_REASON_C
+        type: INTEGER
+        description: Cancellation reason
+        foreign_key:
+          table: ZC_CANCEL_REASON
+          column: CANCEL_REASON_C
+          cardinality: many-to-one
+
+  - name: PAT_ENC_DX
+    data_source: Epic Clarity
+    primary_key: "PAT_ENC_CSN_ID, LINE"
+    description: Encounter diagnosis codes. Stores diagnoses associated with specific patient encounters (Outpatient, ED, etc.). Not used for hospital admission/discharge diagnoses.
+    columns:
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Encounter CSN
+        foreign_key:
+          table: PAT_ENC
+          column: PAT_ENC_CSN_ID
+          cardinality: many-to-one
+      - name: LINE
+        type: INTEGER
+        description: Line number
+      - name: DX_ID
+        type: NUMERIC(18,0)
+        description: Diagnosis ID
+        foreign_key:
+          table: CLARITY_EDG
+          column: DX_ID
+          cardinality: many-to-one
+      - name: PRIMARY_YN
+        type: VARCHAR(1)
+        description: Is this the primary diagnosis?
+
+  - name: PAT_ENC_HSP
+    data_source: Epic Clarity
+    primary_key: PAT_ENC_CSN_ID
+    description: Hospital Encounter data. Stores admission/discharge dates and ADT info. Extension of PAT_ENC for inpatient stays.
+    columns:
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Encounter CSN (FK to PAT_ENC)
+        foreign_key:
+          table: PAT_ENC
+          column: PAT_ENC_CSN_ID
+          cardinality: one-to-one
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient ID
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: HOSP_ADMSN_TIME
+        type: DATETIME
+        description: Admission Time
+      - name: HOSP_DISCH_TIME
+        type: DATETIME
+        description: Discharge Time
+      - name: ADT_PAT_CLASS_C
+        type: INTEGER
+        description: Patient Class (Inpatient, Outpatient, Emergency, etc.)
+      - name: ACUITY_LEVEL_C
+        type: INTEGER
+        description: ED acuity/triage level (1-5)
+      - name: ADMIT_CONF_STAT_C
+        type: INTEGER
+        description: Admission confirmation status
+
+  - name: HSP_ADMIT_DIAG
+    data_source: Epic Clarity
+    primary_key: "PAT_ENC_CSN_ID, LINE"
+    description: Hospital Admission Diagnosis. Diagnoses recorded at the time of admission to the hospital. Distinct from final billing diagnoses.
+    columns:
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Encounter CSN (FK to PAT_ENC_HSP)
+        foreign_key:
+          table: PAT_ENC_HSP
+          column: PAT_ENC_CSN_ID
+          cardinality: many-to-one
+      - name: LINE
+        type: INTEGER
+        description: Line number
+      - name: DX_ID
+        type: NUMERIC(18,0)
+        description: Diagnosis ID
+        foreign_key:
+          table: CLARITY_EDG
+          column: DX_ID
+          cardinality: many-to-one
+
+  - name: OR_CASE
+    data_source: Epic Clarity
+    primary_key: OR_CASE_ID
+    description: Surgery Case master file.
+    columns:
+      - name: OR_CASE_ID
+        type: NUMERIC(18,0)
+        description: Unique Surgery Case ID
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient ID
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: SURGERY_DATE
+        type: DATE
+        description: Date of surgery
+      - name: ROOM_ID
+        type: VARCHAR(18)
+        description: Operating Room ID
+
+  - name: OR_CASE_DX_CODE
+    data_source: Epic Clarity
+    primary_key: "OR_CASE_ID, LINE"
+    description: Surgery Case Diagnoses. Pre-op or Post-op diagnoses associated with a surgery case.
+    columns:
+      - name: OR_CASE_ID
+        type: NUMERIC(18,0)
+        description: Surgery Case ID
+        foreign_key:
+          table: OR_CASE
+          column: OR_CASE_ID
+          cardinality: many-to-one
+      - name: LINE
+        type: INTEGER
+        description: Line number
+      - name: DX_ID
+        type: NUMERIC(18,0)
+        description: Diagnosis ID
+        foreign_key:
+          table: CLARITY_EDG
+          column: DX_ID
+          cardinality: many-to-one
+
+  - name: PAT_PCP
+    data_source: Epic Clarity
+    primary_key: "PAT_ID, PCP_PROV_ID, EFF_DATE"  # Composite key
+    description: Patient primary care provider assignments
+    columns:
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: PCP_PROV_ID
+        type: VARCHAR(18)
+        description: Primary care provider
+        foreign_key:
+          table: CLARITY_SER
+          column: PROV_ID
+          cardinality: many-to-one
+      - name: EFF_DATE
+        type: DATETIME
+        description: Effective date of PCP assignment
+      - name: TERM_DATE
+        type: DATETIME
+        description: End date of PCP assignment (NULL if active)
+      - name: PCP_TYPE_C
+        type: INTEGER
+        description: PCP type code
+        foreign_key:
+          table: ZC_PCP_TYPE
+          column: PCP_TYPE_C
+
+  - name: CLARITY_SER
+    data_source: Epic Clarity
+    primary_key: PROV_ID
+    description: Provider master file. Contains provider names - filter on PROV_NAME when searching by provider/doctor name.
+    is_enum_table: true
+    enum_column: PROV_NAME
+    columns:
+      - name: PROV_ID
+        type: VARCHAR(18)
+        description: Unique provider identifier
+      - name: PROV_NAME
+        type: VARCHAR
+        description: Provider full name
+
+  - name: CLARITY_DEP
+    data_source: Epic Clarity
+    primary_key: DEPARTMENT_ID
+    description: Department master file. Contains department names - filter on DEPARTMENT_NAME when searching by department.
+    is_enum_table: true
+    enum_column: DEPARTMENT_NAME
+    columns:
+      - name: DEPARTMENT_ID
+        type: INTEGER
+        description: Unique department identifier
+      - name: DEPARTMENT_NAME
+        type: VARCHAR
+        description: Department name
+      - name: SPECIALTY
+        type: VARCHAR
+        description: Department specialty
+
+  - name: PAT_IMMUNIZATION
+    data_source: Epic Clarity
+    primary_key: "PAT_ID, IMMUNE_ID"  # Composite key
+    description: Patient immunization records
+    columns:
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient receiving immunization
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: IMMUNE_ID
+        type: INTEGER
+        description: Immunization record
+        foreign_key:
+          table: IMMUNE
+          column: IMMUNE_ID
+          cardinality: many-to-one
+
+  - name: IMMUNE
+    data_source: Epic Clarity
+    primary_key: IMMUNE_ID
+    description: Immunization master records
+    columns:
+      - name: IMMUNE_ID
+        type: INTEGER
+        description: Unique immunization identifier
+      - name: IMMUNZATN_ID
+        type: INTEGER
+        description: Immunization type (vaccine)
+        foreign_key:
+          table: CLARITY_IMMUNZATN
+          column: IMMUNZATN_ID
+          cardinality: many-to-one
+      - name: IMMUNIZATION_DATE
+        type: DATE
+        description: Date immunization was administered
+      - name: IMMUNIZATION_STATUS
+        type: VARCHAR
+        description: Immunization status (completed, refused, etc.)
+
+  # ========================================================================
+  # ZC Tables (Epic Master/Lookup Tables)
+  # ========================================================================
+
+  - name: ZC_APPT_STATUS
+    data_source: Epic Clarity
+    primary_key: APPT_STATUS_C
+    description: Appointment status master table
+    is_enum_table: true
+    columns:
+      - name: APPT_STATUS_C
+        type: INTEGER
+        description: Appointment status code (primary key)
+      - name: NAME
+        type: VARCHAR
+        description: Appointment status name
+    values:
+      - code: 1
+        name: SCHEDULED
+      - code: 2
+        name: COMPLETED
+      - code: 3
+        name: CANCELED
+      - code: 4
+        name: NO SHOW
+      - code: 5
+        name: LEFT WITHOUT SEEN
+      - code: 6
+        name: ARRIVED
+
+  - name: ZC_CANCEL_REASON
+    data_source: Epic Clarity
+    primary_key: CANCEL_REASON_C
+    description: Cancellation reason master table
+    is_enum_table: true
+    columns:
+      - name: CANCEL_REASON_C
+        type: INTEGER
+        description: Cancellation reason code (primary key)
+      - name: NAME
+        type: VARCHAR
+        description: Cancellation reason name
+    values:
+      - code: 1
+        name: Patient
+      - code: 2
+        name: Provider
+      - code: 3
+        name: Scheduled from Wait List
+      - code: 4
+        name: Error
+      - code: 5
+        name: Lack of Transportation
+      - code: 6
+        name: Weather
+      - code: 7
+        name: Deceased
+      - code: 8
+        name: Unhappy/Changed Provider
+      - code: 9
+        name: Member Terminated
+      - code: 10
+        name: Moved
+      - code: 11
+        name: Discharged
+      - code: 12
+        name: Cancelled via MyChart
+  - name: ZC_SPECIALTY
+    data_source: Epic Clarity
+    primary_key: SPECIALTY_C
+    description: Specialty master table
+    is_enum_table: true
+    columns:
+      - name: SPECIALTY_C
+        type: INTEGER
+        description: Specialty code (primary key)
+      - name: NAME
+        type: VARCHAR
+        description: Specialty name
+    values:
+      - code: 1
+        name: Allergy/Immunology
+      - code: 2
+        name: Anesthesiology
+      - code: 3
+        name: Audiology
+      - code: 4
+        name: Cardiology
+      - code: 5
+        name: Colon and Rectal Surgery
+      - code: 6
+        name: Dermatology
+      - code: 7
+        name: Endocrinology
+      - code: 8
+        name: Otolaryngology
+      - code: 9
+        name: Family Medicine
+      - code: 10
+        name: Gastroenterology
+      - code: 11
+        name: General Surgery
+      - code: 12
+        name: Gynecology
+      - code: 13
+        name: Hematology
+      - code: 14
+        name: Hepatology
+      - code: 15
+        name: Infectious Disease
+      - code: 16
+        name: Internal Medicine
+      - code: 17
+        name: Nephrology
+      - code: 18
+        name: Neurology
+      - code: 19
+        name: Obstetrics and Gynecology
+      - code: 20
+        name: Ophthalmology
+      - code: 21
+        name: Orthopedic Surgery
+      - code: 22
+        name: Otolaryngology
+      - code: 23
+        name: Pathology
+      - code: 24
+        name: Pediatrics
+      - code: 25
+        name: Physical Medicine and Rehabilitation
+      - code: 26
+        name: Plastic Surgery
+      - code: 27
+        name: Psychiatry
+      - code: 28
+        name: Radiology
+      - code: 29
+        name: Rheumatology
+      - code: 30
+        name: Sleep Medicine
+      - code: 31
+        name: Sports Medicine
+      - code: 32
+        name: Surgery
+      - code: 33
+        name: Urology
+      - code: 34
+        name: Vascular Surgery
+      - code: 35
+        name: Women's Health
+      - code: 36
+        name: Other
+
+  - name: ZC_ENTRY_SOURCE
+    data_source: Epic Clarity
+    primary_key: ENTRY_SOURCE_C
+    description: Entry source master table
+    is_enum_table: true
+    columns:
+      - name: ENTRY_SOURCE_C
+        type: INTEGER
+        description: Entry source code (primary key)
+      - name: NAME
+        type: VARCHAR
+        description: Entry source name
+    values:
+      - code: 1
+        name: Professional Billing
+      - code: 2
+        name: Cadence
+      - code: 3
+        name: Tapestry
+      - code: 4
+        name: EpicCare
+      - code: 5
+        name: ADT
+      - code: 6
+        name: Home Health
+      - code: 7
+        name: Import
+
+      - code: 9
+        name: EpicWeb 
+      - code: 10
+        name: UM Authorization Review
+      - code: 13
+        name: Interface
+      - code: 34
+        name: EpicCare Link and Tapestry Link
+
+  - name: ZC_DISP_ENC_TYPE
+    data_source: Epic Clarity
+    primary_key: ENC_TYPE_C
+    description: Encounter type master table
+    is_enum_table: true
+    columns:
+      - name: ENC_TYPE_C
+        type: INTEGER
+        description: Encounter type code (primary key)
+      - name: NAME
+        type: VARCHAR
+        description: Encounter type name
+    values:
+      - code: 1
+        name: Registration
+      - code: 2
+        name: Walk-In
+      - code: 3
+        name: Hospital Encounter
+      - code: 5
+        name: Canceled
+
+  - name: ZC_RFL_CLASS
+    data_source: Epic Clarity
+    primary_key: RFL_CLASS_C
+    description: Referral class master table
+    is_enum_table: true
+    columns:
+      - name: RFL_CLASS_C
+        type: INTEGER
+        description: Referral class category list.
+      - name: NAME
+        type: VARCHAR
+        description: Referral class name
+    values:
+      - code: 1
+        name: Internal
+      - code: 2
+        name: Incoming
+      - code: 3
+        name: Outgoing
+
+  - name: ZC_RFL_STATUS
+    data_source: Epic Clarity
+    primary_key: RFL_STATUS_C
+    description: Referral status master table
+    is_enum_table: true
+    columns:
+      - name: RFL_STATUS_C
+        type: INTEGER
+        description: Referral status category list.
+      - name: NAME
+        type: VARCHAR
+        description: Referral status name
+    values:
+      - code: 1
+        name: Authorized
+      - code: 2
+        name: Open  
+      - code: 3
+        name: Pending Review
+      - code: 4
+        name: Canceled
+      - code: 5
+        name: Denied
+      - code: 6
+        name: Closed  
+      - code: 7
+        name: New Request
+      - code: 8
+        name: Incomplete
+
+  - name: ZC_RFL_TYPE
+    data_source: Epic Clarity
+    primary_key: RFL_TYPE_C
+    description: Referral type master table
+    is_enum_table: true
+    columns:
+      - name: RFL_TYPE_C
+        type: INTEGER
+        description: Referral type category list.
+      - name: NAME
+        type: VARCHAR
+        description: Referral type name
+
+  - name: CLARITY_IMMUNZATN
+    data_source: Epic Clarity
+    primary_key: IMMUNZATN_ID
+    description: Immunization/vaccine master table
+    columns:
+      - name: IMMUNZATN_ID
+        type: INTEGER
+        description: Unique immunization type identifier
+      - name: IMMUNZATN_NAME
+        type: VARCHAR
+        description: Vaccine name (MMR, DTaP, Polio, HepB, etc.)
+
+  - name: HSP_ACCOUNT
+    data_source: Epic Clarity
+    primary_key: HSP_ACCOUNT_ID
+    description: Hospital account information (inpatient stays)
+    columns:
+      - name: HSP_ACCOUNT_ID
+        type: NUMERIC(18,0)
+        description: Unique identifier for the hospital account
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient ID for the hospital account
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: ADM_DATE_TIME
+        type: DATETIME
+        description: Admission date and time
+      - name: DISCH_DATE_TIME
+        type: DATETIME
+        description: Discharge date and time
+      - name: PRIM_ENC_CSN_ID
+        type: INTEGER
+        description: Primary encounter CSN for the hospital stay
+        foreign_key:
+          table: PAT_ENC
+          column: PAT_ENC_CSN_ID
+          cardinality: one-to-one
+      - name: TOT_CHGS
+        type: NUMERIC(18,2)
+        description: Total charges for the hospital account
+      - name: TOT_PMTS
+        type: NUMERIC(18,2)
+        description: Total payments received
+      - name: TOT_ADJ
+        type: NUMERIC(18,2)
+        description: Total adjustments
+      - name: ACCT_BASECLS_HA_C
+        type: INTEGER
+        description: Account base class (1=Inpatient, 2=Outpatient/ED)
+
+  - name: HSP_ACCT_DX_LIST
+    data_source: Epic Clarity
+    primary_key: "HSP_ACCOUNT_ID, LINE"
+    description: Hospital account final diagnosis list (Inpatient Discharge Diagnosis).
+    columns:
+      - name: HSP_ACCOUNT_ID
+        type: NUMERIC(18,0)
+        description: Hospital account identifier
+        foreign_key:
+          table: HSP_ACCOUNT
+          column: HSP_ACCOUNT_ID
+          cardinality: many-to-one
+      - name: DX_ID
+        type: NUMERIC(18,0)
+        description: Diagnosis ID
+        foreign_key:
+          table: CLARITY_EDG
+          column: DX_ID
+          cardinality: many-to-one
+      - name: LINE
+        type: INTEGER
+        description: Line number (ordering)
+
+  - name: CLARITY_EDG
+    data_source: Epic Clarity
+    primary_key: DX_ID
+    description: Diagnosis master file
+    columns:
+      - name: DX_ID
+        type: NUMERIC(18,0)
+        description: Diagnosis identifier
+      - name: DX_NAME
+        type: VARCHAR(200)
+        description: Diagnosis name
+      - name: CURRENT_ICD10_LIST
+        type: VARCHAR(254)
+        description: Current mapped ICD-10-CM codes
+
+  - name: ORDER_MED
+    data_source: Epic Clarity
+    primary_key: ORDER_MED_ID
+    description: Medication orders (prescriptions)
+    columns:
+      - name: ORDER_MED_ID
+        type: NUMERIC(18,0)
+        description: Unique medication order identifier
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient ID
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Encounter CSN
+        foreign_key:
+          table: PAT_ENC
+          column: PAT_ENC_CSN_ID
+          cardinality: many-to-one
+      - name: MEDICATION_ID
+        type: NUMERIC(18,0)
+        description: Medication identifier
+        foreign_key:
+          table: CLARITY_MEDICATION
+          column: MEDICATION_ID
+          cardinality: many-to-one
+      - name: DISPLAY_NAME
+        type: VARCHAR(200)
+        description: Display name of the medication order
+      - name: ORDER_STATUS_C
+        type: INTEGER
+        description: Order status code
+
+  - name: CLARITY_MEDICATION
+    data_source: Epic Clarity
+    primary_key: MEDICATION_ID
+    description: Medication master file
+    columns:
+      - name: MEDICATION_ID
+        type: NUMERIC(18,0)
+        description: Unique medication identifier
+      - name: NAME
+        type: VARCHAR(200)
+        description: Medication name
+      - name: PHARM_CLASS_C
+        type: INTEGER
+        description: Pharmaceutical class code
+      - name: COST
+        type: NUMERIC(18,2)
+        description: Medication cost
+      - name: GENERIC_NAME
+        type: VARCHAR(200)
+        description: Generic name
+
+  - name: ORDER_PROC
+    data_source: Epic Clarity
+    primary_key: ORDER_PROC_ID
+    description: Procedure orders
+    columns:
+      - name: ORDER_PROC_ID
+        type: NUMERIC(18,0)
+        description: Unique procedure order identifier
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient ID
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Encounter CSN
+        foreign_key:
+          table: PAT_ENC
+          column: PAT_ENC_CSN_ID
+          cardinality: many-to-one
+      - name: RESULT_LAB_ID
+        type: VARCHAR(18)
+        description: Result Lab ID (if applicable)
+      - name: ORDERING_DATE
+        type: DATETIME
+        description: Date procedure was ordered
+      - name: ORDER_TYPE_C
+        type: INTEGER
+        description: Order type code
+      - name: PROC_ID
+        type: NUMERIC(18,0)
+        description: Procedure identifier
+        foreign_key:
+          table: CLARITY_EAP
+          column: PROC_ID
+          cardinality: many-to-one
+      - name: DESCRIPTION
+        type: VARCHAR(254)
+        description: Procedure description
+      - name: ORDER_STATUS_C
+        type: INTEGER
+        description: Order status code
+
+  - name: CLARITY_EAP
+    data_source: Epic Clarity
+    primary_key: PROC_ID
+    description: Procedure master file
+    columns:
+      - name: PROC_ID
+        type: NUMERIC(18,0)
+        description: Procedure identifier
+      - name: PROC_NAME
+        type: VARCHAR(200)
+        description: Procedure name
+      - name: PROC_CODE
+        type: VARCHAR(50)
+        description: Procedure code (CPT/HCPCS)
+
+  - name: F_SCHED_APPT
+    data_source: Epic Clarity
+    primary_key: PAT_ENC_CSN_ID
+    description: This table contains info about appointments, with one row per appointment. It is derived from the PAT_ENC table and contains columns simplifying common reporting needs.
+    columns:
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Scheduled appointment identifier
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient identifier
+      - name: APPT_DTTM
+        type: DATETIME
+        description: Appointment date and time
+      - name: APPT_STATUS_C
+        type: INTEGER
+        description: Appointment status
+      - name: DEPARTMENT_ID
+        type: INTEGER
+        description: Department identifier
+        foreign_key:
+          table: CLARITY_DEP
+          column: DEPARTMENT_ID
+          cardinality: many-to-one
+      - name: PROV_ID
+        type: VARCHAR(18)
+        description: Appointment provider identifier
+        foreign_key:
+          table: CLARITY_SER
+          column: PROV_ID
+          cardinality: many-to-one
+      - name: APPT_MADE_DTTM
+        type: DATETIME
+        description: When appointment was scheduled
+      - name: CHECKIN_DTTM
+        type: DATETIME
+        description: When patient checked in
+      - name: CHECKOUT_DTTM
+        type: DATETIME
+        description: When patient checked out
+      - name: ARVL_LIST_REMOVE_DTTM
+        type: INTEGER
+        description: When patient was removed from the arrival list
+      - name: ROOMED_DTTM
+        type: DATETIME
+        description: When patient was roomed
+      - name: NURSE_LEAVE_DTTM
+        type: DATETIME
+        description: When nurse left the room
+      - name: PHYS_ENTER_DTTM
+        type: DATETIME
+        description: When provider entered the room
+      - name: VISIT_END_DTTM
+        type: DATETIME
+        description: When visit ended
+      - name: APPT_CANC_DTTM
+        type: DATETIME
+        description: When appointment was cancelled
+      - name: APPT_CANC_USER_ID
+        type: VARCHAR(18)
+        description: User who cancelled the appointment
+      - name: CANCEL_REASON_C
+        type: INTEGER
+        description: Cancellation reason code
+        foreign_key:
+          table: ZC_CANCEL_REASON
+          column: CANCEL_REASON_C
+          cardinality: many-to-one
+      - name: RESCHED_APPT_CSN_ID
+        type: INTEGER
+        description: Scheduled appointment identifier for the rescheduled appointment
+      - name: REFERRAL_ID
+        type: INTEGER
+        description: Referral identifier
+        foreign_key:
+          table: REFERRAL
+          column: REFERRAL_ID
+          cardinality: many-to-one
+
+  - name: ORDER_RESULTS
+    data_source: Epic Clarity
+    primary_key: ORDER_PROC_ID
+    description: Result of a laboratory or diagnostic test from clinical system orders. The table extracts only the last orders (ORD) contact for each ORD record.
+    columns:
+      - name: ORDER_PROC_ID
+        type: NUMERIC(18,0)
+        description: Unique procedure order identifier
+        foreign_key:
+          table: ORDER_PROC
+          column: ORDER_PROC_ID
+          cardinality: many-to-one
+      - name: LINE
+        type: INTEGER
+        description: Line number of each result component within each ordered procedure.
+      - name: ORD_DATE_REAL   
+        type: FLOAT
+        description: the date each order was placed in your system. The integer portion of the number specifies the date the order was placed.
+      - name: RESULT_DATE 
+        type: DATETIME
+        description: The date the technician ran the tests for each order in calendar format.
+      - name: COMPONENT_ID
+        type: NUMERIC(18,0)
+        description: the unique ID of each result component for each result.
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient identifier
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Encounter CSN
+        foreign_key:
+          table: PAT_ENC
+          column: PAT_ENC_CSN_ID
+          cardinality: many-to-one
+      - name: DX_ID
+        type: NUMERIC(18,0)
+        description: Diagnosis associated with the result
+        foreign_key:
+          table: CLARITY_EDG
+          column: DX_ID
+          cardinality: many-to-one
+      - name: ORDER_VALUE
+        type: VARCHAR(254)
+        description: The value returned for each result component, in short free text format. 
+      - name: ORD_NUM_VALUE
+        type: FLOAT
+        description: The numeric value returned for each result component where applicable. If the value contains any non-numeric characters, the value will display as 9999999.
+      - name: RESULT_FLAG_C
+        type: VARCHAR(66)
+        description: The category value associated ith a standard HL7 flag code to mark each component result as abnormal. Any value in this field not equal to 1 is considered abnormal.
+        values: 
+        - code: 1
+          name: (NONE)
+        - code: 2
+          name: Abnormal
+        - code: 3
+          name: Panic
+        - code: 4
+          name: Low
+        - code: 5
+          name: High
+        - code: 6
+          name: Low Panic
+        - code: 7
+          name: High Panic
+        - code: 8
+          name: Low Off-Scale
+        - code: 9
+          name: High Off-Scale
+        - code: 10
+          name: Sig Change Up
+        - code: 11
+          name: Sig Change Down
+        - code: 12
+          name: Better
+        - code: 13
+          name: Worse
+        - code: 14
+          name: Sensitive
+        - code: 15
+          name: Resistant
+        - code: 16
+          name: Intermediate
+        - code: 17
+          name: Moderately Sensitive
+        - code: 18
+          name: Very Sensitive 
+      - name: REFERENCE_LOW
+        type: VARCHAR(50)
+        description: The lowest acceptable value for the result component. If the value in this column is a number or structured numeric, the numbers will be stored in M interna. format, using a period as the decimal separator.
+      - name: REFERENCE_HIGH
+        type: VARCHAR(50)
+        description: The highest acceptable value for the result component. If the value in this column is a number or structured numeric, the numbers will be stored in M interna. format, using a period as the decimal separator.
+      - name: REFERENCE_UNIT
+        type: VARCHAR(100)
+        description: The units of the result component value.
+      - name: REFERENCE_STATUS_C
+        type: INTEGER
+        description: The category value corresponding to the status of each result record.
+        values:
+          - code: 2
+            name: Premilinary
+          - code: 3
+            name: Final
+          - code: 4
+            name: Corrected
+          - code: 5
+            name: Incomplete
+      - name: LAB_STATUS_C
+        type: INTEGER
+        description: The category value associated with the status of each result.
+        values:
+          - code: 1
+            name: In process
+          - code: 2
+            name: Preliminary result 
+          - code: 3
+            name: Final result
+          - code: 4
+            name: Edited 
+          - code: 5
+            name: Edited result - FINAL
+      - name: RESULT_TIME
+        type: DATETIME
+        description: The time the technician ran the tests for each order in calendar format..
+      - name: RESULT_IN_RANGE_YN
+        type: VARCHAR(1)
+        description: A Yes/No category value to indicae whether a result has been verified to be within its reference range.  
+
+  - name: PROBLEM_LIST
+    data_source: Epic Clarity
+    primary_key: PROBLEM_LIST_ID
+    description: >-
+      This table contains data from patient problem lists. The data reflects the current status of all problems on the patient's problem list. Each problem is marked
+      as active until it becomes (and is marked) Resolved or Deleted.
+    columns:
+      - name: PROBLEM_LIST_ID
+        type: NUMERIC(18,0)
+        description: Unique ID of this problem list entry.
+      - name: PAT_ID  
+        type: VARCHAR(18)
+        description: Patient ID
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: DX_ID
+        type: NUMERIC(18,0)
+        description: Diagnosis ID
+        foreign_key:
+          table: CLARITY_EDG
+          column: DX_ID
+          cardinality: many-to-one
+      - name: NOTED_DATE
+        type: DATETIME
+        description: Represents the first possible date that a problem could have been noted/onset on. By default, this is the problem's date of entry into the problem list. The intent of this field is to allow users to change this date to the date the problem was first diagnosied if that is different than the entry date..
+      - name: RESOLVED_DATE 
+        type: DATETIME
+        description: THE DATE THE PROBLEM WAS RESOLVED IN CALENDAR FORMAT.
+      - name: DATE_OF_ENTRY
+        type: DATETIME
+        description: The date THE SPECIFIC PROBLEM WAS LST EDITED.
+      - name: ENTRY_USER_ID
+        type: VARCHAR(18)
+        description: The user who entered the problem into the problem list.
+      
+  - name: ARPB_TRANSACTIONS    
+    data_source: Epic Clarity
+    primary_key: TX_ID
+    description: Contains professional billing transactions.
+    columns:
+      - name: TX_ID
+        type: INTEGER
+        description: Unique ID of this ARPB transaction.
+      - name: POST_DATE
+        type: DATETIME
+        description: The date the transaction was entered into the billing system.
+      - name: SERVICE_DATE
+        type: DATETIME
+        description: The date the service was performed.
+      - name: TX_TYPE_C
+        type: INTEGER
+        description: The category value corresponding to the type of transaction.
+      - name: ACCOUNT_ID
+        type: NUMERIC(18,0)
+        description: The ID of the account for the transaction.
+      - name: PATIENT_ID
+        type: VARCHAR(18)
+        description: The ID of the patient for the transaction.
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+          cardinality: many-to-one
+      - name: SERV_PROVIDER_ID
+        type: VARCHAR(18)
+        description: The ID of the service provider for the transaction.
+        foreign_key:
+          table: CLARITY_SER
+          column: PROV_ID
+          cardinality: many-to-one
+      - name: BILLING_PROV_ID
+        type: VARCHAR(18)
+        description: The ID of the billing provider for the transaction.
+        foreign_key:
+          table: CLARITY_SER
+          column: PROV_ID
+          cardinality: many-to-one
+      - name: DEPARTMENT_ID
+        type: INTEGER
+        description: The ID of the department for the transaction.
+        foreign_key:
+          table: CLARITY_DEP
+          column: DEPARTMENT_ID
+          cardinality: many-to-one
+      - name: PRIMARY_DX_ID
+        type: NUMERIC(18,0)
+        description: The ID of the primary diagnosis for the transaction.
+        foreign_key:
+          table: CLARITY_EDG
+          column: DX_ID
+          cardinality: many-to-one
+      - name: SECONDARY_DX_ID
+        type: NUMERIC(18,0)
+      - name: AMOUNT 
+        type: NUMERIC(18,2)
+        description: The amount of the transaction.
+      - name: OUTSTANDING_AMT
+        type: NUMERIC(18,2)
+        description: The amount of the transaction that is outstanding.
+      - name: INSURANCE_AMT
+        type: NUMERIC(18,2)
+        description: The amount of the transaction that is covered by insurance.
+      - name: PATIENT_AMT
+        type: NUMERIC(18,2)
+        description: The amount of the transaction that is the responsibility of the patient.
+      - name: ZERO_BALANCE_YN
+        type: VARCHAR(1)
+        description: A Yes/No category value to indicate whether the transaction has a zero balance.
+
+
+  - name: VALUESET
+    data_source: External Ontology
+    primary_key: OID
+    description: Registry of standard value sets (e.g., NIH Diabetes).
+    columns:
+      - name: OID
+        type: VARCHAR(100)
+        description: Unique Object Identifier for the value set.
+      - name: NAME
+        type: VARCHAR(255)
+        description: Name of the value set.
+
+  - name: VALUESET_ITEMS
+    data_source: External Ontology
+    primary_key: "OID, CODE"
+    description: Individual codes belonging to value sets.
+    columns:
+      - name: OID
+        type: VARCHAR(100)
+        description: FK to VALUESET.
+        foreign_key:
+          table: VALUESET
+          column: OID
+          cardinality: many-to-one
+      - name: CODE
+        type: VARCHAR(50)
+        description: The standard code (e.g. ICD-10).
+      - name: DESCRIPTION
+        type: VARCHAR(500)
+        description: Description of the code.
+      - name: CODE_SYSTEM
+        type: VARCHAR(100)
+        description: System (e.g. ICD-10-CM).
+
+  # --- ED EVENT TRACKING ---
+  - name: ED_IEV_PAT_INFO
+    data_source: Epic Clarity
+    primary_key: "PAT_ENC_CSN_ID, EVENT_ID"
+    description: Links ED patient encounters to events.
+    columns:
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Encounter CSN
+        foreign_key:
+          table: PAT_ENC
+          column: PAT_ENC_CSN_ID
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient ID
+        foreign_key:
+          table: PATIENT
+          column: PAT_ID
+      - name: EVENT_ID
+        type: INTEGER
+        description: Event identifier
+        foreign_key:
+          table: ED_IEV_EVENT_INFO
+          column: EVENT_ID
+
+  - name: ED_IEV_EVENT_INFO
+    data_source: Epic Clarity
+    primary_key: EVENT_ID
+    description: ED event details (arrival, triage, etc).
+    columns:
+      - name: EVENT_ID
+        type: INTEGER
+        description: Unique event identifier
+      - name: EVENT_TIME
+        type: TIMESTAMP
+        description: When the event occurred
+      - name: EVENT_TYPE
+        type: VARCHAR(10)
+        description: Type code (50=Arrived, etc)
+
+  # --- SCHEDULING ---
+  - name: AVAILABILITY
+    data_source: Epic Clarity
+    primary_key: "DEPARTMENT_ID, PROV_ID, SLOT_BEGIN_TIME"
+    description: Provider scheduling slots and availability.
+    columns:
+      - name: PAT_ID
+        type: VARCHAR(18)
+        description: Patient scheduled (if booked)
+      - name: PAT_ENC_CSN_ID
+        type: INTEGER
+        description: Encounter CSN (if booked)
+      - name: ORG_REG_OPENINGS
+        type: INTEGER
+        description: Original regular openings
+      - name: NUM_APTS_SCHEDULED
+        type: INTEGER
+        description: Number of appointments scheduled
+      - name: DEPARTMENT_ID
+        type: INTEGER
+        description: Department ID
+        foreign_key:
+          table: CLARITY_DEP
+          column: DEPARTMENT_ID
+      - name: PROV_ID
+        type: VARCHAR(18)
+        description: Provider ID
+        foreign_key:
+          table: CLARITY_SER
+          column: PROV_ID
+      - name: APPT_NUMBER
+        type: INTEGER
+        description: Appointment number in slot
+      - name: SLOT_BEGIN_TIME
+        type: TIMESTAMP
+        description: Slot start time
+      - name: PRIVATE_YN
+        type: VARCHAR(1)
+        description: Private slot flag
+      - name: DAY_UNAVAIL_YN
+        type: VARCHAR(1)
+        description: Day unavailable flag
+      - name: TIME_UNAVAIL_YN
+        type: VARCHAR(1)
+        description: Time unavailable flag
+      - name: DAY_HELD_YN
+        type: VARCHAR(1)
+        description: Day held flag
+      - name: TIME_HELD_YN
+        type: VARCHAR(1)
+        description: Time held flag
+      - name: OUTSIDE_TEMPLATE_YN
+        type: VARCHAR(1)
+        description: Outside template flag
+      - name: UNAVAILABLE_RSN_C
+        type: INTEGER
+        description: Unavailability reason code
+        foreign_key:
+          table: ZC_UNAVAIL_REASON
+          column: UNAVAILABLE_RSN_C
+      - name: APPT_BLOCK_C
+        type: INTEGER
+        description: Appointment block code
+        foreign_key:
+          table: ZC_APPT_BLOCK
+          column: APPT_BLOCK_C
+      - name: APPT_PRC_ID
+        type: INTEGER
+        description: Procedure/visit type ID
+
+  - name: ACCESS_CONFIG
+    data_source: Epic Clarity
+    primary_key: CONFIG_ID
+    description: Access metrics configuration.
+    columns:
+      - name: CONFIG_ID
+        type: INTEGER
+        description: Configuration ID
+      - name: CONFIG_NAME
+        type: VARCHAR(100)
+        description: Configuration name
+
+  - name: ACCESS_PROV
+    data_source: Epic Clarity
+    primary_key: "PROV_ID, CONFIG_ID, SEARCH_DATE"
+    description: Provider-level access metrics.
+    columns:
+      - name: PROV_ID
+        type: VARCHAR(18)
+        description: Provider ID
+        foreign_key:
+          table: CLARITY_SER
+          column: PROV_ID
+      - name: DEPARTMENT_ID
+        type: INTEGER
+        description: Department ID
+      - name: CONFIG_ID
+        type: INTEGER
+        description: Configuration ID
+        foreign_key:
+          table: ACCESS_CONFIG
+          column: CONFIG_ID
+      - name: SEARCH_DATE
+        type: DATE
+        description: Search date
+      - name: DAYS_WAIT
+        type: INTEGER
+        description: Days to wait for appointment
+
+  # --- ADDITIONAL LOOKUP TABLES ---
+  - name: ZC_APPT_BLOCK
+    data_source: Epic Clarity
+    primary_key: APPT_BLOCK_C
+    is_enum_table: true
+    description: Appointment block types.
+    columns:
+      - name: APPT_BLOCK_C
+        type: INTEGER
+        description: Block code
+      - name: NAME
+        type: VARCHAR(100)
+        description: Block name
+
+  - name: ZC_UNAVAIL_REASON
+    data_source: Epic Clarity
+    primary_key: UNAVAILABLE_RSN_C
+    is_enum_table: true
+    description: Unavailability reason codes.
+    columns:
+      - name: UNAVAILABLE_RSN_C
+        type: INTEGER
+        description: Reason code
+      - name: NAME
+        type: VARCHAR(100)
+        description: Reason name
+
+  - name: ZC_PCP_TYPE
+    data_source: Epic Clarity
+    primary_key: PCP_TYPE_C
+    is_enum_table: true
+    description: PCP type codes.
+    columns:
+      - name: PCP_TYPE_C
+        type: INTEGER
+        description: PCP type code
+      - name: NAME
+        type: VARCHAR(100)
+        description: PCP type name
+
+  - name: HSP_ACCT_SBO
+    data_source: Epic Clarity
+    primary_key: HSP_ACCOUNT_ID
+    description: Hospital account self-pay/bad debt information.
+    columns:
+      - name: HSP_ACCOUNT_ID
+        type: NUMERIC(18,0)
+        description: Hospital account ID
+        foreign_key:
+          table: HSP_ACCOUNT
+          column: HSP_ACCOUNT_ID
+      - name: SBO_HAR_TYPE_C
+        type: INTEGER
+        description: SBO HAR type code
+
+relationships:
+  - from_table: REFERRAL
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient who received the referral
+
+  - from_table: REFERRAL
+    to_table: CLARITY_SER
+    relationship_type: HAS_FK_TO
+    fk_column: REFERRING_PROV_ID
+    join_type: INNER
+    description: Provider who made the referral
+  - from_table: PAT_ENC
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient for this encounter
+
+  - from_table: PAT_ENC
+    to_table: REFERRAL
+    relationship_type: HAS_FK_TO
+    fk_column: REFERRAL_ID
+    join_type: INNER
+    description: Encounter for this referral
+
+  - from_table: PAT_ENC
+    to_table: CLARITY_DEP
+    relationship_type: HAS_FK_TO
+    fk_column: DEPARTMENT_ID
+    join_type: LEFT
+    description: Department for encounter
+
+  - from_table: PAT_ENC
+    to_table: CLARITY_SER
+    relationship_type: HAS_FK_TO
+    fk_column: VISIT_PROV_ID
+    join_type: LEFT
+    description: Provider for encounter
+
+  - from_table: PAT_ENC
+    to_table: ZC_APPT_STATUS
+    relationship_type: HAS_FK_TO
+    fk_column: APPT_STATUS_C
+    join_type: INNER
+    description: Appointment status for encounter
+
+  - from_table: PAT_ENC
+    to_table: ZC_CANCEL_REASON
+    relationship_type: HAS_FK_TO
+    fk_column: CANCEL_REASON_C
+    join_type: INNER
+    description: Cancellation reason for encounter
+
+  - from_table: PAT_PCP
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient with PCP assignment
+
+  - from_table: PAT_PCP
+    to_table: CLARITY_SER
+    relationship_type: HAS_FK_TO
+    fk_column: PCP_PROV_ID
+    join_type: INNER
+    description: Provider assigned as PCP
+
+  - from_table: PAT_IMMUNIZATION
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient who received immunization
+
+  - from_table: PAT_IMMUNIZATION
+    to_table: IMMUNE
+    relationship_type: HAS_FK_TO
+    fk_column: IMMUNE_ID
+    join_type: INNER
+    description: Immunization record
+
+  - from_table: PAT_ENC
+    to_table: ZC_DISP_ENC_TYPE
+    relationship_type: HAS_FK_TO
+    fk_column: ENC_TYPE_C
+    join_type: LEFT
+    description: Encounter type for appointment
+
+  - from_table: IMMUNE
+    to_table: CLARITY_IMMUNZATN
+    relationship_type: HAS_FK_TO
+    fk_column: IMMUNZATN_ID
+    join_type: INNER
+    description: Vaccine type for immunization
+
+  - from_table: HSP_ACCOUNT
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient for hospital account
+
+  - from_table: HSP_ACCOUNT
+    to_table: PAT_ENC
+    relationship_type: HAS_FK_TO
+    fk_column: PRIM_ENC_CSN_ID
+    join_type: INNER
+    description: Primary encounter for hospital account
+
+  - from_table: HSP_ACCT_DX_LIST
+    to_table: HSP_ACCOUNT
+    relationship_type: HAS_FK_TO
+    fk_column: HSP_ACCOUNT_ID
+    join_type: INNER
+    description: Hospital account for diagnosis
+
+  - from_table: HSP_ACCT_DX_LIST
+    to_table: CLARITY_EDG
+    relationship_type: HAS_FK_TO
+    fk_column: DX_ID
+    join_type: INNER
+    description: Diagnosis definition
+
+  - from_table: ORDER_MED
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient for medication order
+
+  - from_table: ORDER_MED
+    to_table: PAT_ENC
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ENC_CSN_ID
+    join_type: INNER
+    description: Encounter for medication order
+
+  - from_table: ORDER_MED
+    to_table: CLARITY_MEDICATION
+    relationship_type: HAS_FK_TO
+    fk_column: MEDICATION_ID
+    join_type: INNER
+    description: Medication definition
+
+  - from_table: ORDER_PROC
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient for procedure order
+
+  - from_table: ORDER_PROC
+    to_table: PAT_ENC
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ENC_CSN_ID
+    join_type: INNER
+    description: Encounter for procedure order
+
+  - from_table: ORDER_PROC
+    to_table: CLARITY_EAP
+    relationship_type: HAS_FK_TO
+    fk_column: PROC_ID
+    join_type: INNER
+    description: Procedure definition
+
+  - from_table: F_SCHED_APPT
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient for the scheduled appointment
+
+  - from_table: F_SCHED_APPT
+    to_table: CLARITY_DEP
+    relationship_type: HAS_FK_TO
+    fk_column: DEPARTMENT_ID
+    join_type: LEFT
+    description: Department for the scheduled appointment
+
+  - from_table: F_SCHED_APPT
+    to_table: CLARITY_SER
+    relationship_type: HAS_FK_TO
+    fk_column: PROV_ID
+    join_type: LEFT
+    description: Provider for the scheduled appointment
+
+  - from_table: F_SCHED_APPT
+    to_table: ZC_CANCEL_REASON
+    relationship_type: HAS_FK_TO
+    fk_column: CANCEL_REASON_C
+    join_type: LEFT
+    description: Cancellation reason for the appointment
+
+  - from_table: F_SCHED_APPT
+    to_table: REFERRAL
+    relationship_type: HAS_FK_TO
+    fk_column: REFERRAL_ID
+    join_type: LEFT
+    description: Referral associated with the appointment
+
+  - from_table: ORDER_RESULTS
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient for the result
+
+  - from_table: ORDER_RESULTS
+    to_table: PAT_ENC
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ENC_CSN_ID
+    join_type: INNER
+    description: Encounter for the result
+
+  - from_table: ORDER_RESULTS
+    to_table: ORDER_PROC
+    relationship_type: HAS_FK_TO
+    fk_column: ORDER_PROC_ID
+    join_type: INNER
+    description: Procedure order for the result
+
+  - from_table: ORDER_RESULTS
+    to_table: CLARITY_EDG
+    relationship_type: HAS_FK_TO
+    fk_column: DX_ID
+    join_type: LEFT
+    description: Diagnosis associated with the result
+
+  - from_table: PROBLEM_LIST
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient associated with the problem list entry
+
+  - from_table: PROBLEM_LIST
+    to_table: CLARITY_EDG
+    relationship_type: HAS_FK_TO
+    fk_column: DX_ID
+    join_type: INNER
+    description: Diagnosis code for the problem list entry
+
+  - from_table: ARPB_TRANSACTIONS
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PATIENT_ID
+    target_column: PAT_ID
+    join_type: INNER
+    description: Patient associated with the transaction
+
+  - from_table: ARPB_TRANSACTIONS
+    to_table: CLARITY_SER
+    relationship_type: HAS_FK_TO
+    fk_column: SERV_PROVIDER_ID
+    target_column: PROV_ID
+    join_type: LEFT
+    description: Service provider for the transaction
+
+  - from_table: ARPB_TRANSACTIONS
+    to_table: CLARITY_SER
+    relationship_type: HAS_FK_TO
+    fk_column: BILLING_PROV_ID
+    target_column: PROV_ID
+    join_type: LEFT
+    description: Billing provider for the transaction
+
+  - from_table: ARPB_TRANSACTIONS
+    to_table: CLARITY_DEP
+    relationship_type: HAS_FK_TO
+    fk_column: DEPARTMENT_ID
+    join_type: LEFT
+    description: Department for the transaction
+
+  - from_table: ARPB_TRANSACTIONS
+    to_table: CLARITY_EDG
+    relationship_type: HAS_FK_TO
+    fk_column: PRIMARY_DX_ID
+    target_column: DX_ID
+    join_type: LEFT
+    description: Primary diagnosis associated with the transaction
+
+  - from_table: ZC_RFL_CLASS
+    to_table: REFERRAL
+    relationship_type: REFERRAL_HAS_CLASS
+    fk_column: RFL_CLASS_C
+    join_type: INNER
+    description: Referral class definition
+
+  - from_table: ZC_RFL_STATUS
+    to_table: REFERRAL
+    relationship_type: REFERRAL_HAS_STATUS
+    fk_column: RFL_STATUS_C
+    join_type: INNER
+    description: Referral status definition
+
+  - from_table: ZC_RFL_TYPE
+    to_table: REFERRAL
+    relationship_type: REFERRAL_HAS_TYPE
+    fk_column: RFL_TYPE_C
+    join_type: INNER
+    description: Referral type definition
+
+  - from_table: VALUESET_ITEMS
+    to_table: VALUESET
+    relationship_type: IN_VALUESET
+    fk_column: OID
+    join_type: INNER
+    description: Value set membership
+
+  - from_table: VALUESET_ITEMS
+    to_table: CLARITY_EDG
+    relationship_type: MAPS_TO_DX
+    fk_column: CODE
+    target_column: CURRENT_ICD10_LIST
+    join_type: INNER
+    description: Maps standardized codes to Epic diagnoses
+
+  - from_table: PAT_ENC_DX
+    to_table: PAT_ENC
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ENC_CSN_ID
+    join_type: INNER
+    description: Encounter associated with this diagnosis
+
+  - from_table: PAT_ENC_DX
+    to_table: CLARITY_EDG
+    relationship_type: HAS_FK_TO
+    fk_column: DX_ID
+    join_type: INNER
+    description: Diagnosis definition for the encounter
+
+  - from_table: PAT_ENC_HSP
+    to_table: PAT_ENC
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ENC_CSN_ID
+    join_type: INNER
+    description: Base encounter for the hospital stay
+
+  - from_table: PAT_ENC_HSP
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient for the hospital stay
+
+  - from_table: HSP_ADMIT_DIAG
+    to_table: PAT_ENC_HSP
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ENC_CSN_ID
+    join_type: INNER
+    description: Hospital encounter for the admission diagnosis
+
+  - from_table: HSP_ADMIT_DIAG
+    to_table: CLARITY_EDG
+    relationship_type: HAS_FK_TO
+    fk_column: DX_ID
+    join_type: INNER
+    description: Diagnosis definition for admission
+
+  - from_table: OR_CASE
+    to_table: PATIENT
+    relationship_type: HAS_FK_TO
+    fk_column: PAT_ID
+    join_type: INNER
+    description: Patient for the surgery case
+
+  - from_table: OR_CASE_DX_CODE
+    to_table: OR_CASE
+    relationship_type: HAS_FK_TO
+    fk_column: OR_CASE_ID
+    join_type: INNER
+    description: Surgery case for the diagnosis
+
+  - from_table: OR_CASE_DX_CODE
+    to_table: CLARITY_EDG
+    relationship_type: HAS_FK_TO
+    fk_column: DX_ID
+    join_type: INNER
+    description: Diagnosis definition for surgery
+
+diagnosis_groupings:
+  diabetes:
+    description: Diabetes Mellitus and related conditions
+    dx_names:
+      - "%Diabetes Mellitus%"
+      - "%Diabetic Neuropathy%"
+      - "%Diabetic Retinopathy%"
+      - "%Diabetic Nephropathy%"
+      - "%Diabetic Ketoacidosis%"
+      - "%Hyperglycemia%" # Often related
+      - "%Hypoglycemia%" # Often related
+  hypertension:
+    description: High blood pressure conditions
+    dx_names:
+      - "%Hypertension%"
+      - "%Essential hypertension%"
+      - "%Secondary hypertension%"
+      - "%Pulmonary hypertension%"

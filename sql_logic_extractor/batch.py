@@ -48,9 +48,77 @@ class BatchResult:
     succeeded: int = 0
     failed: int = 0
     skipped: int = 0
-    errors: list[dict] = field(default_factory=list)   # [{file, error}]
+    errors: list[dict] = field(default_factory=list)   # [{file, error, category, action}]
     objects: list[dict] = field(default_factory=list)   # [{file, name, schema, columns}]
     elapsed_seconds: float = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Failure classification
+# ---------------------------------------------------------------------------
+
+# Each category maps to (human label, recommended action)
+_FAILURE_CATEGORIES = {
+    "parse_error": (
+        "SQL Parse Error",
+        "Check the SQL dialect setting (--dialect). If correct, this SQL uses "
+        "syntax not yet supported by the parser. Save the file for review.",
+    ),
+    "empty_input": (
+        "Empty or Blank File",
+        "No action needed. File contains no SQL.",
+    ),
+    "comments_only": (
+        "Comments Only",
+        "No action needed. File contains only comments, no executable SQL.",
+    ),
+    "no_columns": (
+        "No Output Columns",
+        "This is likely DML (INSERT/UPDATE/DELETE/MERGE) or DDL (CREATE TABLE), "
+        "not a query. No business definitions to extract.",
+    ),
+    "recursion": (
+        "Recursion / Infinite Loop",
+        "The SQL has circular CTE references or extremely deep nesting that "
+        "exceeded the resolver's depth limit. Simplify the query or break it "
+        "into smaller parts.",
+    ),
+    "encoding": (
+        "File Encoding Error",
+        "File is not valid UTF-8. Re-save with UTF-8 encoding.",
+    ),
+    "unknown": (
+        "Unexpected Error",
+        "An unclassified error occurred. This pattern may need a new handler. "
+        "Save the file and error details for review.",
+    ),
+}
+
+
+def _classify_error(error: Exception, sql: str = "") -> tuple[str, str, str]:
+    """Classify an error into category, label, and recommended action.
+
+    Returns (category_key, label, action).
+    """
+    msg = str(error).lower()
+    etype = type(error).__name__
+
+    if isinstance(error, ValueError):
+        if "empty" in msg:
+            return "empty_input", *_FAILURE_CATEGORIES["empty_input"]
+        if "parse" in msg or "unparsable" in msg:
+            return "parse_error", *_FAILURE_CATEGORIES["parse_error"]
+
+    if isinstance(error, RecursionError) or "recursion" in msg or "depth" in msg:
+        return "recursion", *_FAILURE_CATEGORIES["recursion"]
+
+    if isinstance(error, (UnicodeDecodeError, UnicodeError)):
+        return "encoding", *_FAILURE_CATEGORIES["encoding"]
+
+    if "parse" in msg or "token" in msg or "unexpected" in msg or "invalid expression" in msg:
+        return "parse_error", *_FAILURE_CATEGORIES["parse_error"]
+
+    return "unknown", *_FAILURE_CATEGORIES["unknown"]
 
 
 # ---------------------------------------------------------------------------
@@ -110,6 +178,11 @@ def batch_process(
 
             if not sql.strip():
                 result.skipped += 1
+                cat, label, action = _FAILURE_CATEGORIES["empty_input"][0], *_FAILURE_CATEGORIES["empty_input"]
+                result.errors.append({
+                    "file": fname, "category": "empty_input",
+                    "label": label, "action": action, "error": "empty file",
+                })
                 _progress(i, len(files), fname, error="empty file")
                 continue
 
@@ -118,6 +191,11 @@ def batch_process(
                      if l.strip() and not l.strip().startswith("--")]
             if not lines:
                 result.skipped += 1
+                cat, label, action = "comments_only", *_FAILURE_CATEGORIES["comments_only"]
+                result.errors.append({
+                    "file": fname, "category": cat,
+                    "label": label, "action": action, "error": "comments only",
+                })
                 _progress(i, len(files), fname, error="comments only, no SQL")
                 continue
 
@@ -132,6 +210,12 @@ def batch_process(
 
             if col_count == 0:
                 result.skipped += 1
+                label, action = _FAILURE_CATEGORIES["no_columns"]
+                result.errors.append({
+                    "file": fname, "category": "no_columns",
+                    "label": label, "action": action,
+                    "error": "no output columns",
+                })
                 _progress(i, len(files), obj_name or fname, error="no output columns (DML/DDL?)")
                 continue
 
@@ -175,7 +259,12 @@ def batch_process(
 
         except Exception as e:
             result.failed += 1
-            result.errors.append({"file": fname, "error": str(e)})
+            cat, label, action = _classify_error(e, sql if 'sql' in dir() else "")
+            result.errors.append({
+                "file": fname, "category": cat,
+                "label": label, "action": action,
+                "error": str(e)[:500],
+            })
             _progress(i, len(files), fname, error=str(e))
 
     result.elapsed_seconds = round(time.time() - start, 2)
@@ -225,7 +314,24 @@ def _write_combined_exports(
 
 
 def _write_summary(output_dir: str, result: BatchResult):
-    """Write a summary report."""
+    """Write summary report and, if there are failures, a separate action items file."""
+    # Group errors by category for the summary
+    errors_by_category = {}
+    for err in result.errors:
+        cat = err.get("category", "unknown")
+        if cat not in errors_by_category:
+            errors_by_category[cat] = {
+                "label": err.get("label", cat),
+                "action": err.get("action", ""),
+                "count": 0,
+                "files": [],
+            }
+        errors_by_category[cat]["count"] += 1
+        errors_by_category[cat]["files"].append({
+            "file": err["file"],
+            "error": err.get("error", ""),
+        })
+
     summary = {
         "total_files": result.total,
         "succeeded": result.succeeded,
@@ -234,12 +340,75 @@ def _write_summary(output_dir: str, result: BatchResult):
         "elapsed_seconds": result.elapsed_seconds,
         "objects": result.objects,
     }
-    if result.errors:
-        summary["errors"] = result.errors
+    if errors_by_category:
+        summary["errors_by_category"] = errors_by_category
 
     path = os.path.join(output_dir, "batch_summary.json")
     with open(path, "w") as fh:
         json.dump(summary, fh, indent=2)
+
+    # Write a separate action items file for failures that need attention
+    actionable = {
+        cat: info for cat, info in errors_by_category.items()
+        if cat not in ("empty_input", "comments_only", "no_columns")
+    }
+    if actionable:
+        _write_action_items(output_dir, actionable, result)
+
+
+def _write_action_items(output_dir: str, actionable: dict, result: BatchResult):
+    """Write a human-readable action items report for failures that need review."""
+    lines = [
+        "BATCH PROCESSING -- ACTION ITEMS",
+        "=" * 50,
+        "",
+        f"Run: {result.succeeded} succeeded, {result.failed} failed, "
+        f"{result.skipped} skipped out of {result.total}",
+        "",
+    ]
+
+    priority = 1
+    needs_review = []
+
+    for cat, info in actionable.items():
+        lines.append(f"--- [{priority}] {info['label']} ({info['count']} file(s)) ---")
+        lines.append(f"Action: {info['action']}")
+        lines.append("Files:")
+        for f in info["files"]:
+            lines.append(f"  - {f['file']}")
+            if f.get("error"):
+                # Truncate long errors for readability
+                err_short = f["error"][:200]
+                lines.append(f"    Error: {err_short}")
+            needs_review.append(f["file"])
+        lines.append("")
+        priority += 1
+
+    if needs_review:
+        lines.append("=" * 50)
+        lines.append("FILES NEEDING REVIEW (copy this list):")
+        for f in needs_review:
+            lines.append(f"  {f}")
+
+    path = os.path.join(output_dir, "action_items.txt")
+    with open(path, "w") as fh:
+        fh.write("\n".join(lines) + "\n")
+
+    # Also save the raw SQL of failed files for pattern analysis
+    failed_patterns = []
+    for err in result.errors:
+        if err.get("category") in ("empty_input", "comments_only", "no_columns"):
+            continue
+        failed_patterns.append({
+            "file": err["file"],
+            "category": err.get("category"),
+            "error": err.get("error", ""),
+        })
+
+    if failed_patterns:
+        path = os.path.join(output_dir, "failed_patterns.json")
+        with open(path, "w") as fh:
+            json.dump(failed_patterns, fh, indent=2)
 
 
 def _progress(i: int, total: int, name: str, columns: int = 0, error: str = None):
@@ -305,10 +474,20 @@ def main():
           f"{result.succeeded} succeeded, {result.failed} failed, "
           f"{result.skipped} skipped out of {result.total}")
 
+    # Group and display errors by category
     if result.errors:
-        print(f"\nFailed files:")
-        for err in result.errors:
-            print(f"  {err['file']}: {err['error']}")
+        from collections import Counter
+        cats = Counter(e.get("category", "unknown") for e in result.errors)
+        print(f"\nIssues by category:")
+        for cat, count in cats.most_common():
+            label = _FAILURE_CATEGORIES.get(cat, ("Unknown",))[0]
+            print(f"  {label}: {count} file(s)")
+
+        # Show actionable errors (not benign skips)
+        actionable = [e for e in result.errors
+                      if e.get("category") not in ("empty_input", "comments_only", "no_columns")]
+        if actionable:
+            print(f"\n  ** {len(actionable)} file(s) need review -- see action_items.txt **")
 
     if result.succeeded > 0:
         print(f"\nOutput files:")
@@ -317,6 +496,10 @@ def main():
         print(f"  {args.output_dir}/collibra_dictionary.csv")
         print(f"  {args.output_dir}/batch_summary.json")
         print(f"  {args.output_dir}/per_object/<name>.json")
+        if any(e.get("category") not in ("empty_input", "comments_only", "no_columns")
+               for e in result.errors):
+            print(f"  {args.output_dir}/action_items.txt")
+            print(f"  {args.output_dir}/failed_patterns.json")
 
 
 if __name__ == "__main__":

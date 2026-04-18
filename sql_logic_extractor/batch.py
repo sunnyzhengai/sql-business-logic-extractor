@@ -110,17 +110,32 @@ def batch_process(
 
             if not sql.strip():
                 result.skipped += 1
+                _progress(i, len(files), fname, error="empty file")
+                continue
+
+            # Skip files that are only comments (no actual SQL)
+            lines = [l.strip() for l in sql.strip().splitlines()
+                     if l.strip() and not l.strip().startswith("--")]
+            if not lines:
+                result.skipped += 1
+                _progress(i, len(files), fname, error="comments only, no SQL")
                 continue
 
             # Process
             resolved = resolve_query(sql.strip(), dialect=dialect)
-            translated = translate_resolved(sql.strip(), dialect=dialect)
 
             resolved_dict = resolved_to_dict(resolved)
             obj_name = resolved_dict.get("name", os.path.splitext(fname)[0])
             obj_schema = resolved_dict.get("schema", config.schema)
             obj_type = resolved_dict.get("object_type", "")
             col_count = len(resolved.columns)
+
+            if col_count == 0:
+                result.skipped += 1
+                _progress(i, len(files), obj_name or fname, error="no output columns (DML/DDL?)")
+                continue
+
+            translated = translate_resolved(sql.strip(), dialect=dialect)
 
             # Accumulate Collibra rows
             glossary_rows = _build_glossary_rows(translated, resolved, config, obj_name)

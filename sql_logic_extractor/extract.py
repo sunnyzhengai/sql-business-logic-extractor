@@ -235,10 +235,15 @@ class SQLBusinessLogicExtractor:
         self.dialect = dialect
 
     def extract(self, sql: str) -> QueryLogic:
+        if not sql or not sql.strip():
+            raise ValueError("Empty or unparsable SQL")
+
         try:
             parsed = sqlglot.parse(sql, read=self.dialect)
-        except errors.ErrorLevel:
-            raise ValueError("Failed to parse SQL")
+        except (errors.ParseError, errors.TokenError) as e:
+            raise ValueError(f"Failed to parse SQL: {e}")
+        except Exception as e:
+            raise ValueError(f"Failed to parse SQL: {e}")
 
         if not parsed or parsed[0] is None:
             raise ValueError("Empty or unparsable SQL")

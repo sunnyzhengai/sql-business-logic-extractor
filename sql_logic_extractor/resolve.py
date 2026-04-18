@@ -801,11 +801,17 @@ def preprocess_ssms(sql: str) -> tuple[str, dict]:
 # ---------------------------------------------------------------------------
 
 def resolve_query(sql: str, dialect: str = None) -> ResolvedQuery:
-    """Parse, extract, and resolve lineage for a SQL query."""
+    """Parse, extract, and resolve lineage for a SQL query.
+
+    Raises ValueError for empty/unparsable SQL.
+    """
+    if not sql or not sql.strip():
+        raise ValueError("Empty SQL input")
+
     # Preprocess SSMS script boilerplate
     clean_sql, metadata = preprocess_ssms(sql)
-    if not clean_sql:
-        clean_sql = sql  # fallback if preprocessing removed everything
+    if not clean_sql or not clean_sql.strip():
+        clean_sql = sql.strip()  # fallback if preprocessing removed everything
 
     extractor = SQLBusinessLogicExtractor(dialect=dialect)
     logic = to_dict(extractor.extract(clean_sql))

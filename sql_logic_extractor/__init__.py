@@ -10,6 +10,7 @@ from .normalize import (
 from .compare import BusinessLogicComparator, report_to_dict
 from .resolve import resolve_query, resolved_to_dict, ResolvedQuery
 from .translate import translate_query, translate_resolved
+from .collibra import export_collibra, CollibraConfig, glossary_csv, lineage_json, dictionary_csv
 
 __version__ = "0.1.0"
 
@@ -27,4 +28,9 @@ __all__ = [
     "ResolvedQuery",
     "translate_query",
     "translate_resolved",
+    "export_collibra",
+    "CollibraConfig",
+    "glossary_csv",
+    "lineage_json",
+    "dictionary_csv",
 ]

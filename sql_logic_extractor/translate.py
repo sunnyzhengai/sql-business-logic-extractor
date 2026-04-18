@@ -419,7 +419,7 @@ def translate_resolved(sql: str, dialect: str = None) -> list[dict]:
     Layer 5 lineage resolution to trace every column to base tables,
     collecting all filters and transformations along the chain.
     """
-    from resolve import resolve_query
+    from .resolve import resolve_query
 
     resolved = resolve_query(sql.strip(), dialect=dialect)
     results = []
@@ -489,7 +489,7 @@ def translate_resolved(sql: str, dialect: str = None) -> list[dict]:
 
 def _build_resolved_description(col) -> str:
     """Build a plain English description from a resolved column."""
-    from resolve import ResolvedColumn
+    from .resolve import ResolvedColumn
 
     # Find the deepest non-passthrough step in the chain
     actual_type = col.type

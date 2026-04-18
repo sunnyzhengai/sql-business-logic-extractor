@@ -5,11 +5,7 @@ Healthcare analytics focus -- Epic Clarity patterns.
 Run: python3 -m pytest tests/test_compare.py -v
 """
 
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from compare import BusinessLogicComparator, report_to_dict
+from sql_logic_extractor.compare import BusinessLogicComparator, report_to_dict
 
 
 def make_report(*queries, dialect=None):

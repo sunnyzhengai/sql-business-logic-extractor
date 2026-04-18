@@ -5,17 +5,13 @@ Healthcare analytics focus -- Epic Clarity patterns.
 Run: python3 -m pytest tests/test_normalize.py -v
 """
 
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from normalize import (
+from sql_logic_extractor.normalize import (
     BusinessLogicNormalizer, AliasResolver, extract_definitions,
     definitions_to_dict, classify_expression, classify_filter,
     canonicalize_expression, abstract_pattern, compute_signature,
     compute_structural_signature,
 )
-from extract import SQLBusinessLogicExtractor, to_dict
+from sql_logic_extractor.extract import SQLBusinessLogicExtractor, to_dict
 
 extractor = SQLBusinessLogicExtractor()
 

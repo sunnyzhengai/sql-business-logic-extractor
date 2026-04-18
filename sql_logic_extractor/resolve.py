@@ -16,7 +16,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Optional
 
-from extract import SQLBusinessLogicExtractor, to_dict
+from .extract import SQLBusinessLogicExtractor, to_dict
 
 
 # ---------------------------------------------------------------------------

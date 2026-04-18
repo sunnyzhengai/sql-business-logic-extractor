@@ -11,15 +11,13 @@ Generates per-query output files with:
 """
 
 import json
-import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import sqlglot
-from extract import SQLBusinessLogicExtractor, to_dict
-from normalize import extract_definitions, definitions_to_dict
-from translate import translate_query
-from resolve import resolve_query, resolved_to_dict
+from sql_logic_extractor.extract import SQLBusinessLogicExtractor, to_dict
+from sql_logic_extractor.normalize import extract_definitions, definitions_to_dict
+from sql_logic_extractor.translate import translate_query
+from sql_logic_extractor.resolve import resolve_query, resolved_to_dict
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 os.makedirs(OUT_DIR, exist_ok=True)

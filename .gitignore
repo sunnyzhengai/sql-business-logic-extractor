@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .DS_Store
+sql_logic_extractor.egg-info/
+__pycache__/
+*.egg-info/

@@ -4,11 +4,7 @@ Test cases for Lineage Resolution -- tracing every output to base table.column.
 Run: python3 -m pytest tests/test_resolve.py -v
 """
 
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from resolve import resolve_query, resolved_to_dict
+from sql_logic_extractor.resolve import resolve_query, resolved_to_dict
 
 
 def resolve(sql):

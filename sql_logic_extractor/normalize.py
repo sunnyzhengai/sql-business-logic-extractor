@@ -21,7 +21,7 @@ from typing import Optional
 import sqlglot
 from sqlglot import exp
 
-from extract import (
+from .extract import (
     SQLBusinessLogicExtractor, QueryLogic, to_dict,
     ColumnRef, OutputColumn, Filter, CaseLogic, Aggregation, WindowFunc,
 )

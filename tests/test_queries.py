@@ -6,11 +6,8 @@ Run: python3 -m pytest tests/test_queries.py -v
 """
 
 import json
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from extract import SQLBusinessLogicExtractor, to_dict
+from sql_logic_extractor.extract import SQLBusinessLogicExtractor, to_dict
 
 extractor = SQLBusinessLogicExtractor()
 

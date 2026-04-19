@@ -1,0 +1,16 @@
+# Wiki log
+
+Append-only ledger. Newest at top. One line per event.
+
+Format: `YYYY-MM-DD  <kind>  <summary>  [affected: page1, page2]`
+
+Kinds: `ingest` · `decide` · `commit` · `lint`
+
+---
+
+2026-04-19  ingest  Added `app-config-id-as-coordination-key.md` — Yang's Epic INI-Item insight captured. This is the operational primitive that closes the app-team coordination loop: app analysts already identify the INI-Item as part of their change workflow, so lookup-before-change piggybacks on an existing step with no new process. Clarity pre-packages the catalog, extractor supplies the cross-reference. Identified as a go-to-market wedge for healthcare Epic shops — a day-one valuable connector feature no competitor has. Cross-linked from app-teams fork and silent-upstream-break scene (added "how it would have gone differently" section).  [affected: app-config-id-as-coordination-key, app-teams-in-dg-vs-out, silent-upstream-break, index]
+2026-04-19  ingest  Added Fork 8 (app teams in DG, or out) with fork page and canonical "silent upstream break" scene (second-class companion to Patient A01). Cross-linked `govern-authored-meaning.md` with the upstream-extension implication. Establishes DG-as-enterprise vs. DG-as-analytics distinction; honest third path is coordination-minimal, approval-narrow. Updated forks catalog and index.  [affected: app-teams-in-dg-vs-out, silent-upstream-break, govern-authored-meaning, governance-forks-catalog, index]
+2026-04-19  ingest  Added Fork 7 (catch-up vs. spec-first) with the fork page, the "definitions are emergent" counterweight concept, and the "spec-first as data contract" intellectual anchor. Establishes site's non-obvious position: neither pure posture is correct; extractor-enabled selective promotion is the third path. Updated forks catalog and index.  [affected: catch-up-vs-spec-first, definitions-are-emergent, spec-first-as-data-contract, governance-forks-catalog, index]
+2026-04-19  ingest  Added Fork 6 (catalog-first vs. governance-first) with three supporting pages: the fork itself, "catalog is not governance" foundational frame, and the automation-asymmetry insight that reframes extractor's category as the first scalable governance-authoring primitive. Updated forks catalog and index.  [affected: catalog-first-vs-governance-first, catalog-is-not-governance, catalog-vs-governance-automation-asymmetry, governance-forks-catalog, index]
+2026-04-19  ingest  Seeded 6 concept pages + 1 decision page from live brainstorm on content-site structure (fork model), data-vs-metadata ownership, governance-vs-compliance layer split, authored-meaning governance, Patient A01 canonical scene, SQL as definitional moments, fork catalog working draft.  [affected: data-vs-metadata-ownership, governance-vs-compliance-layers, govern-authored-meaning, sql-as-definitional-moments, patient-a01-scene, governance-forks-catalog, 2026-04-19-fork-model-for-content-site]
+2026-04-17  init  Wiki seeded: SCHEMA.md, index.md, empty concepts/ and decisions/. Graphify code wiki at graphify-out/wiki/ (21 articles).

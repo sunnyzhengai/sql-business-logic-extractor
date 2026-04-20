@@ -8,6 +8,7 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
+2026-04-20  commit  9347be5 Log Shipment 1 to work (extract + normalize + resolve + compare_lineage)  [affected: none — work-shipments ledger, repo root]
 2026-04-19  commit  5d17bcd Add project instructions, graphify outputs, and Claude Code hook config  [affected: none — project infra]
 2026-04-19  commit  4a30ee0 Adopt Thinking in Public strategy and publishing pipeline  [affected: 2026-04-19-thinking-in-public-strategy, 2026-04-19-publishing-automation-architecture, article-template, index, log]
 2026-04-19  decide  Adopted Thinking in Public (TIP) as publishing posture and semi-automated three-tier pipeline as publishing architecture. Added `article-template.md` (reusable 8-section structure). Resolved the healthcare-rich-wiki vs. industry-agnostic-public tension via two-layer separation (wiki stays private source; public articles are translations).  [affected: 2026-04-19-thinking-in-public-strategy, 2026-04-19-publishing-automation-architecture, article-template, index]

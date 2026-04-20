@@ -4,3 +4,11 @@ __pycache__/
 sql_logic_extractor.egg-info/
 __pycache__/
 *.egg-info/
+
+# graphify: keep graph.json + GRAPH_REPORT.md; ignore cache + intermediates + large HTML
+graphify-out/cache/
+graphify-out/.graphify_*
+graphify-out/graph.html
+
+# claude-code: machine-local permission allowlist
+.claude/settings.local.json

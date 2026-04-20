@@ -30,10 +30,13 @@ Forks with dedicated pages:
 Content site design:
 
 - [Governance forks catalog](concepts/governance-forks-catalog.md) — the working list of forks that will structure the content site navigation and editorial calendar
+- [Article template](concepts/article-template.md) — reusable 8-section structure for weekly Saturday articles
 
 ## Decisions
 
 - [2026-04-19 — Fork-based model over stage-based maturity ladder for the content site](decisions/2026-04-19-fork-model-for-content-site.md)
+- [2026-04-19 — Thinking in Public (TIP) as publishing posture](decisions/2026-04-19-thinking-in-public-strategy.md)
+- [2026-04-19 — Publishing automation architecture](decisions/2026-04-19-publishing-automation-architecture.md)
 
 ## Recent log
 

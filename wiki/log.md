@@ -8,7 +8,8 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
-2026-04-20  commit  (pending push) Rewire offline_translate.py on top of the recursive pattern library  [affected: none — code; archives legacy version for reference]
+2026-04-20  commit  38c50e9 Add INI-Item-aware schema pipeline (CSV → JSON → translator)  [affected: none — code; operationalizes app-config-id-as-coordination-key.md]
+2026-04-20  commit  eeb6605 Rewire offline_translate.py on top of the recursive pattern library  [affected: none — code; archives legacy version for reference]
 2026-04-20  commit  f26fad2 Add golden tests for recursive offline translator (Step 4)  [affected: none — tests + fixtures]
 2026-04-20  commit  cfb300f Implement recursive walker + pattern library (Steps 2+3)  [affected: none — code]
 2026-04-20  commit  5e082a4 Scaffold pattern library data model (Step 1)  [affected: none — code]

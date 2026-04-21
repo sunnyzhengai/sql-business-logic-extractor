@@ -8,7 +8,7 @@ Target layout at work: **legacy top-level** (extract.py, normalize.py, resolve.p
 
 ---
 
-## Shipment 2 — 2026-04-20  (commit: `<to be filled after commit>`)
+## Shipment 2 — 2026-04-20  (commit: `e4a52b9`)
 
 **Channel:** personal → work email.
 
@@ -59,7 +59,7 @@ Target layout at work: **legacy top-level** (extract.py, normalize.py, resolve.p
 **Check for changes since this shipment:**
 
 ```bash
-git diff <shipment-2-sha> HEAD -- \
+git diff e4a52b9 HEAD -- \
   offline_translate.py \
   sql_logic_extractor/patterns/ \
   scripts/csv_to_schema.py

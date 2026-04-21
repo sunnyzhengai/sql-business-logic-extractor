@@ -15,6 +15,7 @@ Foundational frames:
 - [Definitions are emergent](concepts/definitions-are-emergent.md) — definitions are discovered through use, not decreed; the counterweight to naive spec-first
 - [Spec-first as data contract](concepts/spec-first-as-data-contract.md) — intellectual anchor connecting the site's position to the data-contracts field
 - [App config IDs as coordination keys](concepts/app-config-id-as-coordination-key.md) — Epic INI-Item as the operational primitive that closes the app-team coordination loop; go-to-market wedge for healthcare Epic shops
+- [Recursive translation principle](concepts/recursive-translation-principle.md) — translate every SQL construct by recursion to raw columns; unknown patterns/columns are governance signals, never opaque fallbacks
 
 Canonical scenes:
 
@@ -37,6 +38,7 @@ Content site design:
 - [2026-04-19 — Fork-based model over stage-based maturity ladder for the content site](decisions/2026-04-19-fork-model-for-content-site.md)
 - [2026-04-19 — Thinking in Public (TIP) as publishing posture](decisions/2026-04-19-thinking-in-public-strategy.md)
 - [2026-04-19 — Publishing automation architecture](decisions/2026-04-19-publishing-automation-architecture.md)
+- [2026-04-20 — Adopt recursive translation + pattern library for offline_translate](decisions/2026-04-20-adopt-recursive-translation.md)
 
 ## Recent log
 

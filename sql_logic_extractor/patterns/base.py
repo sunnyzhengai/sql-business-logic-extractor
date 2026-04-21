@@ -66,10 +66,12 @@ class Context:
         )
 
 
-# Template signature: (context, args_dict) -> Translation
-# args_dict maps sqlglot child-field name ("this", "expression", "unit", ...)
-# to the already-translated child Translation.
-Template = Callable[[Context, dict[str, "Translation"]], "Translation"]
+# Template signature: (context, raw_node, children_dict) -> Translation
+# children_dict maps sqlglot child-field name ("this", "expression", "unit", ...)
+# to the already-translated child Translation. raw_node is passed through
+# so templates can read literal values (DATEDIFF's unit, WINDOW's partition
+# columns, etc.) that aren't surfaced as translatable children.
+Template = Callable[[Context, exp.Expression, dict[str, "Translation"]], "Translation"]
 
 
 @dataclass

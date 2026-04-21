@@ -31,6 +31,10 @@ the next step) looks up patterns via ``registry.find(node)``.
 from .base import Context, Pattern, Template, Translation
 from .registry import PatternRegistry, register, registry
 
+# Importing these modules registers their patterns at import time.
+from . import columns, aggregates, scalar_functions, structural  # noqa: F401
+from .walker import translate
+
 __all__ = [
     "Context",
     "Pattern",
@@ -39,4 +43,5 @@ __all__ = [
     "Translation",
     "register",
     "registry",
+    "translate",
 ]

@@ -8,6 +8,7 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
+2026-04-20  commit  bae3727 Adopt recursive translation principle for offline_translate  [affected: recursive-translation-principle, 2026-04-20-adopt-recursive-translation, index]
 2026-04-20  decide  Added `recursive-translation-principle` (concept) and `2026-04-20-adopt-recursive-translation` (decision) capturing the architectural pivot for offline_translate.py: recursion to raw-column base case + growing pattern library + unknown patterns/columns as first-class governance signals. Test findings from 11-query run embedded as motivating context.  [affected: recursive-translation-principle, 2026-04-20-adopt-recursive-translation, index]
 2026-04-20  commit  9347be5 Log Shipment 1 to work (extract + normalize + resolve + compare_lineage)  [affected: none — work-shipments ledger, repo root]
 2026-04-19  commit  5d17bcd Add project instructions, graphify outputs, and Claude Code hook config  [affected: none — project infra]

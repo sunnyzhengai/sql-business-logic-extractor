@@ -1,0 +1,8 @@
+Count of rows
+# sql: COUNT(*)
+# category: aggregate
+# subcategory: count_star
+# base_columns: []
+# base_tables: []
+# unknown_nodes: []
+# unknown_columns: []

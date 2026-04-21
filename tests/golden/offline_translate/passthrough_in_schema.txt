@@ -1,0 +1,8 @@
+Unique patient identifier
+# sql: PATIENT.PAT_ID
+# category: passthrough
+# subcategory: None
+# base_columns: ['PATIENT.PAT_ID']
+# base_tables: ['PATIENT']
+# unknown_nodes: []
+# unknown_columns: []

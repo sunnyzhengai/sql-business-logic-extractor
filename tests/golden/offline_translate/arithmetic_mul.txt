@@ -1,0 +1,8 @@
+Length of Stay times Medication cost
+# sql: los * cost
+# category: calculated
+# subcategory: multiplication
+# base_columns: ['cost', 'los']
+# base_tables: []
+# unknown_nodes: []
+# unknown_columns: ['los']

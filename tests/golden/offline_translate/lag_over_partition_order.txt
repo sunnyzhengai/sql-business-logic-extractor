@@ -1,0 +1,8 @@
+Previous row's Discharge Time, for same Unique patient identifier, ordered by Admission Time
+# sql: LAG(HOSP_DISCH_TIME) OVER (PARTITION BY PAT_ID ORDER BY HOSP_ADMSN_TIME)
+# category: window
+# subcategory: lag
+# base_columns: ['HOSP_ADMSN_TIME', 'HOSP_DISCH_TIME', 'PAT_ID']
+# base_tables: []
+# unknown_nodes: []
+# unknown_columns: []

@@ -1,0 +1,8 @@
+Mapped from Patient Class (Inpatient, Outpatient, Emergency, etc.): 1 → 'Inpatient'; 2 → 'Outpatient'; otherwise 'Other'
+# sql: CASE e.ADT_PAT_CLASS_C WHEN 1 THEN 'Inpatient' WHEN 2 THEN 'Outpatient' ELSE 'Other' END
+# category: case
+# subcategory: simple_case
+# base_columns: ['e.ADT_PAT_CLASS_C']
+# base_tables: ['e']
+# unknown_nodes: []
+# unknown_columns: []

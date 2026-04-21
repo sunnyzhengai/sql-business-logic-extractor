@@ -1,0 +1,8 @@
+Average of Length of Stay Days
+# sql: AVG(los_days)
+# category: aggregate
+# subcategory: avg
+# base_columns: ['los_days']
+# base_tables: []
+# unknown_nodes: []
+# unknown_columns: ['los_days']

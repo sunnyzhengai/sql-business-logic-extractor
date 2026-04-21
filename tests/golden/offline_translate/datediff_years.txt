@@ -1,0 +1,8 @@
+Number of years between Patient date of birth and today
+# sql: DATEDIFF(YEAR, BIRTH_DATE, GETDATE())
+# category: calculated
+# subcategory: date_difference
+# base_columns: ['BIRTH_DATE']
+# base_tables: []
+# unknown_nodes: []
+# unknown_columns: []

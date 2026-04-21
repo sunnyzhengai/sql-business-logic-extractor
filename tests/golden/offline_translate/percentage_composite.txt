@@ -1,0 +1,8 @@
+Sum of X divided by Count of rows times 100
+# sql: CAST(SUM(x) AS FLOAT) / COUNT(*) * 100
+# category: calculated
+# subcategory: multiplication
+# base_columns: ['x']
+# base_tables: []
+# unknown_nodes: []
+# unknown_columns: ['x']

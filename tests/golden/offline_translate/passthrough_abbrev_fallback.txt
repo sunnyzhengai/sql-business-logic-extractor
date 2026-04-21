@@ -1,0 +1,8 @@
+Patient Medical Record Number Identifier
+# sql: PATIENT.PAT_MRN_ID
+# category: passthrough
+# subcategory: None
+# base_columns: ['PATIENT.PAT_MRN_ID']
+# base_tables: ['PATIENT']
+# unknown_nodes: []
+# unknown_columns: ['PATIENT.PAT_MRN_ID']

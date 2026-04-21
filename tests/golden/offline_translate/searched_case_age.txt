@@ -1,0 +1,8 @@
+Categorization: when Age < 18, 'Ped'; otherwise 'Adult'
+# sql: CASE WHEN age < 18 THEN 'Ped' ELSE 'Adult' END
+# category: case
+# subcategory: searched_case
+# base_columns: ['age']
+# base_tables: []
+# unknown_nodes: []
+# unknown_columns: ['age']

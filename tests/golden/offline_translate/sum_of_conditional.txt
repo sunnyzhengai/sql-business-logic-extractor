@@ -1,0 +1,8 @@
+Sum of Categorization: when Days To Readmit ≤ 30, 1; otherwise 0
+# sql: SUM(CASE WHEN days_to_readmit <= 30 THEN 1 ELSE 0 END)
+# category: aggregate
+# subcategory: sum
+# base_columns: ['days_to_readmit']
+# base_tables: []
+# unknown_nodes: []
+# unknown_columns: ['days_to_readmit']

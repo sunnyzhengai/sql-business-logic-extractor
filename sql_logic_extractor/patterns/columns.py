@@ -38,8 +38,12 @@ def _expand_abbreviations(name: str) -> str:
 
 
 def _table_index(schema: dict) -> dict:
-    """Build a cached {TABLE_NAME: {COL_NAME: description}} index from the
-    list-of-dicts schema. Cached on the schema dict itself."""
+    """Build a cached {TABLE_NAME: {COL_NAME: {description, ini, item}}} index.
+
+    Supports the Clarity-metadata-derived schema shape (with ini/item on
+    each column) and the hand-curated shape (description only). Cached on
+    the schema dict itself to amortize across lookups.
+    """
     idx = schema.get("__table_index__")
     if idx is not None:
         return idx
@@ -49,14 +53,19 @@ def _table_index(schema: dict) -> dict:
         cols = {}
         for c in t.get("columns", []) or []:
             cname = (c.get("name") or "").upper()
-            desc = c.get("description") or c.get("name")
-            cols[cname] = desc
+            entry = {
+                "description": c.get("description") or c.get("name"),
+                "ini": c.get("ini"),
+                "item": c.get("item"),
+            }
+            cols[cname] = entry
         idx[tname] = cols
     schema["__table_index__"] = idx
     return idx
 
 
-def _lookup_column(schema: dict, table: str | None, column: str) -> str | None:
+def _lookup_column(schema: dict, table: str | None, column: str) -> dict | None:
+    """Return the schema entry {description, ini, item} for a column, or None."""
     if not schema:
         return None
     idx = _table_index(schema)
@@ -71,19 +80,29 @@ def _lookup_column(schema: dict, table: str | None, column: str) -> str | None:
     return None
 
 
+def _ini_item_key(entry: dict) -> str | None:
+    ini = entry.get("ini")
+    item = entry.get("item")
+    if ini and item:
+        return f"{ini}.{item}"
+    return None
+
+
 @register(name="column_ref", node_class=exp.Column, category="passthrough", priority=10)
 def column_ref(ctx: Context, node: exp.Expression, children: dict[str, Translation]) -> Translation:
     col_name = node.name
     table = node.table or None
     ref = f"{table}.{col_name}" if table else col_name
 
-    desc = _lookup_column(ctx.schema, table, col_name)
-    if desc:
+    entry = _lookup_column(ctx.schema, table, col_name)
+    if entry is not None and entry.get("description"):
+        ini_key = _ini_item_key(entry)
         return Translation(
-            english=desc,
+            english=entry["description"],
             category="passthrough",
             base_columns=[ref],
             base_tables=[table] if table else [],
+            ini_items=[ini_key] if ini_key else [],
         )
     # Fall back to abbreviation expansion; still flag as unknown so the
     # schema-authoring backlog is visible.

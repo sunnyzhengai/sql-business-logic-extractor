@@ -35,6 +35,10 @@ class Translation:
     technical_filters: list[str] = field(default_factory=list)
     unknown_nodes: list[str] = field(default_factory=list)
     unknown_columns: list[str] = field(default_factory=list)
+    # Chronicles INI-Item coordination keys (format: "INI.ITEM") carried up
+    # from column base cases so Collibra export / blast-radius tooling can
+    # surface them without re-querying the schema.
+    ini_items: list[str] = field(default_factory=list)
 
     def absorb(self, child: "Translation") -> None:
         """Roll up a child's metadata into this translation."""
@@ -48,6 +52,9 @@ class Translation:
         self.technical_filters.extend(child.technical_filters)
         self.unknown_nodes.extend(child.unknown_nodes)
         self.unknown_columns.extend(child.unknown_columns)
+        for ini in child.ini_items:
+            if ini not in self.ini_items:
+                self.ini_items.append(ini)
 
 
 @dataclass

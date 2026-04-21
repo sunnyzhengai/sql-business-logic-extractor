@@ -33,10 +33,19 @@ from sql_logic_extractor.patterns import Context, Translation, translate
 # Schema
 # ---------------------------------------------------------------------------
 
-def load_schema(yaml_path: str) -> dict:
-    """Load clarity_schema.yaml as the raw dict. The pattern library builds
-    its own ``__table_index__`` cache on first column lookup."""
-    with open(yaml_path, "r") as f:
+def load_schema(path: str) -> dict:
+    """Load the schema as a raw dict, auto-detecting JSON vs YAML by
+    extension. The pattern library builds its own ``__table_index__`` cache
+    on first column lookup, so no pre-processing is needed here.
+
+    JSON is recommended for schemas generated from the Clarity metadata
+    query (see scripts/csv_to_schema.py) — pyyaml isn't required at
+    runtime and SQL Server can emit JSON natively.
+    """
+    if path.lower().endswith(".json"):
+        with open(path, "r") as f:
+            return json.load(f)
+    with open(path, "r") as f:
         return yaml.safe_load(f)
 
 
@@ -200,6 +209,11 @@ def translate_column(resolved_col: dict, ctx: Context) -> dict:
         out["unknown_nodes"] = sorted(set(t.unknown_nodes))
     if t.unknown_columns:
         out["unknown_columns"] = sorted(set(t.unknown_columns))
+    # INI-Item coordination keys (from Clarity metadata) — lets Collibra
+    # export and blast-radius tooling reference Chronicles items without
+    # re-querying the schema.
+    if t.ini_items:
+        out["ini_items"] = sorted(set(t.ini_items))
     return out
 
 
@@ -248,6 +262,7 @@ def summarize_query(column_results: list, l3_data: dict) -> dict:
     # Aggregate governance signals across all columns
     all_unknown_nodes = sorted({u for c in column_results for u in c.get("unknown_nodes", [])})
     all_unknown_columns = sorted({u for c in column_results for u in c.get("unknown_columns", [])})
+    all_ini_items = sorted({u for c in column_results for u in c.get("ini_items", [])})
 
     summary = {
         "query_summary": summary_text,
@@ -263,6 +278,8 @@ def summarize_query(column_results: list, l3_data: dict) -> dict:
         summary["unknown_nodes"] = all_unknown_nodes
     if all_unknown_columns:
         summary["unknown_columns"] = all_unknown_columns
+    if all_ini_items:
+        summary["ini_items"] = all_ini_items
     return summary
 
 

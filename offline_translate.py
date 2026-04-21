@@ -23,7 +23,6 @@ import re
 from pathlib import Path
 from typing import Optional
 
-import yaml
 from sqlglot import exp, parse_one
 
 from sql_logic_extractor.patterns import Context, Translation, translate
@@ -45,6 +44,10 @@ def load_schema(path: str) -> dict:
     if path.lower().endswith(".json"):
         with open(path, "r") as f:
             return json.load(f)
+    # Lazy import — pyyaml is only needed when loading .yaml schemas. At
+    # work (after the JSON pipeline switch) this branch is unreachable, so
+    # pyyaml doesn't have to be installed.
+    import yaml
     with open(path, "r") as f:
         return yaml.safe_load(f)
 

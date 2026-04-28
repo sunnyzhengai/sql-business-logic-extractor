@@ -14,7 +14,7 @@ This is more accurate than comparing normalized expressions because:
   - Comparison is on actual business logic, not SQL structure
   - Filters are included in the comparison
 
-Pipeline: L1 (parse) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
+Pipeline: L1 (extract) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
 """
 
 import hashlib
@@ -24,7 +24,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Optional
 
-from resolve import resolve_query, resolved_to_dict
+from sql_logic_extractor.resolve import resolve_query, resolved_to_dict
 
 
 # ---------------------------------------------------------------------------

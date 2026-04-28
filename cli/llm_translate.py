@@ -6,15 +6,25 @@ SQL Business Logic Extractor -- L4: Translate (LLM-based)
 Takes L3 lineage resolution output and translates each column's technical
 definition into plain English business descriptions using an LLM.
 
-Uses OpenAI API (GPT-4) with context from clarity_schema.yaml data dictionary.
+Uses Gemini API with context from clarity_schema.yaml data dictionary.
 
-Pipeline: L1 (parse) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
+Pipeline: L1 (extract) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
 """
 
 import json
 import os
 import yaml
 from typing import Optional
+
+# Load .env (GEMINI_API_KEY etc.) if python-dotenv is installed. Optional
+# dependency: env vars set in the shell still work without it.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+GEMINI_MODEL = "gemini-2.5-flash"
 
 
 def load_schema(yaml_path: str) -> dict:
@@ -140,11 +150,27 @@ def build_column_context(resolved_col: dict, schema: dict) -> str:
                 for code, name in enum_vals.items():
                     parts.append(f"- {code} = {name}")
 
-    # Add filters
+    # Add filters. Filter shape is either a string (legacy) or a dict with
+    # ``expression`` plus an optional ``subqueries`` list (Option 1 lineage).
     if filters:
         parts.append("\n### Filters Applied:")
         for f in filters:
-            parts.append(f"- {f}")
+            if isinstance(f, dict):
+                expr = f.get("expression", "")
+                parts.append(f"- {expr}")
+                for i, sq in enumerate(f.get("subqueries", []) or []):
+                    tbls = sq.get("base_tables") or sorted({
+                        t for c in sq.get("columns", []) for t in c.get("base_tables", [])
+                    })
+                    cols_ = sorted({
+                        bc for c in sq.get("columns", []) for bc in c.get("base_columns", [])
+                    })
+                    if tbls:
+                        parts.append(f"    - Subquery #{i + 1} tables: {', '.join(tbls)}")
+                    if cols_:
+                        parts.append(f"      Subquery #{i + 1} columns: {', '.join(cols_)}")
+            else:
+                parts.append(f"- {f}")
 
     # Add transformation chain summary
     if chain:
@@ -164,7 +190,7 @@ def translate_column(resolved_col: dict, schema: dict, client) -> dict:
     Args:
         resolved_col: A column dict from L5 output
         schema: The loaded schema dictionary
-        client: OpenAI client instance
+        client: google.genai Client instance
 
     Returns:
         Dict with column_name, english_definition, technical_summary, etc.
@@ -203,17 +229,19 @@ Output JSON:
     }
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.3,
-            response_format={"type": "json_object"}
+        from google.genai import types
+
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.3,
+                response_mime_type="application/json",
+            ),
         )
 
-        llm_result = json.loads(response.choices[0].message.content)
+        llm_result = json.loads(response.text)
 
         # Combine L5 technical definition with LLM translation
         result = {
@@ -238,13 +266,18 @@ Output JSON:
         }
 
 
-def summarize_query(column_results: list[dict], l5_data: dict, client) -> dict:
+def summarize_query(column_results: list[dict], l5_data: dict, client,
+                    cleaned_filter_narratives: Optional[list[str]] = None) -> dict:
     """Generate a summary of the entire SQL query based on column definitions.
 
     Args:
         column_results: List of translated column definitions from L6
         l5_data: Original L5 JSON data
-        client: OpenAI client instance
+        client: google.genai Client instance
+        cleaned_filter_narratives: Pre-translated filter narratives from the
+            offline translator (deduped, correlation-keys stripped, business
+            English). When provided, used instead of raw filter SQL — produces
+            a much cleaner LLM context window.
 
     Returns:
         Dict with query summary
@@ -262,7 +295,9 @@ def summarize_query(column_results: list[dict], l5_data: dict, client) -> dict:
             all_domains.add(col['business_domain'])
         column_summaries.append(f"- {col['column_name']}: {col.get('english_definition', '')}")
 
-    # Build context for LLM
+    # Build context for LLM. Filters are included because they encode the
+    # business slice (e.g. "denied referrals only") that names + tables alone
+    # don't reveal — without them the model summarizes the query's shape, not intent.
     context_parts = [
         f"## Source Tables ({len(all_tables)})",
         ", ".join(sorted(all_tables)),
@@ -271,11 +306,35 @@ def summarize_query(column_results: list[dict], l5_data: dict, client) -> dict:
         ", ".join(sorted(all_domains)),
         "",
         f"## Output Columns ({len(column_results)})",
-        "\n".join(column_summaries)
+        "\n".join(column_summaries),
     ]
+    if cleaned_filter_narratives:
+        context_parts += [
+            "",
+            f"## Query Filters ({len(cleaned_filter_narratives)} — these constrain which rows the query returns; pre-translated to business English)",
+            "\n".join(f"- {f}" for f in cleaned_filter_narratives),
+        ]
+    else:
+        # Fallback: collect raw filter SQL from L3 columns when the offline
+        # narrative isn't available (e.g. summarize_query called directly).
+        raw_filters = []
+        seen = set()
+        for col in column_results:
+            tech_def = col.get('technical_definition', {})
+            for f in tech_def.get('filters', []) or []:
+                expr = f.get('expression', '').strip() if isinstance(f, dict) else str(f).strip()
+                if expr and expr not in seen:
+                    seen.add(expr)
+                    raw_filters.append(expr)
+        if raw_filters:
+            context_parts += [
+                "",
+                f"## Query Filters ({len(raw_filters)} — raw SQL predicates that constrain which rows the query returns)",
+                "\n".join(f"- {f}" for f in raw_filters),
+            ]
     context = "\n".join(context_parts)
 
-    system_prompt = """You summarize SQL queries based on their output columns and source tables.
+    system_prompt = """You summarize SQL queries based on their output columns, source tables, and filter predicates.
 
 Rules:
 1. Be ACCURATE: Only describe what the query actually produces.
@@ -283,11 +342,12 @@ Rules:
 3. Identify the PRIMARY PURPOSE of the query (what business question does it answer?)
 4. Mention the key entities involved (patients, referrals, appointments, etc.)
 5. Note any key metrics or calculations.
-6. Do NOT speculate on use cases or downstream applications.
+6. THE FILTERS ARE THE BUSINESS SLICE. If the query has filters (e.g. "status = denied", "EXISTS denied bed-day"), the summary MUST reflect what slice of data is being returned (e.g. "denied referral authorizations") — not just "referral authorizations". Filters are the difference between describing the query's shape and its intent.
+7. Do NOT speculate on use cases or downstream applications.
 
 Output JSON:
 {
-  "query_summary": "Succinct description of what this query produces",
+  "query_summary": "Succinct description of what this query produces, including the business slice implied by filters",
   "primary_purpose": "The main business question this query answers",
   "key_entities": ["list", "of", "main", "entities"],
   "key_metrics": ["list", "of", "key", "calculations", "or", "metrics"]
@@ -298,17 +358,19 @@ Output JSON:
 {context}"""
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.3,
-            response_format={"type": "json_object"}
+        from google.genai import types
+
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.3,
+                response_mime_type="application/json",
+            ),
         )
 
-        result = json.loads(response.choices[0].message.content)
+        result = json.loads(response.text)
         result['source_tables'] = sorted(all_tables)
         result['business_domains'] = sorted(all_domains)
         result['column_count'] = len(column_results)
@@ -333,19 +395,19 @@ def translate_query(l5_json_path: str, schema_path: str, api_key: Optional[str] 
     Args:
         l5_json_path: Path to L5 JSON output
         schema_path: Path to clarity_schema.yaml
-        api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
+        api_key: Gemini API key (defaults to GEMINI_API_KEY env var)
 
     Returns:
         Dict with 'columns' (list of translated definitions) and 'summary' (query summary)
     """
-    from openai import OpenAI
+    from google import genai
 
     # Initialize client
-    api_key = api_key or os.environ.get('OPENAI_API_KEY')
+    api_key = api_key or os.environ.get('GEMINI_API_KEY')
     if not api_key:
-        raise ValueError("OpenAI API key required. Set OPENAI_API_KEY or pass api_key parameter.")
+        raise ValueError("Gemini API key required. Set GEMINI_API_KEY (e.g. in .env) or pass api_key parameter.")
 
-    client = OpenAI(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
     # Load inputs
     schema = load_schema(schema_path)
@@ -366,9 +428,21 @@ def translate_query(l5_json_path: str, schema_path: str, api_key: Optional[str] 
         result = translate_column(col, schema, client)
         column_results.append(result)
 
+    # Pre-translate filters offline (deduped, correlation-keys stripped, in
+    # business English) so the LLM summary call gets a clean slice description
+    # instead of raw SQL predicates with join plumbing.
+    cleaned_filter_narratives: list[str] = []
+    try:
+        from offline_translate import translate_query as _offline_translate_query
+        offline_result = _offline_translate_query(l5_json_path, schema_path)
+        cleaned_filter_narratives = offline_result.get('summary', {}).get('query_filters_english', []) or []
+    except Exception as e:
+        print(f"  (Offline filter pre-translation failed: {e}; falling back to raw filter SQL)")
+
     # Generate query summary
     print(f"  Generating query summary...")
-    summary = summarize_query(column_results, l5_data, client)
+    summary = summarize_query(column_results, l5_data, client,
+                              cleaned_filter_narratives=cleaned_filter_narratives)
 
     return {
         'summary': summary,
@@ -473,7 +547,7 @@ def main():
     parser.add_argument("--output", "-o", help="Output file path")
     parser.add_argument("--text", action="store_true",
                         help="Output human-readable text instead of JSON")
-    parser.add_argument("--api-key", help="OpenAI API key (or set OPENAI_API_KEY env var)")
+    parser.add_argument("--api-key", help="Gemini API key (or set GEMINI_API_KEY env var / .env)")
 
     args = parser.parse_args()
 

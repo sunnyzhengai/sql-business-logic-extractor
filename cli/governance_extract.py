@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 # Import existing modules
-from resolve import resolve_query, resolved_to_dict
+from sql_logic_extractor.resolve import resolve_query, resolved_to_dict
 from compare_lineage import LineageComparator, ResolvedDefinition
 
 

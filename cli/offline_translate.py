@@ -14,7 +14,7 @@ Preserves the CLI and output JSON shape of the legacy offline_translate.py
     python3 offline_translate.py <l3_json> [--schema clarity_schema.yaml]
                                            [--output PATH] [--text]
 
-Pipeline: L1 (parse) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
+Pipeline: L1 (extract) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
 """
 
 import argparse
@@ -132,6 +132,13 @@ def translate_expression(expression: str, ctx: Context) -> Translation:
 # Filter translation (recursive walker applied to each filter predicate)
 # ---------------------------------------------------------------------------
 
+def _filter_text(f) -> str:
+    """Extract the expression string from a filter (dict shape or legacy str)."""
+    if isinstance(f, dict):
+        return (f.get("expression") or "").strip()
+    return (f or "").strip()
+
+
 def translate_filters(filters: list, ctx: Context) -> str:
     """Translate L3 filter predicates by walking each with the registry.
 
@@ -144,7 +151,7 @@ def translate_filters(filters: list, ctx: Context) -> str:
         return ""
     parts = []
     for f in filters:
-        f_text = (f or "").strip()
+        f_text = _filter_text(f)
         if not f_text:
             continue
         if re.search(r"\bIS\s+NOT\s+NULL\b", f_text, re.IGNORECASE):
@@ -161,7 +168,9 @@ def translate_filters(filters: list, ctx: Context) -> str:
 
 
 def _walk_fragment(sql_fragment: str, ctx: Context) -> str:
-    """Parse a bare SQL fragment (not wrapped in SELECT) and translate."""
+    """Parse a bare SQL fragment (not wrapped in SELECT) and translate.
+    Correlation keys (`col = col`) are stripped before translation so that
+    join-scope filters don't leak relational plumbing into the prose."""
     if not sql_fragment:
         return ""
     try:
@@ -169,7 +178,11 @@ def _walk_fragment(sql_fragment: str, ctx: Context) -> str:
     except Exception:
         return sql_fragment
     node = _unwrap_select(node)
-    return translate(node, ctx).english
+    from sql_logic_extractor.patterns.structural import _strip_correlation_keys
+    cleaned = _strip_correlation_keys(node)
+    if cleaned is None:
+        return ""
+    return translate(cleaned, ctx).english
 
 
 # ---------------------------------------------------------------------------
@@ -187,15 +200,16 @@ def translate_column(resolved_col: dict, ctx: Context) -> dict:
     t = translate_expression(expression, ctx)
     english = t.english
 
-    filter_desc = translate_filters(filters, ctx)
-    if filter_desc and col_type not in ("passthrough", "literal"):
-        english = f"{english} ({filter_desc})"
-
+    # Per-column filters are intentionally NOT included here. L3 attributes
+    # filters to columns based on traversal path, which is unreliable, and the
+    # same predicate ends up duplicated across every column from the same
+    # scope. translate_query() lifts the union/deduped set to summary.query_filters
+    # and post-processes columns with english_definition_with_filters built
+    # from the query-wide narrative.
     technical_definition = {
         "resolved_expression": expression,
         "base_columns": base_columns,
         "base_tables": base_tables,
-        "filters": filters,
         "transformation_chain": resolved_col.get("transformation_chain", []),
     }
 
@@ -205,6 +219,7 @@ def translate_column(resolved_col: dict, ctx: Context) -> dict:
         "technical_definition": technical_definition,
         "english_definition": english,
         "business_domain": classify_business_domain(name, base_tables, expression),
+        "_raw_filters": filters,  # internal — consumed by translate_query, stripped before emit
     }
     # Governance signals — new in the recursive translator. Downstream tools
     # can surface these as the "patterns/columns needing authoring" backlog.
@@ -224,6 +239,46 @@ def translate_column(resolved_col: dict, ctx: Context) -> dict:
 # Query-level summary (ported from legacy)
 # ---------------------------------------------------------------------------
 
+def _is_correlation_key(expr_str: str) -> bool:
+    """True if the filter is a bare `column = column` relational key, not a row-restricting predicate."""
+    try:
+        node = parse_one(expr_str)
+    except Exception:
+        return False
+    if isinstance(node, exp.EQ):
+        return isinstance(node.left, exp.Column) and isinstance(node.right, exp.Column)
+    return False
+
+
+def _canonical_filter(expr_str: str) -> str:
+    """Parse and re-emit with table qualifiers stripped, for dedup purposes."""
+    try:
+        node = parse_one(expr_str)
+    except Exception:
+        return expr_str
+    for col in node.find_all(exp.Column):
+        col.set("table", None)
+    return node.sql()
+
+
+def _dedupe_filters(raw_filters: list) -> list:
+    """Drop correlation keys and collapse filters that differ only in alias qualifiers.
+    Keeps the first-seen original form (usually the one with aliases intact).
+    Accepts either plain strings (legacy) or filter dicts ``{expression, subqueries?}``."""
+    seen_canonical = set()
+    out = []
+    for f in raw_filters:
+        f_text = _filter_text(f)
+        if _is_correlation_key(f_text):
+            continue
+        canon = _canonical_filter(f_text)
+        if canon in seen_canonical:
+            continue
+        seen_canonical.add(canon)
+        out.append(f)
+    return out
+
+
 def summarize_query(column_results: list, l3_data: dict) -> dict:
     all_tables = set()
     all_domains = set()
@@ -234,42 +289,37 @@ def summarize_query(column_results: list, l3_data: dict) -> dict:
         if col.get("business_domain"):
             all_domains.add(col["business_domain"])
 
-    col_types = [col.get("column_type", "") for col in column_results]
-    if "aggregate" in col_types:
-        purpose = "Aggregated reporting"
-    elif "window" in col_types:
-        purpose = "Ranked/windowed analysis"
-    elif "case" in col_types:
-        purpose = "Categorization and classification"
-    else:
-        purpose = "Data extraction"
-
-    if "Financial" in all_domains:
-        purpose += " for financial analysis"
-    elif "Quality Metrics" in all_domains:
-        purpose += " for quality metrics"
-    elif "Hospital Metrics" in all_domains:
-        purpose += " for hospital operations"
-    elif "Patient Demographics" in all_domains:
-        purpose += " for patient analysis"
-
     table_list = sorted(all_tables)
     domain_list = sorted(all_domains)
 
-    summary_text = f"Query extracts {len(column_results)} columns from {len(table_list)} table(s)"
-    if domain_list:
-        summary_text += f" covering {', '.join(domain_list[:3])}"
-        if len(domain_list) > 3:
-            summary_text += f" and {len(domain_list) - 3} more domain(s)"
+    # Note: no query_summary / primary_purpose emitted here. Rule-based
+    # narrative summaries from structural counts are misleading — they
+    # describe the shape of the query, not its business intent. The LLM
+    # translator (cli/llm_translate.py) owns semantic narrative summary;
+    # this offline path emits structured signals only.
 
     # Aggregate governance signals across all columns
     all_unknown_nodes = sorted({u for c in column_results for u in c.get("unknown_nodes", [])})
     all_unknown_columns = sorted({u for c in column_results for u in c.get("unknown_columns", [])})
     all_ini_items = sorted({u for c in column_results for u in c.get("ini_items", [])})
 
+    # Query-wide filter set: union of filters across all columns, deduplicated.
+    # Per-column L3 filter attribution is unreliable (different traversal paths
+    # pick up different scope-local filters), so the query-level union is the
+    # honest representation — these filters apply to the final result set.
+    # Correlation keys (col = col) and alias-prefix duplicates are dropped.
+    raw = []
+    seen_literal = set()
+    for c in column_results:
+        for f in c.get("_raw_filters", []) or []:
+            key = _filter_text(f)
+            if key in seen_literal:
+                continue
+            seen_literal.add(key)
+            raw.append(f)
+    query_filters = _dedupe_filters(raw)
+
     summary = {
-        "query_summary": summary_text,
-        "primary_purpose": purpose,
         "key_entities": list(all_tables)[:5],
         "key_metrics": [c["column_name"] for c in column_results
                         if c.get("column_type") in ("calculated", "aggregate", "case")][:5],
@@ -283,6 +333,8 @@ def summarize_query(column_results: list, l3_data: dict) -> dict:
         summary["unknown_columns"] = all_unknown_columns
     if all_ini_items:
         summary["ini_items"] = all_ini_items
+    if query_filters:
+        summary["query_filters"] = query_filters
     return summary
 
 
@@ -293,6 +345,43 @@ def translate_query(l3_json_path: str, schema_path: str) -> dict:
         l3_data = json.load(f)
     column_results = [translate_column(c, ctx) for c in l3_data.get("columns", []) or []]
     summary = summarize_query(column_results, l3_data)
+
+    # Translate the query-level filter set into English. Filters that translate
+    # to empty (pure correlation keys / join plumbing) are dropped entirely.
+    if summary.get("query_filters"):
+        raw_filters = summary["query_filters"]
+        kept_raw = []
+        kept_english = []
+        for f in raw_filters:
+            f_text = _filter_text(f)
+            translated = _walk_fragment(f_text, ctx) if f_text else ""
+            if not translated:
+                # Pure correlation — skip.
+                continue
+            kept_raw.append(f)
+            kept_english.append(translated)
+        summary["query_filters"] = kept_raw
+        summary["query_filters_english"] = kept_english
+        if not kept_raw:
+            summary.pop("query_filters", None)
+            summary.pop("query_filters_english", None)
+
+    # Post-pass: strip the internal _raw_filters carrier and synthesize
+    # english_definition_with_filters from the query-wide narrative so every
+    # column carries the full business meaning (column intent + scope filters)
+    # downstream consumers can ingest into Collibra without re-joining to summary.
+    filter_suffix = ""
+    if summary.get("query_filters_english"):
+        filter_suffix = "; ".join(summary["query_filters_english"])
+    for col in column_results:
+        col.pop("_raw_filters", None)
+        if filter_suffix:
+            col["english_definition_with_filters"] = (
+                f"{col['english_definition']} (filtered where: {filter_suffix})"
+            )
+        else:
+            col["english_definition_with_filters"] = col["english_definition"]
+
     return {"summary": summary, "columns": column_results}
 
 
@@ -313,9 +402,8 @@ def format_output(results: dict, fmt: str = "json") -> str:
     summary = results.get("summary", {})
     lines.append("# QUERY SUMMARY")
     lines.append("")
-    lines.append(f"   {summary.get('query_summary', 'No summary available')}")
-    lines.append("")
-    lines.append(f"   Primary Purpose: {summary.get('primary_purpose', 'Unknown')}")
+    lines.append("   (Semantic narrative summary requires the LLM translator —")
+    lines.append("    this offline path emits structured signals only.)")
     lines.append("")
     if summary.get("key_entities"):
         lines.append(f"   Key Entities: {', '.join(summary['key_entities'])}")
@@ -326,6 +414,29 @@ def format_output(results: dict, fmt: str = "json") -> str:
     if summary.get("business_domains"):
         lines.append(f"   Business Domains: {', '.join(summary['business_domains'])}")
     lines.append(f"   Total Columns: {summary.get('column_count', 0)}")
+
+    if summary.get("query_filters"):
+        lines.append("")
+        lines.append("   Query Filters (apply to the final result set):")
+        raw_filters = summary["query_filters"]
+        english_filters = summary.get("query_filters_english") or [_filter_text(r) for r in raw_filters]
+        for raw, eng in zip(raw_filters, english_filters):
+            raw_text = _filter_text(raw)
+            if eng and eng != raw_text:
+                lines.append(f"     - {eng}")
+                lines.append(f"         [{raw_text}]")
+            else:
+                lines.append(f"     - {raw_text}")
+            # Render nested subquery lineage if present.
+            if isinstance(raw, dict):
+                for i, sq in enumerate(raw.get("subqueries", []) or []):
+                    tbls = sq.get("base_tables") or sorted({
+                        t for c in sq.get("columns", []) for t in c.get("base_tables", [])
+                    })
+                    cols_ = sorted({c_ for c in sq.get("columns", []) for c_ in c.get("base_columns", [])})
+                    lines.append(f"         subquery #{i + 1}: tables={tbls}")
+                    if cols_:
+                        lines.append(f"                        columns={cols_}")
 
     if summary.get("unknown_nodes") or summary.get("unknown_columns"):
         lines.append("")
@@ -356,10 +467,6 @@ def format_output(results: dict, fmt: str = "json") -> str:
             lines.append(f"   Base Tables: {', '.join(tech['base_tables'])}")
         if tech.get("base_columns"):
             lines.append(f"   Base Columns: {', '.join(tech['base_columns'])}")
-        if tech.get("filters"):
-            lines.append("   Filters:")
-            for f in tech["filters"]:
-                lines.append(f"     - {f}")
         lines.append("")
 
         lines.append("   ### Business Definition")
@@ -391,9 +498,12 @@ def main() -> None:
     parser.add_argument("l3_json", help="Path to L3 JSON output file")
     parser.add_argument("--schema", "-s", default="clarity_schema.yaml",
                         help="Path to clarity_schema.yaml (default: clarity_schema.yaml)")
-    parser.add_argument("--output", "-o", help="Output file path (without extension)")
+    parser.add_argument("--output", "-o",
+                        help="Output file path without extension. Defaults to translate-out/<stem-of-input>.")
     parser.add_argument("--text", action="store_true",
                         help="Output human-readable text instead of JSON")
+    parser.add_argument("--stdout", action="store_true",
+                        help="Print to stdout instead of writing files")
     args = parser.parse_args()
 
     print(f"Loading L3 output: {args.l3_json}")
@@ -403,18 +513,23 @@ def main() -> None:
 
     results = translate_query(args.l3_json, args.schema)
 
-    if args.output:
-        json_path = f"{args.output}.json"
-        with open(json_path, "w") as f:
-            f.write(format_output(results, "json"))
-        print(f"JSON saved to: {json_path}")
-
-        text_path = f"{args.output}.txt"
-        with open(text_path, "w") as f:
-            f.write(format_output(results, "text"))
-        print(f"Text saved to: {text_path}")
-    else:
+    if args.stdout:
         print(format_output(results, "text" if args.text else "json"))
+        return
+
+    if args.output:
+        out_base = Path(args.output)
+    else:
+        out_base = Path("translate-out") / Path(args.l3_json).stem
+    out_base.parent.mkdir(parents=True, exist_ok=True)
+
+    json_path = out_base.with_suffix(".json")
+    json_path.write_text(format_output(results, "json"))
+    print(f"JSON saved to: {json_path}")
+
+    text_path = out_base.with_suffix(".txt")
+    text_path.write_text(format_output(results, "text"))
+    print(f"Text saved to: {text_path}")
 
     print(f"\nTranslated {len(results.get('columns', []))} columns.")
 

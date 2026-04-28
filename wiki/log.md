@@ -8,6 +8,7 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
+2026-04-28  commit  d445008 Add view-migration tooling for SSIS-to-Fabric workstream  [affected: none — new isolated workstream under view-migration/; separate from extractor commercialization]
 2026-04-27  commit  94df49f Move CLI scripts to cli/, lift filters to query level, plumb LLM filter context  [affected: none — code; reorganization + L4 filter consolidation + LLM summary semantic upgrade]
 2026-04-20  commit  38c50e9 Add INI-Item-aware schema pipeline (CSV → JSON → translator)  [affected: none — code; operationalizes app-config-id-as-coordination-key.md]
 2026-04-20  commit  eeb6605 Rewire offline_translate.py on top of the recursive pattern library  [affected: none — code; archives legacy version for reference]

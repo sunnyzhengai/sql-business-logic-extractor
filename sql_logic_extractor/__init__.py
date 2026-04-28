@@ -1,7 +1,7 @@
 """SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translate SQL.
 
 Minimum download for L1-L3 (technical lineage extraction): __init__.py,
-extract.py, normalize.py, resolve.py — this file's L4+ imports below are
+extract.py, normalize.py, resolve.py -- this file's L4+ imports below are
 wrapped in try/except so missing files / dependencies don't block the L1-L3
 path from working. Add the L4+ files (compare.py, translate.py, collibra.py,
 batch.py) only when you need those capabilities."""
@@ -15,7 +15,7 @@ from .normalize import (
 )
 from .resolve import resolve_query, resolved_to_dict, ResolvedQuery
 
-# Optional L4+ surfaces — present only when the corresponding submodules
+# Optional L4+ surfaces -- present only when the corresponding submodules
 # AND their dependencies (yaml, openpyxl, google-genai, etc.) are installed.
 # A failure here doesn't block the L1-L3 lineage path.
 try:

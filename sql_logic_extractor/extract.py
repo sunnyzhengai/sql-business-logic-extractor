@@ -6,7 +6,7 @@ SQL Business Logic Extractor -- L1: Parse
 Parses SQL queries and extracts transformations, filters, joins, aggregations,
 window functions, CTEs, and column-level lineage into a structured format.
 
-Pipeline: L1 (parse) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
+Pipeline: L1 (extract) -> L2 (normalize) -> L3 (resolve) -> L4 (translate) -> L5 (compare)
 
 Requirements: pip install sqlglot
 """
@@ -131,6 +131,7 @@ class QueryLogic:
     order_by: list[str] = field(default_factory=list)
     limit: Optional[str] = None
     distinct: bool = False
+    unknown_containers: list[str] = field(default_factory=list)
     raw_sql: str = ""
 
 
@@ -171,6 +172,15 @@ def _is_simple_column(node) -> bool:
 _AGG_TYPES = (
     exp.Count, exp.Sum, exp.Avg, exp.Min, exp.Max,
     exp.ArrayAgg, exp.GroupConcat, exp.Stddev, exp.Variance,
+)
+
+
+# Completeness contract: every sqlglot node type that can carry
+# nested query logic. Anything encountered here must be handed to
+# ``_decompose_any`` so Layer 3 gap detection knows we descended.
+_QUERY_CONTAINERS = (
+    exp.Select, exp.Subquery, exp.Union, exp.Intersect, exp.Except,
+    exp.Lateral, exp.Values, exp.Pivot,
 )
 
 
@@ -233,6 +243,98 @@ def _get_alias(node) -> str:
 class SQLBusinessLogicExtractor:
     def __init__(self, dialect: str = None):
         self.dialect = dialect
+        # Node IDs of query-containers we explicitly descended into during
+        # this extraction. Populated by _decompose_any / _mark_subtree_extracted
+        # and consumed by _detect_unknown_containers.
+        self._visited_containers: set[int] = set()
+
+    def _decompose_any(self, node, context: str, logic: "QueryLogic"):
+        """Dispatch a query-container node to the right decomposition path.
+
+        Every code path that encounters a nested query-container should go
+        through here instead of calling the leaf methods directly -- that
+        keeps the completeness contract centralized and makes Layer 3 gap
+        detection reliable.
+        """
+        if node is None:
+            return
+        if isinstance(node, exp.Subquery):
+            self._mark_subtree_extracted(node)
+            self._add_subquery(node, context, logic)
+        elif isinstance(node, exp.Select):
+            self._mark_subtree_extracted(node)
+            self._add_subquery_from_select(node, context, logic)
+        elif isinstance(node, (exp.Union, exp.Intersect, exp.Except)):
+            self._visited_containers.add(id(node))
+            self._decompose_set_op_branches(node, context, logic)
+        # Lateral/Values/Pivot/Unpivot fall through intentionally so they
+        # surface in logic.unknown_containers.
+
+    def _mark_subtree_extracted(self, node):
+        """Mark ``node`` and all descendant containers as visited.
+
+        Used when we hand a subtree off to a recursive ``extract()`` call --
+        the inner extractor fully covers that subtree, so from the outer
+        tree's perspective every container inside has been addressed.
+        """
+        if node is None:
+            return
+        for container in node.find_all(*_QUERY_CONTAINERS):
+            self._visited_containers.add(id(container))
+
+    def _detect_unknown_containers(self, tree, logic: "QueryLogic"):
+        """Record any _QUERY_CONTAINERS node in ``tree`` we never descended into.
+
+        Produces the governance signal for Layer 3: a deduplicated list of
+        sqlglot type names still reachable in the AST after extraction.
+        """
+        if tree is None:
+            return
+        missed: list[str] = []
+        for node in tree.find_all(*_QUERY_CONTAINERS):
+            if id(node) in self._visited_containers:
+                continue
+            type_name = type(node).__name__
+            if type_name not in missed:
+                missed.append(type_name)
+        if missed:
+            logic.unknown_containers = missed
+
+    def _nested_scope_ids(self, select):
+        """Node IDs inside CTE definitions or Subquery nodes under this select.
+
+        Each nested scope (CTE body, derived table, scalar subquery) gets its
+        own extraction pass via ``_extract_ctes`` / ``_extract_subqueries``.
+        The main select must skip these nodes so their joins/wheres don't
+        leak into the outer scope's filter list.
+        """
+        nested = set()
+
+        # CTE definitions: locate the surrounding WITH clause (same lookup
+        # pattern as ``_extract_ctes``) and mark every descendant of each CTE
+        # body.
+        root = select
+        while root.parent and not isinstance(root, exp.With):
+            root = root.parent
+        with_clause = (
+            root if isinstance(root, exp.With)
+            else (select.find(exp.With) or (select.parent.find(exp.With) if select.parent else None))
+        )
+        if with_clause is not None:
+            for cte in with_clause.find_all(exp.CTE):
+                body = cte.this
+                if body is not None:
+                    # find_all(Expression) covers all descendants including
+                    # Joins -- sqlglot's .walk() skips list-valued args.
+                    for descendant in body.find_all(exp.Expression):
+                        nested.add(id(descendant))
+
+        # Subqueries (scalar, derived-table, EXISTS, IN, etc.)
+        for subq in select.find_all(exp.Subquery):
+            for descendant in subq.find_all(exp.Expression):
+                nested.add(id(descendant))
+
+        return nested
 
     def extract(self, sql: str) -> QueryLogic:
         if not sql or not sql.strip():
@@ -259,18 +361,25 @@ class SQLBusinessLogicExtractor:
 
     def _extract_statement(self, tree, raw_sql: str) -> QueryLogic:
         logic = QueryLogic(raw_sql=raw_sql)
+        self._visited_containers = set()
+
+        # Top-level tree is the extraction target -- mark it so Layer 3
+        # doesn't flag it as unknown.
+        if tree is not None:
+            self._visited_containers.add(id(tree))
 
         if isinstance(tree, exp.Union):
             self._extract_set_operations(tree, logic)
-            return logic
-
-        if not isinstance(tree, exp.Select):
+        elif not isinstance(tree, exp.Select):
             select = tree.find(exp.Select)
-            if select:
-                return self._extract_select(select, logic)
-            return logic
+            if select is not None:
+                self._visited_containers.add(id(select))
+                self._extract_select(select, logic)
+        else:
+            self._extract_select(tree, logic)
 
-        return self._extract_select(tree, logic)
+        self._detect_unknown_containers(tree, logic)
+        return logic
 
     def _extract_select(self, select: exp.Select, logic: QueryLogic) -> QueryLogic:
         self._extract_ctes(select, logic)
@@ -321,22 +430,30 @@ class SQLBusinessLogicExtractor:
             except Exception:
                 pass
             logic.ctes.append(CTEDef(name=cte_name, query=cte_sql, logic=sub_logic))
+            # CTE body is fully covered by the recursive extractor above.
+            self._mark_subtree_extracted(cte.this)
 
     def _extract_sources(self, select, logic: QueryLogic):
         from_clause = select.find(exp.From)
         if not from_clause:
             return
 
-        # Collect subquery boundaries so we can skip tables inside them
+        # Skip tables nested inside a subquery (they belong to that inner query).
         subquery_nodes = set()
         for subq in select.find_all(exp.Subquery):
             subquery_nodes.add(id(subq))
             for descendant in subq.walk():
                 subquery_nodes.add(id(descendant[0]))
 
+        # Skip tables that live inside a CTE body -- each CTE is extracted in
+        # its own pass, and we don't want its tables leaking into the outer
+        # scope's sources[]. Only the CTE body descendants are excluded here;
+        # the subquery wrapper that appears as a derived table in FROM is NOT
+        # excluded.
+        cte_body_ids = self._cte_body_descendants(select)
+
         for table in select.find_all(exp.Table):
-            # Skip tables that are inside a subquery (they belong to the inner query)
-            if id(table) in subquery_nodes:
+            if id(table) in subquery_nodes or id(table) in cte_body_ids:
                 continue
             alias = table.alias or table.name
             schema = table.db if hasattr(table, "db") and table.db else None
@@ -348,30 +465,50 @@ class SQLBusinessLogicExtractor:
 
         # Derived tables (subqueries in FROM) -- extract recursively
         for subq in from_clause.find_all(exp.Subquery):
+            if id(subq) in cte_body_ids:
+                continue
             alias = subq.alias or None
             inner_sql = _sql(subq.this, dialect=self.dialect)
-            sub_logic = None
-            try:
-                sub_logic = to_dict(SQLBusinessLogicExtractor(dialect=self.dialect).extract(inner_sql))
-            except Exception:
-                pass
             logic.sources.append(SourceTable(
                 name=inner_sql, alias=alias, type="subquery",
             ))
-            if sub_logic:
-                logic.subqueries.append(SubqueryInfo(
-                    context="from", expression=inner_sql, alias=alias, logic=sub_logic,
-                ))
+            self._decompose_any(subq, "from", logic)
 
         for lat in select.find_all(exp.Lateral):
-            if id(lat) in subquery_nodes:
+            if id(lat) in subquery_nodes or id(lat) in cte_body_ids:
                 continue
             logic.sources.append(SourceTable(
                 name=_sql(lat.this), alias=lat.alias or None, type="lateral",
             ))
 
+    def _cte_body_descendants(self, select) -> set[int]:
+        """IDs of every node that lives inside a CTE body attached to this select.
+
+        Used to exclude CTE-scoped nodes from outer-scope extraction when
+        ``find_all`` would otherwise walk into them.
+        """
+        ids: set[int] = set()
+        root = select
+        while root.parent and not isinstance(root, exp.With):
+            root = root.parent
+        with_clause = (
+            root if isinstance(root, exp.With)
+            else (select.find(exp.With) or (select.parent.find(exp.With) if select.parent else None))
+        )
+        if with_clause is None:
+            return ids
+        for cte in with_clause.find_all(exp.CTE):
+            body = cte.this
+            if body is not None:
+                for descendant in body.find_all(exp.Expression):
+                    ids.add(id(descendant))
+        return ids
+
     def _extract_joins(self, select, logic: QueryLogic):
+        nested = self._nested_scope_ids(select)
         for join in select.find_all(exp.Join):
+            if id(join) in nested:
+                continue
             join_type = "JOIN"
             if join.side:
                 join_type = f"{join.side} JOIN"
@@ -438,7 +575,12 @@ class SQLBusinessLogicExtractor:
                     ))
 
     def _extract_where(self, select, logic: QueryLogic):
-        where = select.find(exp.Where)
+        nested = self._nested_scope_ids(select)
+        # Skip Where nodes that live inside CTE bodies / subqueries.
+        where = next(
+            (w for w in select.find_all(exp.Where) if id(w) not in nested),
+            None,
+        )
         if not where:
             return
         for cond in self._split_conditions(where.this):
@@ -447,7 +589,11 @@ class SQLBusinessLogicExtractor:
             ))
 
     def _extract_having(self, select, logic: QueryLogic):
-        having = select.find(exp.Having)
+        nested = self._nested_scope_ids(select)
+        having = next(
+            (h for h in select.find_all(exp.Having) if id(h) not in nested),
+            None,
+        )
         if not having:
             return
         for cond in self._split_conditions(having.this):
@@ -515,40 +661,44 @@ class SQLBusinessLogicExtractor:
                 ))
 
     def _extract_subqueries(self, select, logic: QueryLogic):
-        where = select.find(exp.Where)
+        nested = self._nested_scope_ids(select)
+        where = next(
+            (w for w in select.find_all(exp.Where) if id(w) not in nested),
+            None,
+        )
         if where:
             seen = set()
             for exists in where.find_all(exp.Exists):
                 subq = exists.find(exp.Subquery)
                 if subq:
                     seen.add(id(subq))
-                    self._add_subquery(subq, "exists", logic)
+                    self._decompose_any(subq, "exists", logic)
                 else:
-                    # Exists.this may be a Select directly (not wrapped in Subquery)
+                    # Exists.this may be a Select or Union (set-operation) directly.
                     inner = exists.this
-                    if isinstance(inner, exp.Select):
+                    if isinstance(inner, (exp.Select, exp.Union, exp.Intersect, exp.Except)):
                         seen.add(id(inner))
-                        self._add_subquery_from_select(inner, "exists", logic)
+                        self._decompose_any(inner, "exists", logic)
             for in_ in where.find_all(exp.In):
                 subq = in_.find(exp.Subquery)
                 if subq and id(subq) not in seen:
                     seen.add(id(subq))
-                    self._add_subquery(subq, "in", logic)
+                    self._decompose_any(subq, "in", logic)
             for subq in where.find_all(exp.Subquery):
                 if id(subq) not in seen:
-                    self._add_subquery(subq, "where", logic)
+                    self._decompose_any(subq, "where", logic)
 
         for expr in select.expressions:
             inner = expr.this if isinstance(expr, exp.Alias) else expr
             if isinstance(inner, exp.Subquery):
-                self._add_subquery(inner, "select", logic)
+                self._decompose_any(inner, "select", logic)
             else:
                 for subq in inner.find_all(exp.Subquery):
-                    self._add_subquery(subq, "select", logic)
+                    self._decompose_any(subq, "select", logic)
 
     def _add_subquery(self, subq, context: str, logic: QueryLogic):
         alias = subq.alias or None
-        inner_sql = _sql(subq.this)
+        inner_sql = _sql(subq.this, dialect=self.dialect)
         sub_logic = None
         try:
             sub_logic = to_dict(SQLBusinessLogicExtractor(dialect=self.dialect).extract(inner_sql))
@@ -569,6 +719,24 @@ class SQLBusinessLogicExtractor:
             context=context, expression=inner_sql, alias=None, logic=sub_logic,
         ))
 
+    def _decompose_set_op_branches(self, set_op, context: str, logic: QueryLogic):
+        """Decompose each branch of a UNION / INTERSECT / EXCEPT into its own subquery entry.
+
+        sqlglot may parse ``EXISTS (SELECT ... UNION ALL SELECT ...)`` with
+        ``exists.this`` being the Union directly (no wrapping Subquery). Each
+        branch needs its own structured extraction so downstream tooling sees
+        through to the real base tables and filters.
+        """
+        for branch in [set_op.left, set_op.right]:
+            if isinstance(branch, (exp.Select, exp.Subquery, exp.Union, exp.Intersect, exp.Except)):
+                self._decompose_any(branch, context, logic)
+            else:
+                # Unknown branch shape -- fall back to raw SQL so downstream
+                # can still see something, and log it as a governance signal.
+                logic.subqueries.append(SubqueryInfo(
+                    context=context, expression=_sql(branch), alias=None, logic=None,
+                ))
+
     def _extract_order_by(self, select, logic: QueryLogic):
         order = select.find(exp.Order)
         if order:
@@ -582,10 +750,12 @@ class SQLBusinessLogicExtractor:
         branches = []
         for branch in [tree.left, tree.right]:
             if isinstance(branch, exp.Union):
+                self._visited_containers.add(id(branch))
                 sub_logic = QueryLogic(raw_sql=_sql(branch))
                 self._extract_set_operations(branch, sub_logic)
                 branches.append(to_dict(sub_logic))
             elif isinstance(branch, exp.Select):
+                self._visited_containers.add(id(branch))
                 sub_logic = QueryLogic(raw_sql=_sql(branch))
                 self._extract_select(branch, sub_logic)
                 branches.append(to_dict(sub_logic))

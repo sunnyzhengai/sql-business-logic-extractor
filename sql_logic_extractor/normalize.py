@@ -10,7 +10,7 @@ business definitions with:
   - AST-based signatures for equality/similarity matching
   - Pattern classification (date_calculation, classification, aggregation, etc.)
 
-Pipeline: L1 (parse) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
+Pipeline: L1 (extract) -> L2 (normalize) -> L3 (resolve) -> L4 (translate) -> L5 (compare)
 """
 
 import hashlib

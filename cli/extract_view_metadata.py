@@ -3,34 +3,34 @@
 
 ONE wrapper, ONE pass over a folder of SQL views, TWO output CSVs:
 
-1. manifest.csv — every (database, schema, table, column) the views reference,
+1. manifest.csv -- every (database, schema, table, column) the views reference,
    for handoff to the ETL team. Columns:
        view_file, view_name, referenced_database, referenced_schema,
        referenced_table, referenced_column, reference_type, confidence
 
-2. transformations.csv — every NON-trivial output column with full lineage,
+2. transformations.csv -- every NON-trivial output column with full lineage,
    for governance / steward review. Columns:
        view_file, view_name, column_name, column_type, resolved_expression,
        base_tables, base_columns, filters
 
 A column is *truly trivial* (skipped in transformations.csv) only when:
     column_type is 'passthrough' AND the resolver attached no filters.
-Passthrough WITH filters stays — the WHERE clause encodes business logic.
+Passthrough WITH filters stays -- the WHERE clause encodes business logic.
 
 Built on top of the parent project's `sql_logic_extractor` package
-(extract → normalize → resolve), which handles the full slew of SQL shapes
+(extract -> normalize -> resolve), which handles the full slew of SQL shapes
 we care about: SSMS USE/GO/SET boilerplate, CTE chain flattening, alias
 resolution, self-joins, EXISTS subqueries, and propagating WHERE-clause
 predicates to per-column lineage. UTF-16 LE BOM (SSMS scripted views) is
 handled in this wrapper before the SQL hits the resolver.
 
 ================================================================================
-Required files (5 total — minimum for the full lineage path):
+Required files (5 total -- minimum for the full lineage path):
     sql_logic_extractor/__init__.py
     sql_logic_extractor/extract.py
     sql_logic_extractor/normalize.py
     sql_logic_extractor/resolve.py
-    cli/extract_view_metadata.py    ← this file
+    cli/extract_view_metadata.py    <- this file
 
 This script auto-injects the project root onto sys.path so imports work
 without a pip install.
@@ -83,7 +83,7 @@ from sql_logic_extractor.resolve import resolve_query, resolved_to_dict, preproc
 
 
 # ---------------------------------------------------------------------------
-# Encoding handling (the resolver expects str — we have to decode bytes here)
+# Encoding handling (the resolver expects str -- we have to decode bytes here)
 # ---------------------------------------------------------------------------
 
 def _read_sql(path: Path) -> str:
@@ -118,9 +118,9 @@ def _qualify_table(t: exp.Table) -> tuple[Optional[str], Optional[str], str]:
 
 
 def _build_qualifier_map(parsed: exp.Expression, cte_names: set[str]) -> dict[str, tuple]:
-    """{table_name_lower: (db, schema, table)} — the resolver normalises
+    """{table_name_lower: (db, schema, table)} -- the resolver normalises
     Table.Column lineage to bare table names; this map lets us look up the
-    db/schema portions for the manifest. CTE names are excluded — they're
+    db/schema portions for the manifest. CTE names are excluded -- they're
     query-internal."""
     mapping: dict[str, tuple] = {}
     for t in parsed.find_all(exp.Table):
@@ -132,7 +132,7 @@ def _build_qualifier_map(parsed: exp.Expression, cte_names: set[str]) -> dict[st
 
 
 # ---------------------------------------------------------------------------
-# Per-view extraction — runs the resolver, then shapes both output flavours
+# Per-view extraction -- runs the resolver, then shapes both output flavours
 # ---------------------------------------------------------------------------
 
 MANIFEST_FIELDS = ["view_file", "view_name", "referenced_database",
@@ -144,7 +144,7 @@ TRANSFORMATIONS_FIELDS = ["view_file", "view_name", "column_name", "column_type"
 
 
 def _split_table_column(ref: str) -> tuple[Optional[str], str]:
-    """`Table.Column` → (Table, Column). `Column` (bare) → (None, Column)."""
+    """`Table.Column` -> (Table, Column). `Column` (bare) -> (None, Column)."""
     if "." not in ref:
         return None, ref
     lhs, col = ref.rsplit(".", 1)
@@ -166,7 +166,7 @@ def extract_view(view_path: Path, dialect: str = "tsql") -> tuple[list[dict], li
 
     # We re-parse with sqlglot to recover db/schema qualifiers (the resolver
     # output strips them). Run the same SSMS preprocessor the resolver uses
-    # so our parse handles USE/GO/SET-stripped scripts too — otherwise
+    # so our parse handles USE/GO/SET-stripped scripts too -- otherwise
     # parse_one stops at the first non-DDL line.
     clean_sql, _ = preprocess_ssms(sql)
     if not clean_sql.strip():
@@ -263,7 +263,7 @@ def _build_transformation_rows(view_path, view_full, rd) -> list[dict]:
         col_filters = col.get("filters", []) or []
 
         # Truly-trivial passthrough (no filters, no transformation) is skipped.
-        # Passthrough WITH filters stays — the WHERE clause encodes meaning.
+        # Passthrough WITH filters stays -- the WHERE clause encodes meaning.
         if col_type == "passthrough" and not col_filters:
             continue
 
@@ -335,7 +335,7 @@ def extract_to_csvs(input_dir: str,
     print(f"  manifest:        {manifest_csv}")
     print(f"  transformations: {transformations_csv}")
     if err:
-        print(f"  ({err} view(s) failed to parse — see 'parse_error' rows in CSVs)")
+        print(f"  ({err} view(s) failed to parse -- see 'parse_error' rows in CSVs)")
     return 0
 
 
@@ -374,7 +374,7 @@ def _is_notebook() -> bool:
 
 if __name__ == "__main__":
     if _is_notebook():
-        print("Notebook environment detected — call extract_to_csvs("
+        print("Notebook environment detected -- call extract_to_csvs("
               "input_dir=..., manifest_csv=..., transformations_csv=..., dialect='tsql') "
               "from a cell.")
     else:

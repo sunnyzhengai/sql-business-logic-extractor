@@ -9,7 +9,7 @@ all the way down to base table.column references.
 Takes L1 extraction output and produces a fully resolved lineage
 where every passthrough is inlined to show the complete transformation chain.
 
-Pipeline: L1 (extract) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
+Pipeline: L1 (extract) -> L2 (normalize) -> L3 (resolve) -> L4 (translate) -> L5 (compare)
 """
 
 import json
@@ -30,7 +30,7 @@ class ResolvedFilter:
     When the filter contains an EXISTS/IN/scalar subquery, ``subqueries``
     carries the fully resolved inner query for each subquery expression
     that appears inside. This gives downstream graph consumers a direct
-    Column → Filter → Subquery → Tables/Columns edge.
+    Column -> Filter -> Subquery -> Tables/Columns edge.
     """
     expression: str
     subqueries: list["ResolvedQuery"] = field(default_factory=list)
@@ -254,7 +254,7 @@ class LineageResolver:
         Row-existence model: a scope constrains its rows via its FROM driver,
         INNER joins, WHERE/HAVING/QUALIFY predicates, and EXISTS/IN subqueries.
         LEFT/RIGHT/FULL join right-sides are NOT mandatory for left-side rows,
-        so they're excluded here — they only contribute when a column's own
+        so they're excluded here -- they only contribute when a column's own
         passthrough recursion actually traverses that side.
         """
         key = scope.lower()
@@ -270,7 +270,7 @@ class LineageResolver:
 
         joins = logic.get("joins", []) or []
 
-        # Aliases/names that are JOIN right-sides — used to tell drivers apart
+        # Aliases/names that are JOIN right-sides -- used to tell drivers apart
         # from join participants when walking sources[].
         join_right_ids: set[str] = set()
         for j in joins:
@@ -303,7 +303,7 @@ class LineageResolver:
                     cols.extend(inner_c)
 
         # (2) INNER/CROSS joins: right side contribs + join keys.
-        # Skip LEFT / RIGHT / FULL — they don't constrain non-right-side rows.
+        # Skip LEFT / RIGHT / FULL -- they don't constrain non-right-side rows.
         for join in joins:
             jt = (join.get("join_type") or "").upper()
             if "LEFT" in jt or "RIGHT" in jt or "FULL" in jt:
@@ -330,7 +330,7 @@ class LineageResolver:
                 tables.extend(t)
                 cols.extend(c)
 
-        # (4) EXISTS/IN/WHERE subqueries — union the resolved inner lineage.
+        # (4) EXISTS/IN/WHERE subqueries -- union the resolved inner lineage.
         for sq in logic.get("subqueries", []) or []:
             if sq.get("context") not in ("exists", "in", "where"):
                 continue
@@ -375,8 +375,8 @@ class LineageResolver:
             return self._scope_contribs(real_table)
 
         # Only emit if this is a known base table. Anything else is an
-        # unresolved alias — usually a correlated reference to an outer
-        # scope that this resolver doesn't see — and would leak as noise.
+        # unresolved alias -- usually a correlated reference to an outer
+        # scope that this resolver doesn't see -- and would leak as noise.
         if real_table.lower() in self.registry._base_tables:
             return [real_table], [f"{real_table}.{src_col}"]
         return [], []
@@ -449,7 +449,7 @@ class LineageResolver:
         expanded = []
         seen_names = set()
 
-        # Collect direct source refs — only from sources and joins of THIS scope
+        # Collect direct source refs -- only from sources and joins of THIS scope
         source_refs = []
         for src in logic.get("sources", []):
             ref = src.get("alias") or src.get("name", "")

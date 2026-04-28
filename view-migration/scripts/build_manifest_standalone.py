@@ -37,6 +37,20 @@ _SET_RE = re.compile(
 _BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
 
 
+# SQL reserved words that occasionally leak through sqlglot's parser as
+# unqualified Column nodes — typically from window-function frame clauses
+# like `ROWS UNBOUNDED PRECEDING` or `CURRENT ROW`. These are not real
+# column references and would clutter the manifest with confusing rows
+# pointing at no real table. Filtered ONLY when the reference has no
+# table qualifier — a quoted column literally named `[ROW]` referenced as
+# `t.[ROW]` survives because that's a real column on a real table.
+_KEYWORD_FALSE_POSITIVES = {
+    "row", "rows", "range",
+    "current", "unbounded", "preceding", "following",
+    "default", "null", "true", "false",
+}
+
+
 def _strip_ssms_boilerplate(sql: str) -> str:
     """Remove USE / GO / SET-option statements and header block comments that
     SSMS prefixes onto exported view DDL. sqlglot.parse_one expects a single
@@ -260,6 +274,11 @@ def extract_view_refs(view_path: Path, dialect: str = "tsql") -> list[dict]:
         # `tbl` may be either None or empty string '' depending on whether
         # qualify() succeeded — both indicate "no table on this column".
         if not tbl:
+            # Filter SQL-keyword false positives like `ROW` from window-function
+            # frame clauses. Only when unqualified — a real column on a real
+            # table referenced as `t.ROW` is preserved.
+            if col_name.lower() in _KEYWORD_FALSE_POSITIVES:
+                continue
             if in_scope_tables:
                 for db, schema, qualified_tbl in in_scope_tables:
                     row_key = (view_path.name, db, schema, qualified_tbl, col_name)

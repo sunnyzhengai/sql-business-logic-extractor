@@ -1,11 +1,53 @@
 import argparse
 import csv
+import re
 import sys
 from pathlib import Path
 from typing import Optional
 
 from sqlglot import exp, parse_one
 from sqlglot.optimizer.qualify import qualify
+
+
+def _read_sql(path: Path) -> str:
+    """Read a SQL file, handling SSMS's default UTF-16 LE BOM and other common
+    encodings. SSMS scripts views as UTF-16 LE by default, which causes
+    'Invalid token' errors when read as UTF-8."""
+    raw = path.read_bytes()
+    if raw.startswith(b"\xff\xfe"):
+        return raw.decode("utf-16-le")[1:]      # strip BOM character
+    if raw.startswith(b"\xfe\xff"):
+        return raw.decode("utf-16-be")[1:]
+    if raw.startswith(b"\xef\xbb\xbf"):
+        return raw.decode("utf-8")[1:]
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("utf-16-le", errors="replace")
+
+
+_GO_RE = re.compile(r"^\s*GO\s*$", re.IGNORECASE)
+_USE_RE = re.compile(r"^\s*USE\s+", re.IGNORECASE)
+_SET_RE = re.compile(
+    r"^\s*SET\s+(ANSI_NULLS|QUOTED_IDENTIFIER|NOCOUNT|TRANSACTION|ARITHABORT|"
+    r"NUMERIC_ROUNDABORT|CONCAT_NULL_YIELDS_NULL|ANSI_PADDING|ANSI_WARNINGS|"
+    r"DATEFORMAT|DATEFIRST)\b",
+    re.IGNORECASE,
+)
+_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+
+
+def _strip_ssms_boilerplate(sql: str) -> str:
+    """Remove USE / GO / SET-option statements and header block comments that
+    SSMS prefixes onto exported view DDL. sqlglot.parse_one expects a single
+    statement — this leaves it with just the CREATE VIEW."""
+    sql = _BLOCK_COMMENT_RE.sub("", sql)
+    cleaned: list[str] = []
+    for line in sql.split("\n"):
+        if _GO_RE.match(line) or _USE_RE.match(line) or _SET_RE.match(line):
+            continue
+        cleaned.append(line)
+    return "\n".join(cleaned).strip()
 
 
 def _qualify_table(t: exp.Table) -> tuple[Optional[str], Optional[str], str]:
@@ -116,7 +158,10 @@ def _error_row(view_path: Path, msg: str) -> dict:
 def extract_view_refs(view_path: Path, dialect: str = "tsql") -> list[dict]:
     """Parse one view file → list of manifest rows. Importable for per-file
     use in Spark / mssparkutils-driven loops."""
-    sql = view_path.read_text(encoding="utf-8", errors="replace")
+    sql = _read_sql(view_path)
+    sql = _strip_ssms_boilerplate(sql)
+    if not sql:
+        return [_error_row(view_path, "EMPTY: file contained only SSMS boilerplate (USE/GO/SET)")]
 
     try:
         parsed = parse_one(sql, dialect=dialect)

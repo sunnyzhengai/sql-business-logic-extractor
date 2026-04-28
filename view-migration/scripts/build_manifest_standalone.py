@@ -404,5 +404,17 @@ def main() -> int:
     return build_manifest(args.input_dir, args.output, args.dialect)
 
 
+def _is_notebook() -> bool:
+    """Detect Jupyter / Fabric notebook execution. When True, skip the CLI
+    argparse path — kernels pass `-f /path/to/connection.json` in sys.argv
+    which argparse doesn't recognize, breaking paste-the-whole-file-and-run.
+    Inside a notebook the user calls build_manifest(...) directly anyway."""
+    return "ipykernel" in sys.argv[0] or "ipykernel" in " ".join(sys.argv[1:])
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    if _is_notebook():
+        print("Notebook environment detected — call build_manifest("
+              "input_dir=..., output_csv=..., dialect='tsql') from a cell.")
+    else:
+        sys.exit(main())

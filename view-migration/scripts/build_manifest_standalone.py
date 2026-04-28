@@ -178,6 +178,18 @@ def extract_view_refs(view_path: Path, dialect: str = "tsql") -> list[dict]:
     cte_col_map = _flatten_cte_columns(parsed, {n.lower() for n in cte_names}, dialect)
     cte_names_lower = {n.lower() for n in cte_names}
 
+    # Distinct (db, schema, table) tuples actually in scope — used to fan out
+    # unqualified column references (no alias prefix). Without a schema we can't
+    # tell which of the joined tables a bare column belongs to, so we emit a
+    # low-confidence row per in-scope table and let the ETL team disambiguate.
+    in_scope_tables: list[tuple] = sorted(
+        {
+            _qualify_table(t) for t in parsed.find_all(exp.Table)
+            if t.name not in cte_names and t.name != self_name
+        },
+        key=lambda x: (x[0] or "", x[1] or "", x[2] or ""),
+    )
+
     # Map every alias-to-a-CTE back to the CTE name. Without this, `FROM
     # ActiveReferrals AR` makes downstream `AR.col` references look opaque —
     # we'd need both `ar.col` (alias) and `activereferrals.col` (CTE name) to
@@ -240,10 +252,48 @@ def extract_view_refs(view_path: Path, dialect: str = "tsql") -> list[dict]:
                 })
             continue
 
-        db, schema, qualified_tbl = (
-            qualifier_map.get(tbl.lower(), (None, None, tbl)) if tbl
-            else (None, None, None)
-        )
+        # Unqualified column reference (no alias prefix) — fan out one row per
+        # in-scope non-CTE table, marked low-confidence. The ETL team can
+        # filter on confidence to find references that need manual
+        # disambiguation. Falls back to a single empty-table row if the view
+        # has no in-scope tables (extremely unusual, but defensive). Note
+        # `tbl` may be either None or empty string '' depending on whether
+        # qualify() succeeded — both indicate "no table on this column".
+        if not tbl:
+            if in_scope_tables:
+                for db, schema, qualified_tbl in in_scope_tables:
+                    row_key = (view_path.name, db, schema, qualified_tbl, col_name)
+                    if row_key in seen:
+                        continue
+                    seen.add(row_key)
+                    rows.append({
+                        "view_file": view_path.name,
+                        "view_name": view_name,
+                        "referenced_database": db or "",
+                        "referenced_schema": schema or "",
+                        "referenced_table": qualified_tbl or "",
+                        "referenced_column": col_name,
+                        "reference_type": "column",
+                        "confidence": "low",
+                    })
+            else:
+                row_key = (view_path.name, None, None, None, col_name)
+                if row_key in seen:
+                    continue
+                seen.add(row_key)
+                rows.append({
+                    "view_file": view_path.name,
+                    "view_name": view_name,
+                    "referenced_database": "",
+                    "referenced_schema": "",
+                    "referenced_table": "",
+                    "referenced_column": col_name,
+                    "reference_type": "column",
+                    "confidence": "low",
+                })
+            continue
+
+        db, schema, qualified_tbl = qualifier_map.get(tbl.lower(), (None, None, tbl))
         row_key = (view_path.name, db, schema, qualified_tbl, col_name)
         if row_key in seen:
             continue
@@ -256,7 +306,7 @@ def extract_view_refs(view_path: Path, dialect: str = "tsql") -> list[dict]:
             "referenced_table": qualified_tbl or "",
             "referenced_column": col_name,
             "reference_type": "column",
-            "confidence": "high" if (db or schema) else ("medium" if tbl else "low"),
+            "confidence": "high" if (db or schema) else "medium",
         })
 
     # Table-level references — catches SELECT *, EXISTS, COUNT(*), etc.

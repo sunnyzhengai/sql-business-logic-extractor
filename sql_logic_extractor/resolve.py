@@ -9,7 +9,7 @@ all the way down to base table.column references.
 Takes L1 extraction output and produces a fully resolved lineage
 where every passthrough is inlined to show the complete transformation chain.
 
-Pipeline: L1 (parse) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
+Pipeline: L1 (extract) → L2 (normalize) → L3 (resolve) → L4 (translate) → L5 (compare)
 """
 
 import json
@@ -24,6 +24,19 @@ from .extract import SQLBusinessLogicExtractor, to_dict
 # ---------------------------------------------------------------------------
 
 @dataclass
+class ResolvedFilter:
+    """A filter predicate with its nested subquery lineage (if any).
+
+    When the filter contains an EXISTS/IN/scalar subquery, ``subqueries``
+    carries the fully resolved inner query for each subquery expression
+    that appears inside. This gives downstream graph consumers a direct
+    Column → Filter → Subquery → Tables/Columns edge.
+    """
+    expression: str
+    subqueries: list["ResolvedQuery"] = field(default_factory=list)
+
+
+@dataclass
 class ResolvedColumn:
     """A fully resolved output column with its complete transformation chain."""
     name: str
@@ -31,7 +44,7 @@ class ResolvedColumn:
     type: str                               # final type: calculated, aggregate, etc.
     base_columns: list[str] = field(default_factory=list)  # ultimate table.column refs
     base_tables: list[str] = field(default_factory=list)
-    filters: list[str] = field(default_factory=list)       # all filters in the chain
+    filters: list[ResolvedFilter] = field(default_factory=list)
     transformation_chain: list[dict] = field(default_factory=list)  # [{scope, name, expression, type}]
     resolved_expression: str = ""           # fully inlined expression
 
@@ -40,7 +53,18 @@ class ResolvedColumn:
 class ResolvedQuery:
     """A query with fully resolved lineage for every output column."""
     columns: list[ResolvedColumn] = field(default_factory=list)
+    base_tables: list[str] = field(default_factory=list)  # union of extractor-level sources
     raw_sql: str = ""
+
+
+def _dedupe_resolved_filters(filters: list) -> list:
+    """Deduplicate ResolvedFilter objects by expression, keeping the first instance
+    (which carries any nested subqueries found in that scope)."""
+    seen: dict[str, "ResolvedFilter"] = {}
+    for f in filters:
+        if f.expression not in seen:
+            seen[f.expression] = f
+    return list(seen.values())
 
 
 # ---------------------------------------------------------------------------
@@ -136,27 +160,43 @@ class ScopeRegistry:
         scope = self._scopes.get(scope_name.lower(), {})
         return scope.get(column_name.lower())
 
-    def get_filters(self, scope_name: str) -> list[str]:
-        """Get all business-relevant filters for a scope (WHERE, HAVING, QUALIFY, and non-equi JOIN conditions)."""
+    def get_filters(self, scope_name: str) -> list[dict]:
+        """Get business-relevant filters for a scope as intermediate dicts.
+
+        Each returned entry is ``{"expression": str, "subquery_logics": list[dict]}``
+        where ``subquery_logics`` holds the raw L1 logic dicts for any EXISTS/IN/
+        scalar subqueries whose expression text appears inside this filter.
+        ``LineageResolver`` converts these into fully resolved ``ResolvedFilter``
+        objects with nested ``ResolvedQuery`` children.
+        """
         logic = self._scope_logic.get(scope_name.lower(), {})
-        filters = []
+        subqueries = logic.get("subqueries", []) or []
+        out = []
         for f in logic.get("filters", []):
             scope = f.get("scope", "")
             expr = f.get("expression", "")
             if scope in ("where", "having", "qualify"):
-                filters.append(expr)
+                pass
             elif scope == "join":
                 # Include non-equi join conditions (they carry business logic)
                 # e.g., "d2.HOSP_DISCH_TIME > d1.HOSP_DISCH_TIME" is business logic
                 # but "e.PAT_ID = p.PAT_ID" is just a key relationship
                 expr_upper = expr.upper()
-                # Skip simple equi-joins (col = col)
                 if " = " in expr and not any(op in expr_upper for op in
                     [" > ", " < ", " >= ", " <= ", " <> ", " != ",
                      "BETWEEN", "LIKE", "DATEDIFF", "AND "]):
                     continue
-                filters.append(expr)
-        return filters
+            else:
+                continue
+            matched = []
+            for sq in subqueries:
+                if sq.get("context") not in ("exists", "in", "where"):
+                    continue
+                sq_expr = sq.get("expression", "")
+                if sq_expr and sq_expr in expr:
+                    matched.append(sq)
+            out.append({"expression": expr, "subquery_logics": matched})
+        return out
 
     def is_base_table(self, name: str) -> bool:
         """Check if a name refers to a base table (not a CTE/subquery)."""
@@ -203,10 +243,183 @@ class LineageResolver:
         self.registry = ScopeRegistry()
         self.registry.register_query(logic)
         self._resolve_cache: dict[tuple, ResolvedColumn] = {}
+        # Per-scope structural dependencies (base tables/columns this scope's
+        # rows rely on, independent of any particular output column). Populated
+        # lazily by _scope_contribs and consumed by _apply_scope_contribs.
+        self._scope_contribs_cache: dict[str, tuple[list[str], list[str]]] = {}
+
+    def _scope_contribs(self, scope: str) -> tuple[list[str], list[str]]:
+        """Base (tables, columns) this scope's rows structurally depend on.
+
+        Row-existence model: a scope constrains its rows via its FROM driver,
+        INNER joins, WHERE/HAVING/QUALIFY predicates, and EXISTS/IN subqueries.
+        LEFT/RIGHT/FULL join right-sides are NOT mandatory for left-side rows,
+        so they're excluded here — they only contribute when a column's own
+        passthrough recursion actually traverses that side.
+        """
+        key = scope.lower()
+        if key in self._scope_contribs_cache:
+            return self._scope_contribs_cache[key]
+        # Placeholder prevents infinite recursion on cyclic scope graphs.
+        self._scope_contribs_cache[key] = ([], [])
+
+        logic = self.registry._scope_logic.get(key, {}) or {}
+        alias_map = self.registry.get_alias_to_table(scope)
+        tables: list[str] = []
+        cols: list[str] = []
+
+        joins = logic.get("joins", []) or []
+
+        # Aliases/names that are JOIN right-sides — used to tell drivers apart
+        # from join participants when walking sources[].
+        join_right_ids: set[str] = set()
+        for j in joins:
+            ra = (j.get("right_alias") or "").lower()
+            rt = (j.get("right_table") or "").lower()
+            if ra:
+                join_right_ids.add(ra)
+            if rt:
+                join_right_ids.add(rt)
+
+        # (1) Driver sources (FROM clause, not a join right-side).
+        for src in logic.get("sources", []) or []:
+            name = src.get("name") or ""
+            alias = src.get("alias") or name
+            stype = src.get("type") or ""
+            if alias.lower() in join_right_ids or name.lower() in join_right_ids:
+                continue
+            if stype == "table":
+                if name and self.registry.is_derived(name):
+                    inner_t, inner_c = self._scope_contribs(name)
+                    tables.extend(inner_t)
+                    cols.extend(inner_c)
+                elif name:
+                    tables.append(name)
+            elif stype == "subquery":
+                a = src.get("alias") or ""
+                if a and self.registry.is_derived(a):
+                    inner_t, inner_c = self._scope_contribs(a)
+                    tables.extend(inner_t)
+                    cols.extend(inner_c)
+
+        # (2) INNER/CROSS joins: right side contribs + join keys.
+        # Skip LEFT / RIGHT / FULL — they don't constrain non-right-side rows.
+        for join in joins:
+            jt = (join.get("join_type") or "").upper()
+            if "LEFT" in jt or "RIGHT" in jt or "FULL" in jt:
+                continue
+            rt = join.get("right_table") or ""
+            if rt:
+                if self.registry.is_derived(rt):
+                    inner_t, inner_c = self._scope_contribs(rt)
+                    tables.extend(inner_t)
+                    cols.extend(inner_c)
+                elif rt.lower() in self.registry._base_tables:
+                    tables.append(rt)
+            for col in join.get("columns", []) or []:
+                t, c = self._resolve_ref(col, scope, alias_map)
+                tables.extend(t)
+                cols.extend(c)
+
+        # (3) WHERE/HAVING/QUALIFY filter columns (always constrain the scope's rows).
+        for f in logic.get("filters", []) or []:
+            if f.get("scope") not in ("where", "having", "qualify"):
+                continue
+            for col in f.get("columns", []) or []:
+                t, c = self._resolve_ref(col, scope, alias_map)
+                tables.extend(t)
+                cols.extend(c)
+
+        # (4) EXISTS/IN/WHERE subqueries — union the resolved inner lineage.
+        for sq in logic.get("subqueries", []) or []:
+            if sq.get("context") not in ("exists", "in", "where"):
+                continue
+            inner_logic = sq.get("logic")
+            if not inner_logic:
+                continue
+            try:
+                inner = LineageResolver(inner_logic).resolve_all()
+            except Exception:
+                continue
+            tables.extend(inner.base_tables)
+            for c in inner.columns:
+                tables.extend(c.base_tables)
+                cols.extend(c.base_columns)
+
+        tables = list(dict.fromkeys(tables))
+        cols = list(dict.fromkeys(cols))
+        self._scope_contribs_cache[key] = (tables, cols)
+        return tables, cols
+
+    def _resolve_ref(self, ref: dict, scope: str, alias_map: dict) -> tuple[list[str], list[str]]:
+        """Resolve one column ref ``{table, column}`` to base (tables, columns).
+
+        If the alias refers to a CTE/derived scope, walks the inner output when
+        the column exists there; otherwise falls back to that scope's contribs
+        (handles join keys whose inner output isn't directly lookup-able)."""
+        src_table = (ref.get("table") or "").strip()
+        src_col = (ref.get("column") or "").strip()
+        if not src_col:
+            return [], []
+        real_table = alias_map.get(src_table.lower(), src_table) if src_table else ""
+        if not real_table:
+            real_table = self._find_source_for_column(src_col, scope, alias_map)
+        if not real_table:
+            return [], []
+
+        if self.registry.is_derived(real_table):
+            inner_out = self.registry.lookup(real_table, src_col)
+            if inner_out:
+                inner = self._resolve_output(inner_out, real_table, [])
+                return list(inner.base_tables), list(inner.base_columns)
+            return self._scope_contribs(real_table)
+
+        # Only emit if this is a known base table. Anything else is an
+        # unresolved alias — usually a correlated reference to an outer
+        # scope that this resolver doesn't see — and would leak as noise.
+        if real_table.lower() in self.registry._base_tables:
+            return [real_table], [f"{real_table}.{src_col}"]
+        return [], []
+
+    def _apply_scope_contribs(self, col: ResolvedColumn, scope: str) -> ResolvedColumn:
+        """Union the scope's structural dependencies into a resolved column."""
+        t, c = self._scope_contribs(scope)
+        if t:
+            col.base_tables = list(dict.fromkeys(list(col.base_tables) + t))
+        if c:
+            col.base_columns = list(dict.fromkeys(list(col.base_columns) + c))
+        return col
+
+    def _get_scope_filters(self, scope: str) -> list[ResolvedFilter]:
+        """Fetch filters for a scope and hydrate any matched subqueries into
+        fully resolved ``ResolvedQuery`` children."""
+        resolved: list[ResolvedFilter] = []
+        for raw in self.registry.get_filters(scope):
+            rf = ResolvedFilter(expression=raw["expression"])
+            for sq in raw.get("subquery_logics", []) or []:
+                inner_logic = sq.get("logic")
+                if not inner_logic:
+                    continue
+                try:
+                    rf.subqueries.append(LineageResolver(inner_logic).resolve_all())
+                except Exception:
+                    pass
+            resolved.append(rf)
+        return resolved
 
     def resolve_all(self) -> ResolvedQuery:
         """Resolve every output column in the main query."""
         result = ResolvedQuery(raw_sql=self.logic.get("raw_sql", ""))
+
+        # Query-level base tables: union of extractor ``sources`` for this scope.
+        # Catches tables referenced by EXISTS-style subqueries that select a
+        # literal and therefore have no column lineage pointing back.
+        seen_tables: list[str] = []
+        for src in self.logic.get("sources", []) or []:
+            name = src.get("name") or ""
+            if name and name not in seen_tables and src.get("type") == "table":
+                seen_tables.append(name)
+        result.base_tables = seen_tables
 
         for out in self.logic.get("outputs", []):
             name = out.get("name", "")
@@ -279,8 +492,8 @@ class LineageResolver:
         # Get alias mapping for this scope
         alias_map = self.registry.get_alias_to_table(scope)
 
-        # Collect filters from this scope
-        scope_filters = self.registry.get_filters(scope)
+        # Collect filters from this scope (with any nested subquery lineage)
+        scope_filters = self._get_scope_filters(scope)
 
         # Build the chain entry for this level
         chain_entry = {
@@ -307,12 +520,12 @@ class LineageResolver:
                 # Check for circular reference
                 cache_key = (real_table.lower(), src_col.lower())
                 if cache_key in visited:
-                    return ResolvedColumn(
+                    return self._apply_scope_contribs(ResolvedColumn(
                         name=name, expression=expr, type="passthrough",
                         base_columns=[f"{real_table}.{src_col}"],
                         base_tables=[real_table],
                         transformation_chain=[chain_entry],
-                    )
+                    ), scope)
 
                 # Is this from a derived scope (CTE/subquery)?
                 if self.registry.is_derived(real_table):
@@ -322,10 +535,9 @@ class LineageResolver:
                             inner_out, real_table,
                             visited + [cache_key],
                         )
-                        # Prepend our chain entry and merge
-                        # Deduplicate filters
-                        merged_filters = list(dict.fromkeys(scope_filters + inner_resolved.filters))
-                        return ResolvedColumn(
+                        # Prepend our chain entry and merge filters (dedupe by expression)
+                        merged_filters = _dedupe_resolved_filters(scope_filters + inner_resolved.filters)
+                        return self._apply_scope_contribs(ResolvedColumn(
                             name=name,
                             expression=inner_resolved.resolved_expression or inner_resolved.expression,
                             type=inner_resolved.type,
@@ -334,25 +546,25 @@ class LineageResolver:
                             filters=merged_filters,
                             transformation_chain=[chain_entry] + inner_resolved.transformation_chain,
                             resolved_expression=inner_resolved.resolved_expression,
-                        )
+                        ), scope)
 
                 # Base table -- terminal
                 qualified = f"{real_table}.{src_col}"
-                return ResolvedColumn(
+                return self._apply_scope_contribs(ResolvedColumn(
                     name=name, expression=expr, type="passthrough",
                     base_columns=[qualified],
                     base_tables=[real_table],
                     filters=scope_filters,
                     transformation_chain=[chain_entry],
                     resolved_expression=qualified,
-                )
+                ), scope)
 
             # No source columns -- just return as-is
-            return ResolvedColumn(
+            return self._apply_scope_contribs(ResolvedColumn(
                 name=name, expression=expr, type=col_type,
                 filters=scope_filters,
                 transformation_chain=[chain_entry],
-            )
+            ), scope)
 
         # Non-passthrough (calculated, aggregate, case, window, etc.)
         # Resolve each source column reference
@@ -399,12 +611,12 @@ class LineageResolver:
         # Deduplicate
         base_cols = list(dict.fromkeys(all_base_cols))
         base_tables = list(dict.fromkeys(all_base_tables))
-        filters = list(dict.fromkeys(all_filters))
+        filters = _dedupe_resolved_filters(all_filters)
 
         # Build resolved expression by inlining
         resolved_expr = self._inline_expression(expr, scope, alias_map, visited)
 
-        return ResolvedColumn(
+        return self._apply_scope_contribs(ResolvedColumn(
             name=name,
             expression=expr,
             type=col_type,
@@ -413,7 +625,7 @@ class LineageResolver:
             filters=filters,
             transformation_chain=[chain_entry] + sub_chains,
             resolved_expression=resolved_expr,
-        )
+        ), scope)
 
     def _find_source_for_column(self, col_name: str, scope: str, alias_map: dict) -> str:
         """When a column has no table qualifier, find which source scope defines it."""
@@ -735,11 +947,19 @@ def preprocess_ssms(sql: str) -> tuple[str, dict]:
                         _add_meta(metadata, key, val)
                 continue
 
-        # Skip SET statements and GO batch separators
+        # Skip SSMS-scripted boilerplate: USE / GO / SET-option statements
         if upper in ("GO", "GO;"):
             continue
+        if upper.startswith("USE "):
+            # `USE [database]` is a session-level switch SSMS emits before the
+            # actual DDL; sqlglot.parse_one only takes one statement so this
+            # has to be stripped or the parser stops at USE.
+            continue
         if upper.startswith("SET ") and any(
-            kw in upper for kw in ("ANSI_NULLS", "QUOTED_IDENTIFIER", "NOCOUNT")
+            kw in upper for kw in ("ANSI_NULLS", "QUOTED_IDENTIFIER", "NOCOUNT",
+                                    "ARITHABORT", "CONCAT_NULL_YIELDS_NULL",
+                                    "ANSI_PADDING", "ANSI_WARNINGS",
+                                    "NUMERIC_ROUNDABORT", "DATEFORMAT", "DATEFIRST")
         ):
             continue
 
@@ -831,6 +1051,14 @@ def resolve_query(sql: str, dialect: str = None) -> ResolvedQuery:
     return resolved
 
 
+def _filter_to_dict(f: ResolvedFilter) -> dict:
+    """Serialize a ResolvedFilter, nesting any resolved subquery lineage."""
+    d: dict = {"expression": f.expression}
+    if f.subqueries:
+        d["subqueries"] = [resolved_to_dict(sq) for sq in f.subqueries]
+    return d
+
+
 def resolved_to_dict(resolved: ResolvedQuery) -> dict:
     """Convert resolved query to plain dict."""
     result = {}
@@ -859,11 +1087,13 @@ def resolved_to_dict(resolved: ResolvedQuery) -> dict:
         if col.base_tables:
             entry["base_tables"] = col.base_tables
         if col.filters:
-            entry["filters"] = col.filters
+            entry["filters"] = [_filter_to_dict(f) for f in col.filters]
         if col.transformation_chain and len(col.transformation_chain) > 1:
             entry["transformation_chain"] = col.transformation_chain
         columns.append(entry)
     result["columns"] = columns
+    if resolved.base_tables:
+        result["base_tables"] = resolved.base_tables
     return result
 
 
@@ -905,7 +1135,13 @@ def _format_text(resolved) -> str:
         if col.filters:
             lines.append("  Filters:")
             for flt in col.filters:
-                lines.append(f"    - {flt}")
+                lines.append(f"    - {flt.expression}")
+                for i, sq in enumerate(flt.subqueries):
+                    tbls = list(sq.base_tables) or sorted({t for c in sq.columns for t in c.base_tables})
+                    cols_ = sorted({c_ for c in sq.columns for c_ in c.base_columns})
+                    lines.append(f"        subquery #{i + 1}: tables={tbls}")
+                    if cols_:
+                        lines.append(f"                       columns={cols_}")
         if col.transformation_chain and len(col.transformation_chain) > 1:
             lines.append("  Chain:")
             for i, step in enumerate(col.transformation_chain):

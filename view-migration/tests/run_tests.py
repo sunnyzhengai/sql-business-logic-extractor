@@ -30,7 +30,7 @@ HERE = Path(__file__).resolve().parent
 SCRIPTS_DIR = HERE.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from extract_view_metadata import extract_view  # noqa: E402
+from build_manifest_standalone import extract_view_refs  # noqa: E402
 
 
 VIEWS_DIR = HERE / "views"
@@ -49,21 +49,20 @@ def _generate_utf16_view() -> Path:
 
 
 def _run_one(view_path: Path) -> dict:
-    manifest_rows, transform_rows = extract_view(view_path, dialect="tsql")
-    parse_errors = [r for r in manifest_rows if r["reference_type"] == "parse_error"]
+    rows = extract_view_refs(view_path, dialect="tsql")
+    parse_errors = [r for r in rows if r["reference_type"] == "parse_error"]
     columns = sorted({(r["referenced_database"], r["referenced_schema"],
                        r["referenced_table"], r["referenced_column"])
-                      for r in manifest_rows if r["reference_type"] == "column"})
+                      for r in rows if r["reference_type"] == "column"})
     tables = sorted({(r["referenced_database"], r["referenced_schema"],
                       r["referenced_table"])
-                     for r in manifest_rows if r["reference_type"] == "table"})
+                     for r in rows if r["reference_type"] == "table"})
     return {
         "name": view_path.stem,
         "parse_errors": parse_errors,
         "columns": columns,
         "tables": tables,
-        "transformations": [r for r in transform_rows if r["column_type"] != "parse_error"],
-        "row_count": len(manifest_rows),
+        "row_count": len(rows),
     }
 
 
@@ -105,8 +104,6 @@ def main() -> int:
             print(f"        col   {_format_row(c)}")
         for t in result["tables"]:
             print(f"        table {_format_row(t)}")
-        for tr in result["transformations"]:
-            print(f"        xform [{tr['column_type']}] {tr['column_name']}")
         print()
 
     print()

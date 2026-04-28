@@ -30,7 +30,7 @@ Required files (5 total — minimum for the full lineage path):
     sql_logic_extractor/extract.py
     sql_logic_extractor/normalize.py
     sql_logic_extractor/resolve.py
-    view-migration/scripts/extract_view_metadata.py    ← this file
+    cli/extract_view_metadata.py    ← this file
 
 This script auto-injects the project root onto sys.path so imports work
 without a pip install.
@@ -47,7 +47,7 @@ Then in code:
 
     import sys
     sys.path.insert(0, '/lakehouse/default/Files/repo')
-    sys.path.insert(0, '/lakehouse/default/Files/repo/view-migration/scripts')
+    sys.path.insert(0, '/lakehouse/default/Files/repo/cli')
     from extract_view_metadata import extract_to_csvs
 
     extract_to_csvs(
@@ -60,7 +60,7 @@ Then in code:
 ================================================================================
 Local CLI:
 
-    python3 view-migration/scripts/extract_view_metadata.py <input_dir> \\
+    python3 cli/extract_view_metadata.py <input_dir> \\
         [--manifest manifest.csv] [--transformations transformations.csv] \\
         [-d tsql]
 """
@@ -72,8 +72,8 @@ from pathlib import Path
 from typing import Optional
 
 # Add the parent repo root to sys.path so `sql_logic_extractor` imports
-# work without a pip install. This script lives at <repo>/view-migration/scripts/.
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+# work without a pip install. This script lives at <repo>/cli/.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 

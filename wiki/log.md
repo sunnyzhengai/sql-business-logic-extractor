@@ -8,6 +8,7 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
+2026-04-29  decide  Pivot away from AIVIA platform; 4-tool product line is the commercialization vehicle, with the day-job SSIS-to-Fabric migration as Use Case #1  [affected: planning/monthly/2026-06,07,08.md, planning/weekly/2026-06-01,08-10,08-24.md, planning/daily/2026-04-28.md, view-migration/REQUIREMENTS.md, wiki/decisions/2026-04-19-*.md, wiki/concepts/article-template.md]
 2026-04-28  commit  d445008 Add view-migration tooling for SSIS-to-Fabric workstream  [affected: none — new isolated workstream under view-migration/; separate from extractor commercialization]
 2026-04-27  commit  94df49f Move CLI scripts to cli/, lift filters to query level, plumb LLM filter context  [affected: none — code; reorganization + L4 filter consolidation + LLM summary semantic upgrade]
 2026-04-20  commit  38c50e9 Add INI-Item-aware schema pipeline (CSV → JSON → translator)  [affected: none — code; operationalizes app-config-id-as-coordination-key.md]

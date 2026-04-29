@@ -37,6 +37,7 @@ Candidate additions (proposed, not yet confirmed):
 11. **Quality checks at ingest, or at consumption?** Block bad data at the door, or let it through tagged and let consumers decide.
 12. **Start with analytics, or operational systems?** Loudest pain is downstream; leverage is usually upstream.
 13. **Govern in the pipeline (CI/PR), or audit after the fact?** DevOps-mature culture vs. compliance-audit culture.
+14. **Govern all data points, or govern transformations only?** Steward every field (including passthroughs that just surface a base column unchanged), or scope governance to the places where a transformation/definition was authored (CASE, DATEDIFF, aggregates, derived calculations, filter rules). Related to but distinct from fork 4: fork 4 asks *what makes something governable*; this one asks *where do you bother applying stewardship* once you've adopted a view. Extractor-native posture leans toward transformations-only — passthroughs carry no authored meaning to govern.
 
 Target: 8–12 confirmed forks. Each confirmed fork gets its own concept page as it matures.
 

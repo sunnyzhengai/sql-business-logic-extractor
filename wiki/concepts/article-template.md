@@ -58,7 +58,7 @@ Used only when articles build on each other. Skip when the article is standalone
 - **Examples:** concrete before abstract, specific before general.
 - **Industry-agnostic:** Orders, Customers, Invoices, Subscriptions — never Patient, Encounter, HEDIS, Epic.
 - **Problem / solution ratio:** 90/10. Public content exists to establish the market gap, not to showcase the solution.
-- **No product names in public content.** No AIVIA, no "our engine," no "the tool I'm building." "Exploring" posture throughout.
+- **No product names in public content.** No commercial brand, no "our engine," no "the tool I'm building." "Exploring" posture throughout.
 - **Pre-prepared stealth reply** for readers who ask if you have a tool. See strategy decision page.
 
 ## What the template is NOT

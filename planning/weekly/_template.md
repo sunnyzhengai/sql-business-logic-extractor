@@ -1,0 +1,19 @@
+# Week of {{YYYY-MM-DD}} (Mon-Sun)
+
+**Monthly theme(s) this week advances:** ...
+
+## Deliverables
+- [ ] Concrete, demoable thing #1
+- [ ] Concrete, demoable thing #2
+
+## Daily breakdown
+- **Mon:** ...
+- **Tue:** ...
+- **Wed:** ...
+- **Thu:** ...
+- **Fri:** ...
+
+## Review (fill in Friday)
+- Shipped:
+- Slipped:
+- Carry-over:

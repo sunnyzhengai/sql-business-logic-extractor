@@ -1,8 +1,14 @@
-# SQL View Migration Tooling — Requirements
+# Case Study #1 — SSIS-to-Fabric View Migration at a Healthcare BI Team
 
-**Workstream:** Healthcare org SSIS → Microsoft Fabric migration
-**Status:** Requirements draft (2026-04-28)
-**Isolation note:** This is a separate work track from the `sql_logic_extractor` commercialization (Collibra connector). It lives under this repo because it reuses the parser/resolver, but it is not part of the product.
+**Customer:** Healthcare org (BI team migrating off on-prem SQL Server)
+**Problem solved:** Re-platforming 100+ T-SQL views to Microsoft Fabric requires knowing every (database, schema, table, column) reference each view makes, so the ETL team can hand back a rename mapping that gets applied automatically.
+**Tools used:** Tool 1 (Column Lineage Extractor) feeds the manifest CSV. Tool 2 (Technical Logic Extractor) optionally feeds a transformations CSV for governance review of what each view computes.
+**Status:** Active — first real-world deployment of the engine. Drives the July marketing case study.
+
+This page captures the requirements that drove the migration tooling AND
+serves as the canonical reference for "how does a hospital BI team
+actually use the products to solve a real problem." When you write the
+July case-study post, the narrative comes from here.
 
 ---
 

@@ -19,7 +19,7 @@ A three-tier pipeline:
 
 ## Stack (proposed)
 
-- **Domain:** personal-brand domain (NOT AIVIA); TBD, Yang to choose.
+- **Domain:** personal-brand domain (kept separate from any commercial-brand domain); TBD, Yang to choose.
 - **Site generator:** Astro (current sweet spot; markdown-first; good defaults).
 - **Hosting:** Cloudflare Pages (free tier sufficient; CDN included; integrates with Cloudflare Workers for the poll endpoint).
 - **Poll backend:** Cloudflare Worker with Durable Objects or simple KV store; responses POST to endpoint → on cron, write to wiki/raw/feedback/ as JSON via GitHub API.
@@ -63,7 +63,7 @@ Next Mon  Claude runs ingestion pass (/ingest):
 
 ## Consequences
 
-- **Zero AIVIA touchpoints in the public pipeline.** Personal-brand domain, personal email, personal byline. AIVIA doesn't appear anywhere in the public-facing stack. Reinforces TIP posture.
+- **Zero commercial-brand touchpoints in the public pipeline.** Personal-brand domain, personal email, personal byline. No commercial brand appears anywhere in the public-facing stack. Reinforces TIP posture.
 - **Git as the single source of truth.** Wiki, drafts, published articles, reader feedback — everything lives in one repo. Single backup target; complete history; no lock-in to any hosted service.
 - **Feedback loop closes in 7 days.** Monday's ingestion reflects last week's readership. Topic selection for the next article is informed by what actually resonated, not just what Yang has queued.
 - **Manual LinkedIn comment ingestion is the weakest link.** Weekly paste is acceptable at low volume; if the list grows past a few dozen active comments per week, reassess. Possible future workaround: ask respondents to also reply to an email address for a "guaranteed thoughtful response," which captures them in the ingestible channel.
@@ -71,7 +71,7 @@ Next Mon  Claude runs ingestion pass (/ingest):
 
 ## Open questions
 
-- Which domain? Yang to choose. Should avoid anything AIVIA-adjacent or employer-identifiable. Candidates: topical (sqlmeaning.com, datagovfork.com), personal (yang-zheng.com), or neutral-abstract. Check availability + defensiveness against domain-squatting.
+- Which domain? Yang to choose. Should avoid anything commercial-brand-adjacent or employer-identifiable. Candidates: topical (sqlmeaning.com, datagovfork.com), personal (yang-zheng.com), or neutral-abstract. Check availability + defensiveness against domain-squatting.
 - Does the poll widget need sophisticated anti-abuse protection, or is basic rate-limiting + naive duplicate detection enough for year-one traffic levels?
 - What's the right trigger for Claude's draft generation — manual prompt, calendar-cron, or GitHub Action? Probably manual prompt at first (keeps the human in the loop for topic selection); automate later if cadence holds.
 - How much of the first 8–12 weeks of articles should Claude pre-draft up front (buffer) vs. generate live from accumulated feedback (fresh)? Buffer of 2–3 articles ahead protects against missed Saturdays; beyond that, freshness is worth more.

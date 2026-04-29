@@ -5,7 +5,7 @@ status: accepted
 
 ## Context
 
-Designing a personal-brand content site / knowledge base to publish methodology for SQL logic metadata extraction and data governance. Weekly Saturday cadence. Publishing under personal byline (not AIVIA, not employer — see memory on COI posture). Wanted a structural frame that would (a) organize the site's knowledge base, (b) drive the editorial calendar, and (c) differentiate from existing DG thought-leadership content.
+Designing a personal-brand content site / knowledge base to publish methodology for SQL logic metadata extraction and data governance. Weekly Saturday cadence. Publishing under personal byline (not under any commercial brand, not under employer brand). Wanted a structural frame that would (a) organize the site's knowledge base, (b) drive the editorial calendar, and (c) differentiate from existing DG thought-leadership content.
 
 Two candidate frames evaluated:
 

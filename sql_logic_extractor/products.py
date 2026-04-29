@@ -122,27 +122,49 @@ def _qualify_table(t: exp.Table) -> tuple[Optional[str], Optional[str], str]:
 
 
 def _extract_columns_core(sql: str, dialect: str = "tsql") -> ColumnInventory:
-    """Ungated core for Tool 1. Tool 2's core calls this directly."""
+    """Ungated core for Tool 1. Tool 2's core calls this directly.
+
+    Walks every Column and Table node in the SQL AST and emits one row
+    per distinct (database, schema, table, column) tuple. Filters out
+    CTE references (both CTE names AND aliases pointing at CTEs) and the
+    view's own name; resolves real-table aliases back to the underlying
+    table via a qualifier map. SSMS USE/GO/SET boilerplate is stripped
+    via the resolver's preprocess_ssms before parsing.
+    """
     clean_sql, _ = preprocess_ssms(sql)
     if not clean_sql.strip():
         clean_sql = sql.strip()
     parsed = parse_one(clean_sql, dialect=dialect)
 
-    cte_names = {cte.alias_or_name for cte in parsed.find_all(exp.CTE)}
+    # CTE names (e.g. "ActiveReferrals") — always lowercased for comparison.
+    cte_names = {(cte.alias_or_name or "").lower() for cte in parsed.find_all(exp.CTE)}
+
     self_name: Optional[str] = None
     if isinstance(parsed, exp.Create) and isinstance(parsed.this, exp.Table):
-        self_name = parsed.this.name
+        self_name = parsed.this.name.lower() if parsed.this.name else None
 
-    # Build alias -> (db, schema, table) map so column refs by alias resolve.
+    # Two filter sets we walk Tables once to populate:
+    #   - real-table qualifier map: alias_or_name (lowercased) -> (db, schema, table)
+    #   - CTE alias set: lowercased aliases that point at a CTE (e.g. AR -> ActiveReferrals)
     qualifier: dict[str, tuple] = {}
+    cte_aliases: set[str] = set()
     for t in parsed.find_all(exp.Table):
-        if t.name in cte_names or t.name == self_name:
+        name_lower = t.name.lower()
+        if name_lower == self_name:
+            continue
+        if name_lower in cte_names:
+            # This Table node is a reference TO a CTE; capture its alias so
+            # we can filter outer-scope columns that read through the alias.
+            alias = t.alias_or_name
+            if alias:
+                cte_aliases.add(alias.lower())
+            cte_aliases.add(name_lower)
             continue
         full = _qualify_table(t)
         alias = t.alias_or_name
         if alias:
             qualifier[alias.lower()] = full
-        qualifier[t.name.lower()] = full
+        qualifier[name_lower] = full
 
     seen: set[tuple] = set()
     columns: list[ColumnIdentifier] = []
@@ -151,7 +173,9 @@ def _extract_columns_core(sql: str, dialect: str = "tsql") -> ColumnInventory:
         if not col_name:
             continue
         tbl = (col.table or "").lower()
-        if tbl in cte_names:
+        # Skip references through a CTE -- the columns the CTE body reads
+        # from real tables are captured separately when we walk those.
+        if tbl in cte_aliases:
             continue
         db, schema, table = qualifier.get(tbl, (None, None, tbl or "")) if tbl else (None, None, "")
         key = (db, schema, table, col_name)

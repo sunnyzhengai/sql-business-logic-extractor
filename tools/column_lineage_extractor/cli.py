@@ -8,6 +8,23 @@ from pathlib import Path
 from sql_logic_extractor.products import extract_columns
 
 
+def _read_sql_file(path: Path) -> str:
+    """Read a SQL file, handling SSMS's default UTF-16 LE BOM and other
+    common encodings. SSMS scripts views as UTF-16 LE by default; reading
+    such a file as UTF-8 corrupts the first byte and breaks parsing."""
+    raw = path.read_bytes()
+    if raw.startswith(b"\xff\xfe"):
+        return raw.decode("utf-16-le")[1:]
+    if raw.startswith(b"\xfe\xff"):
+        return raw.decode("utf-16-be")[1:]
+    if raw.startswith(b"\xef\xbb\xbf"):
+        return raw.decode("utf-8")[1:]
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("utf-16-le", errors="replace")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Extract column inventory from a SQL file.")
     parser.add_argument("input", help="Path to .sql file")
@@ -16,7 +33,7 @@ def main() -> int:
     parser.add_argument("-d", "--dialect", default="tsql")
     args = parser.parse_args()
 
-    sql = Path(args.input).read_text(encoding="utf-8", errors="replace")
+    sql = _read_sql_file(Path(args.input))
     inventory = extract_columns(sql, dialect=args.dialect)
 
     rows = [

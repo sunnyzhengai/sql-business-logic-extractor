@@ -46,4 +46,4 @@ sle-report = "tools.report_description_generator.cli:main"
 include = ["sql_logic_extractor*", "tools*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "tools"]

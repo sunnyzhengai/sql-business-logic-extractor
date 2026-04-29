@@ -37,7 +37,7 @@ llm = [
 # CLI entry points exposed by `pip install`. Each wraps one of the 4
 # product functions (sql_logic_extractor.products).
 [project.scripts]
-sle-columns = "tools.column_extractor.cli:main"
+sle-columns = "tools.column_lineage_extractor.cli:main"
 sle-lineage = "tools.technical_logic_extractor.cli:main"
 sle-business = "tools.business_logic_extractor.cli:main"
 sle-report = "tools.report_description_generator.cli:main"

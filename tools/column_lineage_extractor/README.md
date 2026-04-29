@@ -1,4 +1,4 @@
-# Tool 1 — Column Extractor
+# Tool 1 — Column Lineage Extractor
 
 **Status:** scaffolding (May Week 1 build)
 **LLM mode:** not applicable (always deterministic)

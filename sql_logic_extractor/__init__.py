@@ -15,6 +15,22 @@ from .normalize import (
 )
 from .resolve import resolve_query, resolved_to_dict, ResolvedQuery
 
+# The 4 commercial product functions (Tools 1-4) and their license module.
+# Public entry points always go through these; CLI/HTTP wrappers are thin
+# adapters in the tools/ subpackages.
+from .products import (
+    extract_columns,
+    extract_technical_lineage,
+    extract_business_logic,
+    generate_report_description,
+    ColumnIdentifier,
+    ColumnInventory,
+    TechnicalLineage,
+    BusinessLogic,
+    ReportDescription,
+)
+from .license import LicenseError, require_feature, current_license
+
 # Optional L4+ surfaces -- present only when the corresponding submodules
 # AND their dependencies (yaml, openpyxl, google-genai, etc.) are installed.
 # A failure here doesn't block the L1-L3 lineage path.

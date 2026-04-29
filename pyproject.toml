@@ -15,9 +15,35 @@ dependencies = [
 dev = [
     "pytest>=7.0",
 ]
+# Tool 3 (engineered mode) needs YAML data dictionaries.
+business = [
+    "pyyaml>=6.0",
+]
+# Optional LLM client libs -- pulled in ONLY when a customer uses LLM mode
+# in Tool 3 or Tool 4. A no-LLM customer's wheel doesn't include these,
+# making "no data leaves the building" a structural guarantee.
+ai = [
+    "google-genai>=0.3",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+]
+# Backwards-compat alias for the old name.
+llm = [
+    "google-genai>=0.3",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+]
+
+# CLI entry points exposed by `pip install`. Each wraps one of the 4
+# product functions (sql_logic_extractor.products).
+[project.scripts]
+sle-columns = "tools.column_extractor.cli:main"
+sle-lineage = "tools.technical_logic_extractor.cli:main"
+sle-business = "tools.business_logic_extractor.cli:main"
+sle-report = "tools.report_description_generator.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["sql_logic_extractor*"]
+include = ["sql_logic_extractor*", "tools*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

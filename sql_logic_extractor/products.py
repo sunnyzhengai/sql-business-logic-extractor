@@ -236,36 +236,32 @@ def extract_technical_lineage(sql: str, dialect: str = "tsql") -> TechnicalLinea
 
 
 def _translate_engineered(lineage: TechnicalLineage, schema: dict) -> list[dict]:
-    """Pattern-library translator -- pure deterministic logic, no LLM.
+    """Pattern-library translator -- deterministic, no LLM. Walks each
+    resolved column's SQL through the recursive pattern library, with
+    schema lookups for column descriptions."""
+    from .business_logic import translate_column_engineered
+    from .patterns import Context
 
-    TODO (May Week 3): wire to sql_logic_extractor.translate.translate_query
-    once the schema-aware translator is settled. For now this returns one
-    row per output column with a placeholder definition built from the
-    column name -- enough for scaffolding to be runnable."""
+    ctx = Context(schema=schema or {})
     out: list[dict] = []
     for col in lineage.resolved_columns:
-        out.append({
-            "column_name": col.get("name", ""),
-            "column_type": col.get("type", "unknown"),
-            "english_definition": f"[engineered] {col.get('name', '')}",
-            "base_columns": col.get("base_columns", []) or [],
-            "base_tables": col.get("base_tables", []) or [],
-        })
+        out.append(translate_column_engineered(col, ctx))
     return out
 
 
 def _translate_with_llm(lineage: TechnicalLineage, schema: dict, llm_client) -> list[dict]:
-    """LLM-backed translator. Lazy-imports the client lib so a no-LLM
-    install doesn't have it on disk.
+    """LLM-backed translator. Lazy-imports the client lib INSIDE the call
+    so a no-LLM install doesn't have google-genai on disk at all -- the
+    structural guarantee for healthcare-safe builds."""
+    from .business_logic import translate_column_llm, make_llm_client
 
-    TODO (May Week 3): adapt docs/archive/cli/llm_translate.py:translate_column logic
-    here. For now raises NotImplementedError so the gate-and-shape work
-    is verifiable without committing to a model choice yet."""
-    from . import _llm_clients  # noqa: F401  (forward-declares lazy import)
-    raise NotImplementedError(
-        "LLM-backed business logic translation is scheduled for May Week 3. "
-        "See docs/archive/cli/llm_translate.py for the existing prototype to port."
-    )
+    if llm_client is None:
+        llm_client = make_llm_client()
+
+    out: list[dict] = []
+    for col in lineage.resolved_columns:
+        out.append(translate_column_llm(col, schema or {}, llm_client))
+    return out
 
 
 def _extract_business_logic_core(sql: str, schema: dict, *,

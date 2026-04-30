@@ -12,3 +12,8 @@ graphify-out/graph.html
 
 # claude-code: machine-local permission allowlist
 .claude/settings.local.json
+
+# secrets
+.env
+.env.*
+

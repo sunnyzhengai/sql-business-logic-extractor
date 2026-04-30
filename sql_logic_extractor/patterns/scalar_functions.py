@@ -49,6 +49,40 @@ def current_date(ctx: Context, node: exp.Expression, children: dict[str, Transla
     )
 
 
+@register(name="dateadd", node_class=exp.DateAdd, category="calculated", priority=20)
+def dateadd(ctx: Context, node: exp.Expression, children: dict[str, Translation]) -> Translation:
+    # DATEADD(unit, amount, anchor_date) → "anchor plus/minus N units"
+    unit_node = node.args.get("unit")
+    unit_name = unit_node.name if unit_node is not None else "UNIT"
+    unit_word = {"DAY": "days", "YEAR": "years", "MONTH": "months",
+                 "HOUR": "hours", "MINUTE": "minutes", "SECOND": "seconds",
+                 "WEEK": "weeks"}.get(unit_name.upper(), unit_name.lower())
+    anchor = children.get("this")
+    amount = children.get("expression")
+    anchor_text = anchor.english if anchor is not None else "today"
+    amount_text = amount.english if amount is not None else "?"
+    # Pretty form: "today minus 2 years" / "today plus 30 days"
+    direction = "minus" if amount_text.startswith("-") else "plus"
+    num = amount_text.lstrip("-")
+    english = f"{anchor_text} {direction} {num} {unit_word}"
+    out = Translation(english=english, category="calculated", subcategory="date_arithmetic")
+    if anchor is not None:
+        out.absorb(anchor)
+    if amount is not None:
+        out.absorb(amount)
+    return out
+
+
+@register(name="neg", node_class=exp.Neg, category="literal", priority=20)
+def neg(ctx: Context, node: exp.Expression, children: dict[str, Translation]) -> Translation:
+    inner = children.get("this")
+    if inner is None:
+        return Translation(english="-?", category="literal", subcategory="negative")
+    out = Translation(english=f"-{inner.english}", category="literal", subcategory="negative")
+    out.absorb(inner)
+    return out
+
+
 @register(name="cast", node_class=exp.Cast, category="passthrough", priority=20)
 def cast(ctx: Context, node: exp.Expression, children: dict[str, Translation]) -> Translation:
     inner = children["this"]

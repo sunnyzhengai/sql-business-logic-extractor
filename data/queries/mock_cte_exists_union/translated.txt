@@ -1,0 +1,94 @@
+================================================================================
+SQL QUERY BUSINESS LOGIC DOCUMENTATION (Offline Recursive Translation)
+================================================================================
+
+# QUERY SUMMARY
+
+   Query extracts 4 columns from 1 table(s) covering General, Patient Demographics
+
+   Primary Purpose: Data extraction for patient analysis
+
+   Key Entities: PATIENT
+   Source Tables: PATIENT
+   Business Domains: General, Patient Demographics
+   Total Columns: 4
+
+   Query Filters (apply to the final result set):
+     - Patient date of birth < today minus 18 years
+         [ap.BIRTH_DATE < DATE_ADD(CURRENT_TIMESTAMP(), -18, 'YEAR')]
+     - there exists a row where either (from PAT_ENC, where Contact date for the encounter ≥ today minus 1 years) or (from PROBLEM_LIST, where The date the problem was resolved in calendar format is null)
+         [EXISTS(SELECT 1 FROM PAT_ENC AS pe WHERE pe.PAT_ID = p.PAT_ID AND pe.CONTACT_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -1, 'YEAR') UNION ALL SELECT 1 FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)]
+
+   Governance signals:
+     Unknown columns: PATIENT.SEX_C
+
+================================================================================
+
+# COLUMN DEFINITIONS
+
+## PAT_ID (passthrough)
+   Domain: General
+
+   ### Technical Definition
+
+   Expression: PATIENT.PAT_ID
+
+   Base Tables: PATIENT
+   Base Columns: PATIENT.PAT_ID
+
+   ### Business Definition
+
+   Unique patient identifier
+
+--------------------------------------------------------------------------------
+
+## PAT_NAME (passthrough)
+   Domain: General
+
+   ### Technical Definition
+
+   Expression: PATIENT.PAT_NAME
+
+   Base Tables: PATIENT
+   Base Columns: PATIENT.PAT_NAME
+
+   ### Business Definition
+
+   Patient full name
+
+--------------------------------------------------------------------------------
+
+## BIRTH_DATE (passthrough)
+   Domain: Patient Demographics
+
+   ### Technical Definition
+
+   Expression: PATIENT.BIRTH_DATE
+
+   Base Tables: PATIENT
+   Base Columns: PATIENT.BIRTH_DATE
+
+   ### Business Definition
+
+   Patient date of birth
+
+--------------------------------------------------------------------------------
+
+## SEX_C (passthrough)
+   Domain: General
+
+   ### Technical Definition
+
+   Expression: PATIENT.SEX_C
+
+   Base Tables: PATIENT
+   Base Columns: PATIENT.SEX_C
+
+   ### Business Definition
+
+   Sex C
+
+   Governance signals:
+     Unknown columns: PATIENT.SEX_C
+
+--------------------------------------------------------------------------------

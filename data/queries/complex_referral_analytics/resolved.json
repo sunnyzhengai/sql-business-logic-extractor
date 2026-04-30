@@ -1,0 +1,1209 @@
+{
+  "columns": [
+    {
+      "name": "REFERRAL_ID",
+      "type": "passthrough",
+      "resolved_expression": "REFERRAL.REFERRAL_ID",
+      "base_columns": [
+        "REFERRAL.REFERRAL_ID"
+      ],
+      "base_tables": [
+        "REFERRAL"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "REFERRAL_ID",
+          "expression": "ra.REFERRAL_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "REFERRAL_ID",
+          "expression": "br.REFERRAL_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "REFERRAL_ID",
+          "expression": "r.REFERRAL_ID",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": "REFERRAL.PAT_ID",
+      "base_columns": [
+        "REFERRAL.PAT_ID"
+      ],
+      "base_tables": [
+        "REFERRAL"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "PAT_ID",
+          "expression": "ra.PAT_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "PAT_ID",
+          "expression": "br.PAT_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "PAT_ID",
+          "expression": "r.PAT_ID",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "PAT_NAME",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_NAME",
+      "base_columns": [
+        "PATIENT.PAT_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "PAT_NAME",
+          "expression": "ra.PAT_NAME",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "PAT_NAME",
+          "expression": "pr.PAT_NAME",
+          "type": "passthrough"
+        },
+        {
+          "scope": "patient_risk",
+          "name": "PAT_NAME",
+          "expression": "p.PAT_NAME",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "age_years",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(TIME_STR_TO_TIME(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(p.BIRTH_DATE AS TIMESTAMP)), YEAR)",
+      "base_columns": [
+        "PATIENT.BIRTH_DATE"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "age_years",
+          "expression": "ra.age_years",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "age_years",
+          "expression": "pr.age_years",
+          "type": "passthrough"
+        },
+        {
+          "scope": "patient_risk",
+          "name": "age_years",
+          "expression": "DATEDIFF(TIME_STR_TO_TIME(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(p.BIRTH_DATE AS TIMESTAMP)), YEAR) AS age_years",
+          "type": "calculated"
+        }
+      ]
+    },
+    {
+      "name": "age_category",
+      "type": "case",
+      "resolved_expression": "CASE WHEN DATEDIFF(TIME_STR_TO_TIME(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(p.BIRTH_DATE AS TIMESTAMP)), YEAR) < 18 THEN 'Pediatric' WHEN DATEDIFF(TIME_STR_TO_TIME(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(p.BIRTH_DATE AS TIMESTAMP)), YEAR) BETWEEN 18 AND 40 THEN 'Young Adult' WHEN DATEDIFF(TIME_STR_TO_TIME(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(p.BIRTH_DATE AS TIMESTAMP)), YEAR) BETWEEN 41 AND 65 THEN 'Middle Age' ELSE 'Senior' END",
+      "base_columns": [
+        "PATIENT.BIRTH_DATE"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "age_category",
+          "expression": "ra.age_category",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "age_category",
+          "expression": "pr.age_category",
+          "type": "passthrough"
+        },
+        {
+          "scope": "patient_risk",
+          "name": "age_category",
+          "expression": "CASE WHEN DATEDIFF(TIME_STR_TO_TIME(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(p.BIRTH_DATE AS TIMESTAMP)), YEAR) < 18 THEN 'Pediatric' WHEN DATEDIFF(TIME_STR_TO_TIME(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(p.BIRTH_DATE AS TIMESTAMP)), YEAR) BETWEEN 18 AND 40 THEN 'Young Adult' WHEN DATEDIFF(TIME_STR_TO_TIME(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(p.BIRTH_DATE AS TIMESTAMP)), YEAR) BETWEEN 41 AND 65 THEN 'Middle Age' ELSE 'Senior' END AS age_category /* Age-based risk category */",
+          "type": "case"
+        }
+      ]
+    },
+    {
+      "name": "active_problem_count",
+      "type": "subquery",
+      "resolved_expression": "(SELECT COUNT(*) FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)",
+      "base_columns": [
+        "PROBLEM_LIST.PAT_ID",
+        "PATIENT.PAT_ID",
+        "PROBLEM_LIST.RESOLVED_DATE"
+      ],
+      "base_tables": [
+        "PROBLEM_LIST",
+        "PATIENT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "active_problem_count",
+          "expression": "ra.active_problem_count",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "active_problem_count",
+          "expression": "pr.active_problem_count",
+          "type": "passthrough"
+        },
+        {
+          "scope": "patient_risk",
+          "name": "active_problem_count",
+          "expression": "(SELECT COUNT(*) FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL) AS active_problem_count /* Count of active problems (subquery) */",
+          "type": "subquery"
+        }
+      ]
+    },
+    {
+      "name": "referral_date",
+      "type": "passthrough",
+      "resolved_expression": "REFERRAL.ENTRY_DATE",
+      "base_columns": [
+        "REFERRAL.ENTRY_DATE"
+      ],
+      "base_tables": [
+        "REFERRAL"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "referral_date",
+          "expression": "ra.referral_date",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "referral_date",
+          "expression": "br.referral_date",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "referral_date",
+          "expression": "r.ENTRY_DATE AS referral_date",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "referral_status_name",
+      "type": "passthrough",
+      "resolved_expression": "ZC_RFL_STATUS.NAME",
+      "base_columns": [
+        "ZC_RFL_STATUS.NAME"
+      ],
+      "base_tables": [
+        "ZC_RFL_STATUS"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "referral_status_name",
+          "expression": "ra.referral_status_name",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "referral_status_name",
+          "expression": "br.referral_status_name",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "referral_status_name",
+          "expression": "rs.NAME AS referral_status_name",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "specialty_name",
+      "type": "passthrough",
+      "resolved_expression": "ZC_SPECIALTY.NAME",
+      "base_columns": [
+        "ZC_SPECIALTY.NAME"
+      ],
+      "base_tables": [
+        "ZC_SPECIALTY"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "specialty_name",
+          "expression": "ra.specialty_name",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "specialty_name",
+          "expression": "br.specialty_name",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "specialty_name",
+          "expression": "sp.NAME AS specialty_name",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "referral_class",
+      "type": "case",
+      "resolved_expression": "CASE r.RFL_CLASS_C WHEN 1 THEN 'Internal' WHEN 2 THEN 'Incoming' WHEN 3 THEN 'Outgoing' ELSE 'Unknown' END",
+      "base_columns": [
+        "REFERRAL.RFL_CLASS_C"
+      ],
+      "base_tables": [
+        "REFERRAL"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "referral_class",
+          "expression": "ra.referral_class",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "referral_class",
+          "expression": "br.referral_class",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "referral_class",
+          "expression": "CASE r.RFL_CLASS_C WHEN 1 THEN 'Internal' WHEN 2 THEN 'Incoming' WHEN 3 THEN 'Outgoing' ELSE 'Unknown' END AS referral_class",
+          "type": "case"
+        }
+      ]
+    },
+    {
+      "name": "referral_category",
+      "type": "case",
+      "resolved_expression": "CASE WHEN r.REFERRAL_STATUS_C IN (1, 2) THEN 'Active' WHEN r.REFERRAL_STATUS_C IN (4, 5) THEN 'Closed-Negative' WHEN r.REFERRAL_STATUS_C = 6 THEN 'Closed-Complete' ELSE 'Pending' END",
+      "base_columns": [
+        "REFERRAL.REFERRAL_STATUS_C"
+      ],
+      "base_tables": [
+        "REFERRAL"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "referral_category",
+          "expression": "ra.referral_category",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "referral_category",
+          "expression": "br.referral_category",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "referral_category",
+          "expression": "CASE WHEN r.REFERRAL_STATUS_C IN (1, 2) THEN 'Active' WHEN r.REFERRAL_STATUS_C IN (4, 5) THEN 'Closed-Negative' WHEN r.REFERRAL_STATUS_C = 6 THEN 'Closed-Complete' ELSE 'Pending' END AS referral_category",
+          "type": "case"
+        }
+      ]
+    },
+    {
+      "name": "first_appt_csn",
+      "type": "passthrough",
+      "resolved_expression": "F_SCHED_APPT.PAT_ENC_CSN_ID",
+      "base_columns": [
+        "F_SCHED_APPT.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "F_SCHED_APPT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "first_appt_csn",
+          "expression": "ra.PAT_ENC_CSN_ID AS first_appt_csn",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "ah.PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "fa.PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "first_appt_date",
+      "type": "passthrough",
+      "resolved_expression": "F_SCHED_APPT.APPT_DTTM",
+      "base_columns": [
+        "F_SCHED_APPT.APPT_DTTM"
+      ],
+      "base_tables": [
+        "F_SCHED_APPT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "first_appt_date",
+          "expression": "ra.APPT_DTTM AS first_appt_date",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "APPT_DTTM",
+          "expression": "ah.APPT_DTTM",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "APPT_DTTM",
+          "expression": "fa.APPT_DTTM",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "first_appt_outcome",
+      "type": "case",
+      "resolved_expression": "CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END",
+      "base_columns": [
+        "F_SCHED_APPT.APPT_STATUS_C"
+      ],
+      "base_tables": [
+        "F_SCHED_APPT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "first_appt_outcome",
+          "expression": "ra.appt_outcome AS first_appt_outcome",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "appt_outcome",
+          "expression": "ah.appt_outcome",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "appt_outcome",
+          "expression": "CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END AS appt_outcome /* Appointment outcome classification */",
+          "type": "case"
+        }
+      ]
+    },
+    {
+      "name": "DEPARTMENT_NAME",
+      "type": "passthrough",
+      "resolved_expression": "CLARITY_DEP.DEPARTMENT_NAME",
+      "base_columns": [
+        "CLARITY_DEP.DEPARTMENT_NAME"
+      ],
+      "base_tables": [
+        "CLARITY_DEP"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "DEPARTMENT_NAME",
+          "expression": "ra.DEPARTMENT_NAME",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "DEPARTMENT_NAME",
+          "expression": "ah.DEPARTMENT_NAME",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "DEPARTMENT_NAME",
+          "expression": "dep.DEPARTMENT_NAME",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "first_appt_provider",
+      "type": "passthrough",
+      "resolved_expression": "CLARITY_SER.PROV_NAME",
+      "base_columns": [
+        "CLARITY_SER.PROV_NAME"
+      ],
+      "base_tables": [
+        "CLARITY_SER"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "first_appt_provider",
+          "expression": "ra.PROV_NAME AS first_appt_provider",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "PROV_NAME",
+          "expression": "ah.PROV_NAME",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "PROV_NAME",
+          "expression": "ser.PROV_NAME",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "days_to_appointment",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(TIME_STR_TO_TIME(CAST(ah.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(br.referral_date AS TIMESTAMP)), DAY)",
+      "base_columns": [
+        "F_SCHED_APPT.APPT_DTTM",
+        "REFERRAL.ENTRY_DATE"
+      ],
+      "base_tables": [
+        "F_SCHED_APPT",
+        "REFERRAL"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "days_to_appointment",
+          "expression": "ra.days_to_appointment",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "days_to_appointment",
+          "expression": "DATEDIFF(TIME_STR_TO_TIME(CAST(ah.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(br.referral_date AS TIMESTAMP)), DAY) AS days_to_appointment /* Days from referral to appointment */",
+          "type": "calculated"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "APPT_DTTM",
+          "expression": "fa.APPT_DTTM",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "referral_date",
+          "expression": "r.ENTRY_DATE AS referral_date",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "lead_time_days",
+      "type": "calculated",
+      "resolved_expression": "DATEDIFF(TIME_STR_TO_TIME(CAST(fa.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(fa.APPT_MADE_DTTM AS TIMESTAMP)), DAY)",
+      "base_columns": [
+        "F_SCHED_APPT.APPT_DTTM",
+        "F_SCHED_APPT.APPT_MADE_DTTM"
+      ],
+      "base_tables": [
+        "F_SCHED_APPT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "lead_time_days",
+          "expression": "ra.lead_time_days",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "lead_time_days",
+          "expression": "ah.lead_time_days",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "lead_time_days",
+          "expression": "DATEDIFF(TIME_STR_TO_TIME(CAST(fa.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(fa.APPT_MADE_DTTM AS TIMESTAMP)), DAY) AS lead_time_days /* Days between scheduling and appointment */",
+          "type": "calculated"
+        }
+      ]
+    },
+    {
+      "name": "visit_duration_minutes",
+      "type": "case",
+      "resolved_expression": "CASE WHEN NOT fa.CHECKIN_DTTM IS NULL AND NOT fa.CHECKOUT_DTTM IS NULL THEN DATEDIFF(TIME_STR_TO_TIME(CAST(fa.CHECKOUT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(fa.CHECKIN_DTTM AS TIMESTAMP)), MINUTE) ELSE NULL END",
+      "base_columns": [
+        "F_SCHED_APPT.CHECKIN_DTTM",
+        "F_SCHED_APPT.CHECKOUT_DTTM"
+      ],
+      "base_tables": [
+        "F_SCHED_APPT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "visit_duration_minutes",
+          "expression": "ra.visit_duration_minutes",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "visit_duration_minutes",
+          "expression": "ah.visit_duration_minutes",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "visit_duration_minutes",
+          "expression": "CASE WHEN NOT fa.CHECKIN_DTTM IS NULL AND NOT fa.CHECKOUT_DTTM IS NULL THEN DATEDIFF(TIME_STR_TO_TIME(CAST(fa.CHECKOUT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(fa.CHECKIN_DTTM AS TIMESTAMP)), MINUTE) ELSE NULL END AS visit_duration_minutes /* Wait time in minutes (check-in to checkout) */",
+          "type": "case"
+        }
+      ]
+    },
+    {
+      "name": "cumulative_no_shows",
+      "type": "window",
+      "resolved_expression": "SUM(CASE WHEN fa.APPT_STATUS_C = 4 THEN 1 ELSE 0 END) OVER (PARTITION BY fa.PAT_ID ORDER BY fa.APPT_DTTM ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+      "base_columns": [
+        "F_SCHED_APPT.PAT_ID",
+        "F_SCHED_APPT.APPT_DTTM",
+        "F_SCHED_APPT.APPT_STATUS_C"
+      ],
+      "base_tables": [
+        "F_SCHED_APPT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "cumulative_no_shows",
+          "expression": "ra.cumulative_no_shows",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "cumulative_no_shows",
+          "expression": "ah.cumulative_no_shows",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "cumulative_no_shows",
+          "expression": "SUM(CASE WHEN fa.APPT_STATUS_C = 4 THEN 1 ELSE 0 END) OVER (PARTITION BY fa.PAT_ID ORDER BY fa.APPT_DTTM ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_no_shows /* Running count of no-shows per patient */",
+          "type": "window"
+        }
+      ]
+    },
+    {
+      "name": "specialty_avg_days",
+      "type": "aggregate",
+      "resolved_expression": "AVG(CAST(DATEDIFF(TIME_STR_TO_TIME(CAST(ah.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(br.referral_date AS TIMESTAMP)), DAY) AS FLOAT))",
+      "base_columns": [
+        "F_SCHED_APPT.APPT_DTTM",
+        "REFERRAL.ENTRY_DATE"
+      ],
+      "base_tables": [
+        "F_SCHED_APPT",
+        "REFERRAL"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL",
+        "COUNT(DISTINCT REFERRAL_ID) >= 10",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "specialty_avg_days",
+          "expression": "sm.avg_days_to_first_appt AS specialty_avg_days /* Compare to specialty average */",
+          "type": "passthrough"
+        },
+        {
+          "scope": "specialty_metrics",
+          "name": "avg_days_to_first_appt",
+          "expression": "AVG(CAST(days_to_appointment AS FLOAT)) AS avg_days_to_first_appt",
+          "type": "aggregate"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "days_to_appointment",
+          "expression": "DATEDIFF(TIME_STR_TO_TIME(CAST(ah.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(br.referral_date AS TIMESTAMP)), DAY) AS days_to_appointment /* Days from referral to appointment */",
+          "type": "calculated"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "APPT_DTTM",
+          "expression": "fa.APPT_DTTM",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "referral_date",
+          "expression": "r.ENTRY_DATE AS referral_date",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "days_vs_specialty_avg",
+      "type": "calculated",
+      "resolved_expression": "COALESCE(DATEDIFF(TIME_STR_TO_TIME(CAST(ah.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(br.referral_date AS TIMESTAMP)), DAY), 0) - COALESCE(AVG(CAST(days_to_appointment AS FLOAT)), 0)",
+      "direct_expression": "COALESCE(ra.days_to_appointment, 0) - COALESCE(sm.avg_days_to_first_appt, 0) AS days_vs_specialty_avg",
+      "base_columns": [
+        "F_SCHED_APPT.APPT_DTTM",
+        "REFERRAL.ENTRY_DATE"
+      ],
+      "base_tables": [
+        "F_SCHED_APPT",
+        "REFERRAL"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL",
+        "appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL",
+        "COUNT(DISTINCT REFERRAL_ID) >= 10"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "days_vs_specialty_avg",
+          "expression": "COALESCE(ra.days_to_appointment, 0) - COALESCE(sm.avg_days_to_first_appt, 0) AS days_vs_specialty_avg",
+          "type": "calculated"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "days_to_appointment",
+          "expression": "DATEDIFF(TIME_STR_TO_TIME(CAST(ah.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(br.referral_date AS TIMESTAMP)), DAY) AS days_to_appointment /* Days from referral to appointment */",
+          "type": "calculated"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "APPT_DTTM",
+          "expression": "fa.APPT_DTTM",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "referral_date",
+          "expression": "r.ENTRY_DATE AS referral_date",
+          "type": "passthrough"
+        },
+        {
+          "scope": "specialty_metrics",
+          "name": "avg_days_to_first_appt",
+          "expression": "AVG(CAST(days_to_appointment AS FLOAT)) AS avg_days_to_first_appt",
+          "type": "aggregate"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "days_to_appointment",
+          "expression": "DATEDIFF(TIME_STR_TO_TIME(CAST(ah.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(br.referral_date AS TIMESTAMP)), DAY) AS days_to_appointment /* Days from referral to appointment */",
+          "type": "calculated"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "APPT_DTTM",
+          "expression": "fa.APPT_DTTM",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "referral_date",
+          "expression": "r.ENTRY_DATE AS referral_date",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "specialty_conversion_rate",
+      "type": "aggregate",
+      "resolved_expression": "CAST(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END) AS FLOAT) /* Conversion rate */ / NULLIF(COUNT(DISTINCT REFERRAL_ID), 0) * 100",
+      "base_columns": [
+        "REFERRAL.REFERRAL_ID",
+        "F_SCHED_APPT.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "REFERRAL",
+        "F_SCHED_APPT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL",
+        "COUNT(DISTINCT REFERRAL_ID) >= 10",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "specialty_conversion_rate",
+          "expression": "sm.conversion_rate_pct AS specialty_conversion_rate",
+          "type": "passthrough"
+        },
+        {
+          "scope": "specialty_metrics",
+          "name": "conversion_rate_pct",
+          "expression": "CAST(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END) AS FLOAT) /* Conversion rate */ / NULLIF(COUNT(DISTINCT REFERRAL_ID), 0) * 100 AS conversion_rate_pct",
+          "type": "aggregate"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "REFERRAL_ID",
+          "expression": "br.REFERRAL_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "REFERRAL_ID",
+          "expression": "r.REFERRAL_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "REFERRAL_ID",
+          "expression": "br.REFERRAL_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "REFERRAL_ID",
+          "expression": "r.REFERRAL_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "ah.PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "fa.PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "specialty_completion_rate",
+      "type": "aggregate",
+      "resolved_expression": "CAST(COUNT(DISTINCT CASE WHEN appt_outcome = 'Completed' THEN REFERRAL_ID END) AS FLOAT) /* Completion rate (of those with appointments) */ / NULLIF(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END), 0) * 100",
+      "base_columns": [
+        "REFERRAL.REFERRAL_ID",
+        "F_SCHED_APPT.APPT_STATUS_C",
+        "F_SCHED_APPT.PAT_ENC_CSN_ID"
+      ],
+      "base_tables": [
+        "REFERRAL",
+        "F_SCHED_APPT"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL",
+        "COUNT(DISTINCT REFERRAL_ID) >= 10",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "specialty_completion_rate",
+          "expression": "sm.completion_rate_pct AS specialty_completion_rate",
+          "type": "passthrough"
+        },
+        {
+          "scope": "specialty_metrics",
+          "name": "completion_rate_pct",
+          "expression": "CAST(COUNT(DISTINCT CASE WHEN appt_outcome = 'Completed' THEN REFERRAL_ID END) AS FLOAT) /* Completion rate (of those with appointments) */ / NULLIF(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END), 0) * 100 AS completion_rate_pct",
+          "type": "aggregate"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "REFERRAL_ID",
+          "expression": "br.REFERRAL_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "REFERRAL_ID",
+          "expression": "r.REFERRAL_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "REFERRAL_ID",
+          "expression": "br.REFERRAL_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "REFERRAL_ID",
+          "expression": "r.REFERRAL_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "appt_outcome",
+          "expression": "ah.appt_outcome",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "appt_outcome",
+          "expression": "CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END AS appt_outcome /* Appointment outcome classification */",
+          "type": "case"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "ah.PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "fa.PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "patient_risk_flag",
+      "type": "case",
+      "resolved_expression": "CASE WHEN ra.cumulative_no_shows >= 3 THEN 'High Risk - Multiple No Shows' WHEN ra.cumulative_no_shows >= 1 AND ra.age_category = 'Senior' THEN 'Medium Risk - Senior with No Show History' WHEN ra.active_problem_count >= 5 THEN 'Medium Risk - Complex Patient' WHEN DATEDIFF(TIME_STR_TO_TIME(CAST(ah.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(br.referral_date AS TIMESTAMP)), DAY) > AVG(CAST(days_to_appointment AS FLOAT)) * 2 THEN 'Medium Risk - Long Wait Time' ELSE 'Standard' END",
+      "direct_expression": "CASE WHEN ra.cumulative_no_shows >= 3 THEN 'High Risk - Multiple No Shows' WHEN ra.cumulative_no_shows >= 1 AND ra.age_category = 'Senior' THEN 'Medium Risk - Senior with No Show History' WHEN ra.active_problem_count >= 5 THEN 'Medium Risk - Complex Patient' WHEN ra.days_to_appointment > sm.avg_days_to_first_appt * 2 THEN 'Medium Risk - Long Wait Time' ELSE 'Standard' END AS patient_risk_flag /* Risk flags */",
+      "base_columns": [
+        "F_SCHED_APPT.PAT_ID",
+        "F_SCHED_APPT.APPT_DTTM",
+        "F_SCHED_APPT.APPT_STATUS_C",
+        "PROBLEM_LIST.PAT_ID",
+        "PATIENT.PAT_ID",
+        "PROBLEM_LIST.RESOLVED_DATE",
+        "REFERRAL.ENTRY_DATE",
+        "PATIENT.BIRTH_DATE"
+      ],
+      "base_tables": [
+        "F_SCHED_APPT",
+        "PROBLEM_LIST",
+        "PATIENT",
+        "REFERRAL"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL",
+        "appt_sequence_for_referral = 1 OR appt_sequence_for_referral IS NULL",
+        "COUNT(DISTINCT REFERRAL_ID) >= 10"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "patient_risk_flag",
+          "expression": "CASE WHEN ra.cumulative_no_shows >= 3 THEN 'High Risk - Multiple No Shows' WHEN ra.cumulative_no_shows >= 1 AND ra.age_category = 'Senior' THEN 'Medium Risk - Senior with No Show History' WHEN ra.active_problem_count >= 5 THEN 'Medium Risk - Complex Patient' WHEN ra.days_to_appointment > sm.avg_days_to_first_appt * 2 THEN 'Medium Risk - Long Wait Time' ELSE 'Standard' END AS patient_risk_flag /* Risk flags */",
+          "type": "case"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "cumulative_no_shows",
+          "expression": "ah.cumulative_no_shows",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "cumulative_no_shows",
+          "expression": "SUM(CASE WHEN fa.APPT_STATUS_C = 4 THEN 1 ELSE 0 END) OVER (PARTITION BY fa.PAT_ID ORDER BY fa.APPT_DTTM ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_no_shows /* Running count of no-shows per patient */",
+          "type": "window"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "active_problem_count",
+          "expression": "pr.active_problem_count",
+          "type": "passthrough"
+        },
+        {
+          "scope": "patient_risk",
+          "name": "active_problem_count",
+          "expression": "(SELECT COUNT(*) FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL) AS active_problem_count /* Count of active problems (subquery) */",
+          "type": "subquery"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "days_to_appointment",
+          "expression": "DATEDIFF(TIME_STR_TO_TIME(CAST(ah.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(br.referral_date AS TIMESTAMP)), DAY) AS days_to_appointment /* Days from referral to appointment */",
+          "type": "calculated"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "APPT_DTTM",
+          "expression": "fa.APPT_DTTM",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "referral_date",
+          "expression": "r.ENTRY_DATE AS referral_date",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "cumulative_no_shows",
+          "expression": "ah.cumulative_no_shows",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "cumulative_no_shows",
+          "expression": "SUM(CASE WHEN fa.APPT_STATUS_C = 4 THEN 1 ELSE 0 END) OVER (PARTITION BY fa.PAT_ID ORDER BY fa.APPT_DTTM ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_no_shows /* Running count of no-shows per patient */",
+          "type": "window"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "age_category",
+          "expression": "pr.age_category",
+          "type": "passthrough"
+        },
+        {
+          "scope": "patient_risk",
+          "name": "age_category",
+          "expression": "CASE WHEN DATEDIFF(TIME_STR_TO_TIME(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(p.BIRTH_DATE AS TIMESTAMP)), YEAR) < 18 THEN 'Pediatric' WHEN DATEDIFF(TIME_STR_TO_TIME(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(p.BIRTH_DATE AS TIMESTAMP)), YEAR) BETWEEN 18 AND 40 THEN 'Young Adult' WHEN DATEDIFF(TIME_STR_TO_TIME(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(p.BIRTH_DATE AS TIMESTAMP)), YEAR) BETWEEN 41 AND 65 THEN 'Middle Age' ELSE 'Senior' END AS age_category /* Age-based risk category */",
+          "type": "case"
+        },
+        {
+          "scope": "specialty_metrics",
+          "name": "avg_days_to_first_appt",
+          "expression": "AVG(CAST(days_to_appointment AS FLOAT)) AS avg_days_to_first_appt",
+          "type": "aggregate"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "days_to_appointment",
+          "expression": "DATEDIFF(TIME_STR_TO_TIME(CAST(ah.APPT_DTTM AS TIMESTAMP)), TIME_STR_TO_TIME(CAST(br.referral_date AS TIMESTAMP)), DAY) AS days_to_appointment /* Days from referral to appointment */",
+          "type": "calculated"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "APPT_DTTM",
+          "expression": "fa.APPT_DTTM",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "referral_date",
+          "expression": "r.ENTRY_DATE AS referral_date",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "referral_success_flag",
+      "type": "case",
+      "resolved_expression": "CASE WHEN ra.appt_outcome = 'Completed' THEN 1 WHEN ra.appt_outcome IN ('Cancelled', 'No Show') THEN 0 WHEN ra.PAT_ENC_CSN_ID IS NULL AND ra.referral_category = 'Active' THEN NULL /* Still pending */ ELSE 0 END",
+      "direct_expression": "CASE WHEN ra.appt_outcome = 'Completed' THEN 1 WHEN ra.appt_outcome IN ('Cancelled', 'No Show') THEN 0 WHEN ra.PAT_ENC_CSN_ID IS NULL AND ra.referral_category = 'Active' THEN NULL /* Still pending */ ELSE 0 END AS referral_success_flag /* Referral success indicator */",
+      "base_columns": [
+        "F_SCHED_APPT.APPT_STATUS_C",
+        "F_SCHED_APPT.PAT_ENC_CSN_ID",
+        "REFERRAL.REFERRAL_STATUS_C"
+      ],
+      "base_tables": [
+        "F_SCHED_APPT",
+        "REFERRAL"
+      ],
+      "filters": [
+        "ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL",
+        "fa.APPT_DTTM >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "r.ENTRY_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -2, 'YEAR')",
+        "NOT r.REFERRAL_STATUS_C IS NULL"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "referral_success_flag",
+          "expression": "CASE WHEN ra.appt_outcome = 'Completed' THEN 1 WHEN ra.appt_outcome IN ('Cancelled', 'No Show') THEN 0 WHEN ra.PAT_ENC_CSN_ID IS NULL AND ra.referral_category = 'Active' THEN NULL /* Still pending */ ELSE 0 END AS referral_success_flag /* Referral success indicator */",
+          "type": "case"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "appt_outcome",
+          "expression": "ah.appt_outcome",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "appt_outcome",
+          "expression": "CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END AS appt_outcome /* Appointment outcome classification */",
+          "type": "case"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "appt_outcome",
+          "expression": "ah.appt_outcome",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "appt_outcome",
+          "expression": "CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END AS appt_outcome /* Appointment outcome classification */",
+          "type": "case"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "ah.PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "appointment_history",
+          "name": "PAT_ENC_CSN_ID",
+          "expression": "fa.PAT_ENC_CSN_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "referral_appointments",
+          "name": "referral_category",
+          "expression": "br.referral_category",
+          "type": "passthrough"
+        },
+        {
+          "scope": "base_referrals",
+          "name": "referral_category",
+          "expression": "CASE WHEN r.REFERRAL_STATUS_C IN (1, 2) THEN 'Active' WHEN r.REFERRAL_STATUS_C IN (4, 5) THEN 'Closed-Negative' WHEN r.REFERRAL_STATUS_C = 6 THEN 'Closed-Complete' ELSE 'Pending' END AS referral_category",
+          "type": "case"
+        }
+      ]
+    }
+  ]
+}

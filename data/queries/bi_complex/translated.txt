@@ -1,0 +1,398 @@
+================================================================================
+SQL QUERY BUSINESS LOGIC DOCUMENTATION (Offline Recursive Translation)
+================================================================================
+
+# QUERY SUMMARY
+
+   (Semantic narrative summary requires the LLM translator —
+    this offline path emits structured signals only.)
+
+   Key Entities: REFERRAL, V_CCHP_UMAuthorizationHistory_Fact, V_CCHP_AuthHeader_Fact, V_CCHP_UMAuthorization_Fact, RFL_HX_ACT
+   Key Metrics: DENIAL_DATE, DENIAL_REASON, RFI_DATE
+   Source Tables: REFERRAL, REFERRAL_BED_DAY, REFERRAL_HIST, REFERRAL_HISTORY, RFL_HX_ACT, RFL_HX_ITEM_CHANGE, RFL_HX_NEW_VAL, V_CCHP_AuthHeader_Fact, V_CCHP_UMAuthorizationHistory_Fact, V_CCHP_UMAuthorizationRequestStatusHistory_Fact, V_CCHP_UMAuthorizationRequest_Fact, V_CCHP_UMAuthorization_Fact
+   Business Domains: Patient Demographics, Referrals
+   Total Columns: 19
+
+   Query Filters (apply to the final result set):
+     - 0 = 0
+     - there exists a row where either (from REFERRAL_HIST, where New Rfl Status C = 5) or (from REFERRAL_BED_DAY, where Bed Day Status C = 2)
+         [EXISTS(SELECT 1 FROM Clarity.dbo.REFERRAL_HIST AS RFLH WHERE RFLH.REFERRAL_ID = RFL.Referralid AND RFLH.NEW_RFL_STATUS_C = 5 /* Denied */ UNION ALL SELECT 1 FROM Clarity.dbo.REFERRAL_BED_DAY AS RFLBD WHERE RFL.Referralid = RFLBD.REFERRAL_ID AND RFLBD.BED_DAY_STATUS_C = 2 /* Denied */)]
+         subquery #1: tables=['REFERRAL_HIST']
+                        columns=['REFERRAL_HIST.NEW_RFL_STATUS_C', 'REFERRAL_HIST.REFERRAL_ID']
+         subquery #2: tables=['REFERRAL_BED_DAY']
+                        columns=['REFERRAL_BED_DAY.BED_DAY_STATUS_C', 'REFERRAL_BED_DAY.REFERRAL_ID']
+     - there exists a row where from V_CCHP_UMAuthorizationRequestStatusHistory_Fact, where Um Status C = 5
+         [EXISTS(SELECT 1 FROM CookClarity.Reporting.V_CCHP_UMAuthorizationRequestStatusHistory_Fact AS aughx WHERE aughx.AUTH_REQUEST_ID = aug.AUTH_REQUEST_ID AND aughx.UM_STATUS_C = 5 /* Denied */)]
+         subquery #1: tables=['V_CCHP_UMAuthorizationRequestStatusHistory_Fact']
+                        columns=['V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID', 'V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C']
+     - Item Change in (50, 18007, 18003, 2081, 2080)
+         [RFLHIC.REFERRAL_ID = RFLHA.REFERRAL_ID AND RFLHIC.GROUP_LINE = RFLHA.GROUP_LINE AND RFLHIC.VALUE_LINE = RFLHA.VALUE_LINE AND RFLHIC.ITEM_CHANGE IN (50 /* Referral Status */, 18007 /* Denial Reason */, 18003 /* Pending Reason */, 2081 /* Bed Day Status */, 2080 /* Bed Day Denied Reason */)]
+     - Item Change = 18007 and New Val is not null or Item Change = 18003 and New Val = 1640000010 or Item Change = 50 and New Val = '5' or Item Change = 2081 and New Val = '2' or Item Change = 2080 and New Val is not null
+         [RFLHNV.REFERRAL_ID = RFLHA.REFERRAL_ID AND RFLHNV.GROUP_LINE = RFLHA.GROUP_LINE AND RFLHNV.VALUE_LINE = RFLHA.VALUE_LINE AND ((RFLHIC.ITEM_CHANGE = 18007 AND NOT RFLHNV.NEW_VAL IS NULL) OR (RFLHIC.ITEM_CHANGE = 18003 AND RFLHNV.NEW_VAL = 1640000010 /* Request for Information */) OR (RFLHIC.ITEM_CHANGE = 50 AND RFLHNV.NEW_VAL = '5' /* Denied */) OR (RFLHIC.ITEM_CHANGE = 2081 AND RFLHNV.NEW_VAL = '2' /* Denied */) OR (RFLHIC.ITEM_CHANGE = 2080 AND NOT RFLHNV.NEW_VAL IS NULL))]
+     - Um Status = 'Denied' or Um Status = 'Pending Review' and Um Pending Rsn = 'HP Request for Information'
+         [authx.UM_STATUS = 'Denied' OR (authx.UM_STATUS = 'Pending Review' AND authx.UM_PENDING_RSN = 'HP Request for Information')]
+
+   Governance signals:
+     Unknown columns: RFL_HX_ACT.ACTION_DTTM, RFL_HX_ITEM_CHANGE.ITEM_CHANGE, RFL_HX_NEW_VAL.NEW_VALUE_EXTERNAL, V_CCHP_AuthHeader_Fact.Coverageid, V_CCHP_AuthHeader_Fact.EntryDate, V_CCHP_AuthHeader_Fact.ReferralPriority, V_CCHP_AuthHeader_Fact.ReferralProviderId, V_CCHP_AuthHeader_Fact.Referralid, V_CCHP_AuthHeader_Fact.ReferringProviderId, V_CCHP_AuthHeader_Fact.StartDate, V_CCHP_UMAuthorizationRequest_Fact.AUG_RECEIVED_DTTM, V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequest_Fact.LOB_ID, aut.UM_AUTH_REQUEST_ID, authx.CHANGED_DTTM, authx.UM_DENIED_RSN, authx.UM_PENDING_RSN, authx.UM_STATUS
+
+================================================================================
+
+# COLUMN DEFINITIONS
+
+## REFERRAL_ID (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: V_CCHP_AuthHeader_Fact.Referralid
+
+   Base Tables: V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.REFERRAL_ID, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Referralid
+
+   Governance signals:
+     Unknown columns: V_CCHP_AuthHeader_Fact.Referralid
+
+--------------------------------------------------------------------------------
+
+## COVERAGE_ID (passthrough)
+   Domain: Patient Demographics
+
+   ### Technical Definition
+
+   Expression: V_CCHP_AuthHeader_Fact.Coverageid
+
+   Base Tables: V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_AuthHeader_Fact.Coverageid, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Coverageid
+
+   Governance signals:
+     Unknown columns: V_CCHP_AuthHeader_Fact.Coverageid
+
+--------------------------------------------------------------------------------
+
+## ENTRY_DATE (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: V_CCHP_AuthHeader_Fact.EntryDate
+
+   Base Tables: V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_AuthHeader_Fact.EntryDate, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Entrydate
+
+   Governance signals:
+     Unknown columns: V_CCHP_AuthHeader_Fact.EntryDate
+
+--------------------------------------------------------------------------------
+
+## START_DATE (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: V_CCHP_AuthHeader_Fact.StartDate
+
+   Base Tables: V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_AuthHeader_Fact.StartDate, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Startdate
+
+   Governance signals:
+     Unknown columns: V_CCHP_AuthHeader_Fact.StartDate
+
+--------------------------------------------------------------------------------
+
+## PRIORITY (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: V_CCHP_AuthHeader_Fact.ReferralPriority
+
+   Base Tables: V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_AuthHeader_Fact.ReferralPriority, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Referralpriority
+
+   Governance signals:
+     Unknown columns: V_CCHP_AuthHeader_Fact.ReferralPriority
+
+--------------------------------------------------------------------------------
+
+## REFERRAL_PROV_ID (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: V_CCHP_AuthHeader_Fact.ReferralProviderId
+
+   Base Tables: V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_AuthHeader_Fact.ReferralProviderId, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Referralproviderid
+
+   Governance signals:
+     Unknown columns: V_CCHP_AuthHeader_Fact.ReferralProviderId
+
+--------------------------------------------------------------------------------
+
+## REFERRING_PROV_ID (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: V_CCHP_AuthHeader_Fact.ReferringProviderId
+
+   Base Tables: V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_AuthHeader_Fact.ReferringProviderId, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Referringproviderid
+
+   Governance signals:
+     Unknown columns: V_CCHP_AuthHeader_Fact.ReferringProviderId
+
+--------------------------------------------------------------------------------
+
+## AUTH_REQUEST_ID (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID
+
+   Base Tables: V_CCHP_UMAuthorizationRequest_Fact, V_CCHP_UMAuthorizationRequestStatusHistory_Fact, REFERRAL, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID, REFERRAL.REFERRAL_ID, V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Authorization Request Identifier
+
+   Governance signals:
+     Unknown columns: V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID
+
+--------------------------------------------------------------------------------
+
+## AUG_RECEIVED_DTTM (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: V_CCHP_UMAuthorizationRequest_Fact.AUG_RECEIVED_DTTM
+
+   Base Tables: V_CCHP_UMAuthorizationRequest_Fact, V_CCHP_UMAuthorizationRequestStatusHistory_Fact, REFERRAL, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_UMAuthorizationRequest_Fact.AUG_RECEIVED_DTTM, REFERRAL.REFERRAL_ID, V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Aug Received Date/Time
+
+   Governance signals:
+     Unknown columns: V_CCHP_UMAuthorizationRequest_Fact.AUG_RECEIVED_DTTM
+
+--------------------------------------------------------------------------------
+
+## LOB_ID (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: V_CCHP_UMAuthorizationRequest_Fact.LOB_ID
+
+   Base Tables: V_CCHP_UMAuthorizationRequest_Fact, V_CCHP_UMAuthorizationRequestStatusHistory_Fact, REFERRAL, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_UMAuthorizationRequest_Fact.LOB_ID, REFERRAL.REFERRAL_ID, V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Lob Identifier
+
+   Governance signals:
+     Unknown columns: V_CCHP_UMAuthorizationRequest_Fact.LOB_ID
+
+--------------------------------------------------------------------------------
+
+## RFL_TYPE_C (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: V_CCHP_UMAuthorizationRequest_Fact.RFL_TYPE_C
+
+   Base Tables: V_CCHP_UMAuthorizationRequest_Fact, V_CCHP_UMAuthorizationRequestStatusHistory_Fact, REFERRAL, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_UMAuthorizationRequest_Fact.RFL_TYPE_C, REFERRAL.REFERRAL_ID, V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   The category value indicating the type of each referral record
+
+--------------------------------------------------------------------------------
+
+## ITEM_CHANGE (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: RFL_HX_ITEM_CHANGE.ITEM_CHANGE
+
+   Base Tables: RFL_HX_ITEM_CHANGE, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY, REFERRAL_HISTORY, RFL_HX_ACT, RFL_HX_NEW_VAL
+   Base Columns: RFL_HX_ITEM_CHANGE.ITEM_CHANGE, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C, REFERRAL_HISTORY.REFERRAL_ID, RFL_HX_ACT.REFERRAL_ID, RFL_HX_ACT.GROUP_LINE, REFERRAL_HISTORY.LINE, RFL_HX_ITEM_CHANGE.VALUE_LINE, RFL_HX_ACT.VALUE_LINE, RFL_HX_ITEM_CHANGE.REFERRAL_ID, RFL_HX_ITEM_CHANGE.GROUP_LINE, RFL_HX_NEW_VAL.VALUE_LINE, RFL_HX_NEW_VAL.REFERRAL_ID, RFL_HX_NEW_VAL.GROUP_LINE, RFL_HX_NEW_VAL.NEW_VAL
+
+   ### Business Definition
+
+   Item Change
+
+   Governance signals:
+     Unknown columns: RFL_HX_ITEM_CHANGE.ITEM_CHANGE
+
+--------------------------------------------------------------------------------
+
+## NEW_VALUE_EXTERNAL (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: RFL_HX_NEW_VAL.NEW_VALUE_EXTERNAL
+
+   Base Tables: RFL_HX_NEW_VAL, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY, REFERRAL_HISTORY, RFL_HX_ACT, RFL_HX_ITEM_CHANGE
+   Base Columns: RFL_HX_NEW_VAL.NEW_VALUE_EXTERNAL, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C, REFERRAL_HISTORY.REFERRAL_ID, RFL_HX_ACT.REFERRAL_ID, RFL_HX_ACT.GROUP_LINE, REFERRAL_HISTORY.LINE, RFL_HX_ITEM_CHANGE.ITEM_CHANGE, RFL_HX_ITEM_CHANGE.VALUE_LINE, RFL_HX_ACT.VALUE_LINE, RFL_HX_ITEM_CHANGE.REFERRAL_ID, RFL_HX_ITEM_CHANGE.GROUP_LINE, RFL_HX_NEW_VAL.VALUE_LINE, RFL_HX_NEW_VAL.REFERRAL_ID, RFL_HX_NEW_VAL.GROUP_LINE, RFL_HX_NEW_VAL.NEW_VAL
+
+   ### Business Definition
+
+   New Value External
+
+   Governance signals:
+     Unknown columns: RFL_HX_NEW_VAL.NEW_VALUE_EXTERNAL
+
+--------------------------------------------------------------------------------
+
+## ACTION_DTTM (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: RFL_HX_ACT.ACTION_DTTM
+
+   Base Tables: RFL_HX_ACT, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY, REFERRAL_HISTORY, RFL_HX_ITEM_CHANGE, RFL_HX_NEW_VAL
+   Base Columns: RFL_HX_ACT.ACTION_DTTM, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C, REFERRAL_HISTORY.REFERRAL_ID, RFL_HX_ACT.REFERRAL_ID, RFL_HX_ACT.GROUP_LINE, REFERRAL_HISTORY.LINE, RFL_HX_ITEM_CHANGE.ITEM_CHANGE, RFL_HX_ITEM_CHANGE.VALUE_LINE, RFL_HX_ACT.VALUE_LINE, RFL_HX_ITEM_CHANGE.REFERRAL_ID, RFL_HX_ITEM_CHANGE.GROUP_LINE, RFL_HX_NEW_VAL.VALUE_LINE, RFL_HX_NEW_VAL.REFERRAL_ID, RFL_HX_NEW_VAL.GROUP_LINE, RFL_HX_NEW_VAL.NEW_VAL
+
+   ### Business Definition
+
+   Action Date/Time
+
+   Governance signals:
+     Unknown columns: RFL_HX_ACT.ACTION_DTTM
+
+--------------------------------------------------------------------------------
+
+## DENIAL_ROW (window)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: ROW_NUMBER() OVER (PARTITION BY aut.UM_AUTH_REQUEST_ID ORDER BY CASE WHEN authx.UM_STATUS = 'Denied' THEN authx.CHANGED_DTTM ELSE '99991231' END)
+
+   Base Tables: V_CCHP_UMAuthorization_Fact, V_CCHP_UMAuthorizationHistory_Fact, V_CCHP_UMAuthorizationRequest_Fact, V_CCHP_UMAuthorizationRequestStatusHistory_Fact, REFERRAL, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_UMAuthorization_Fact.UM_AUTH_REQUEST_ID, V_CCHP_UMAuthorizationHistory_Fact.CHANGED_DTTM, V_CCHP_UMAuthorizationHistory_Fact.UM_STATUS, REFERRAL.REFERRAL_ID, V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C, V_CCHP_UMAuthorization_Fact.AUTH_ID, V_CCHP_UMAuthorizationHistory_Fact.AUTH_ID, V_CCHP_UMAuthorizationHistory_Fact.UM_PENDING_RSN, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   row number, for same Um Authorization Request Identifier, ordered by Categorization: when Um Status = 'Denied', Changed Date/Time; otherwise '99991231'
+
+   Governance signals:
+     Unknown columns: aut.UM_AUTH_REQUEST_ID, authx.CHANGED_DTTM, authx.UM_STATUS
+
+--------------------------------------------------------------------------------
+
+## DENIAL_DATE (calculated)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: CASE WHEN authx.UM_STATUS = 'Denied' THEN authx.CHANGED_DTTM ELSE NULL END
+
+   Base Tables: V_CCHP_UMAuthorizationHistory_Fact, V_CCHP_UMAuthorizationRequest_Fact, V_CCHP_UMAuthorizationRequestStatusHistory_Fact, REFERRAL, V_CCHP_UMAuthorization_Fact, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_UMAuthorizationHistory_Fact.CHANGED_DTTM, V_CCHP_UMAuthorizationHistory_Fact.UM_STATUS, REFERRAL.REFERRAL_ID, V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C, V_CCHP_UMAuthorization_Fact.UM_AUTH_REQUEST_ID, V_CCHP_UMAuthorization_Fact.AUTH_ID, V_CCHP_UMAuthorizationHistory_Fact.AUTH_ID, V_CCHP_UMAuthorizationHistory_Fact.UM_PENDING_RSN, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Categorization: when Um Status = 'Denied', Changed Date/Time; otherwise null
+
+   Governance signals:
+     Unknown columns: authx.CHANGED_DTTM, authx.UM_STATUS
+
+--------------------------------------------------------------------------------
+
+## DENIAL_REASON (calculated)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: CASE WHEN authx.UM_STATUS = 'Denied' THEN authx.UM_DENIED_RSN ELSE NULL END
+
+   Base Tables: V_CCHP_UMAuthorizationHistory_Fact, V_CCHP_UMAuthorizationRequest_Fact, V_CCHP_UMAuthorizationRequestStatusHistory_Fact, REFERRAL, V_CCHP_UMAuthorization_Fact, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_UMAuthorizationHistory_Fact.UM_DENIED_RSN, V_CCHP_UMAuthorizationHistory_Fact.UM_STATUS, REFERRAL.REFERRAL_ID, V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C, V_CCHP_UMAuthorization_Fact.UM_AUTH_REQUEST_ID, V_CCHP_UMAuthorization_Fact.AUTH_ID, V_CCHP_UMAuthorizationHistory_Fact.AUTH_ID, V_CCHP_UMAuthorizationHistory_Fact.UM_PENDING_RSN, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Categorization: when Um Status = 'Denied', Um Denied Rsn; otherwise null
+
+   Governance signals:
+     Unknown columns: authx.UM_DENIED_RSN, authx.UM_STATUS
+
+--------------------------------------------------------------------------------
+
+## RFI_ROW (window)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: ROW_NUMBER() OVER (PARTITION BY aut.UM_AUTH_REQUEST_ID ORDER BY CASE WHEN authx.UM_PENDING_RSN = 'HP Request for Information' THEN authx.CHANGED_DTTM ELSE '99991231' END)
+
+   Base Tables: V_CCHP_UMAuthorization_Fact, V_CCHP_UMAuthorizationHistory_Fact, V_CCHP_UMAuthorizationRequest_Fact, V_CCHP_UMAuthorizationRequestStatusHistory_Fact, REFERRAL, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_UMAuthorization_Fact.UM_AUTH_REQUEST_ID, V_CCHP_UMAuthorizationHistory_Fact.CHANGED_DTTM, V_CCHP_UMAuthorizationHistory_Fact.UM_PENDING_RSN, REFERRAL.REFERRAL_ID, V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C, V_CCHP_UMAuthorization_Fact.AUTH_ID, V_CCHP_UMAuthorizationHistory_Fact.AUTH_ID, V_CCHP_UMAuthorizationHistory_Fact.UM_STATUS, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   row number, for same Um Authorization Request Identifier, ordered by Categorization: when Um Pending Rsn = 'HP Request for Information', Changed Date/Time; otherwise '99991231'
+
+   Governance signals:
+     Unknown columns: aut.UM_AUTH_REQUEST_ID, authx.CHANGED_DTTM, authx.UM_PENDING_RSN
+
+--------------------------------------------------------------------------------
+
+## RFI_DATE (calculated)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: CASE WHEN authx.UM_PENDING_RSN = 'HP Request for Information' THEN authx.CHANGED_DTTM ELSE NULL END
+
+   Base Tables: V_CCHP_UMAuthorizationHistory_Fact, V_CCHP_UMAuthorizationRequest_Fact, V_CCHP_UMAuthorizationRequestStatusHistory_Fact, REFERRAL, V_CCHP_UMAuthorization_Fact, V_CCHP_AuthHeader_Fact, REFERRAL_HIST, REFERRAL_BED_DAY
+   Base Columns: V_CCHP_UMAuthorizationHistory_Fact.CHANGED_DTTM, V_CCHP_UMAuthorizationHistory_Fact.UM_PENDING_RSN, REFERRAL.REFERRAL_ID, V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID, V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C, V_CCHP_UMAuthorization_Fact.UM_AUTH_REQUEST_ID, V_CCHP_UMAuthorization_Fact.AUTH_ID, V_CCHP_UMAuthorizationHistory_Fact.AUTH_ID, V_CCHP_UMAuthorizationHistory_Fact.UM_STATUS, REFERRAL_HIST.REFERRAL_ID, V_CCHP_AuthHeader_Fact.Referralid, REFERRAL_HIST.NEW_RFL_STATUS_C, REFERRAL_BED_DAY.REFERRAL_ID, REFERRAL_BED_DAY.BED_DAY_STATUS_C
+
+   ### Business Definition
+
+   Categorization: when Um Pending Rsn = 'HP Request for Information', Changed Date/Time; otherwise null
+
+   Governance signals:
+     Unknown columns: authx.CHANGED_DTTM, authx.UM_PENDING_RSN
+
+--------------------------------------------------------------------------------

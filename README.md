@@ -1,149 +1,79 @@
-# SQL Business Logic Extractor
+# SQL Logic Extractor — 4-Tool Product Line
 
-Automatically extract, document, and compare business logic from SQL queries. Transform complex SQL into structured definitions for data governance, documentation, and semantic layer integration.
+Engine + four layered tools that extract structured meaning from SQL views,
+for healthcare BI / data-governance teams.
 
-## The Problem
+## The 4 tools (each builds on the previous)
 
-Organizations accumulate hundreds of SQL reports over time. Each contains embedded business logic - calculations, filters, transformations - but this logic is:
-- **Undocumented** - What does `los_category` actually mean?
-- **Inconsistent** - Different teams define "length of stay" differently
-- **Hidden** - Logic buried in CTEs, subqueries, and CASE statements
-- **Untraceable** - Which source columns feed each output?
+| # | Tool | What it produces | Status |
+|---|---|---|---|
+| 1 | **Column Lineage Extractor** (`tools/column_lineage_extractor/`) | Every (database, schema, table, column) reference in a SQL view, with CTE flattening and alias resolution. Always deterministic; no LLM. | Live (May Week 1, 13 tests) |
+| 2 | **Technical Logic Extractor** (`tools/technical_logic_extractor/`) | Per-output-column lineage with WHERE/JOIN/EXISTS filters propagated. Always deterministic; no LLM. | Functional, productization in May Week 2 |
+| 3 | **Business Logic Extractor** (`tools/business_logic_extractor/`) | English definition for each transformed column. Default deterministic; optional LLM. | Scaffolded; May Week 3 |
+| 4 | **Report Description Generator** (`tools/report_description_generator/`) | Natural-language summary of what the SQL report does. Default deterministic; optional LLM. | Scaffolded; May Week 4 |
 
-**Manual documentation is impractical:** For 900 reports, manual extraction would take 3000+ hours (1.5 FTEs). Nobody has that bandwidth. Data governance stalls.
+Tools 1 and 2 are deterministic by design (no LLM possible). Tools 3 and 4
+ship with an `--use-llm` toggle that defaults OFF — the engineered mode
+is healthcare-safe (no data leaves the customer's premises, no LLM ever
+called).
 
-## The Solution
-
-This tool parses SQL queries and extracts business logic in minutes:
+## Repo layout
 
 ```
-SQL Files → L3 (Resolve) → L4 (Translate) → L5 (Compare) → Excel Spreadsheet
+sql-logic-extractor/
+├── sql_logic_extractor/          ← the engine (importable Python package)
+│   ├── products.py                # the 4 tool functions
+│   ├── license.py                 # feature gating
+│   ├── extract.py / normalize.py / resolve.py / translate.py
+│   └── patterns/
+│
+├── tools/                        ← the 4 product wrappers (CLI + HTTP)
+│   ├── column_lineage_extractor/
+│   ├── technical_logic_extractor/
+│   ├── business_logic_extractor/
+│   └── report_description_generator/
+│
+├── case_studies/                 ← real-world deployments / proof points
+│   └── ssis_to_fabric_migration/  # Use Case #1 — healthcare BI migration
+│
+├── data/                         ← schemas + sample SQL + demos
+│   ├── schemas/                   # clarity_schema.yaml, healthcare_schema.yaml
+│   ├── queries/                   # sample SQL fixtures
+│   └── demos/                     # demo flows
+│
+├── tests/                        ← engine-level tests
+├── planning/                     ← monthly / weekly / daily roadmap
+├── wiki/                         ← curated concept knowledge base
+└── docs/                         ← work shipments + archived code
 ```
 
-**Output:**
-- Detailed JSON/text files per report (for deep dives)
-- Summary Excel spreadsheet grouped by business logic (for steward curation)
+## Quick start
 
-## Quick Start: Batch Governance Extract
+Install the engine:
+```bash
+pip install -e .
+```
+
+Run a tool's CLI on a single SQL file:
+```bash
+python -m tools.column_lineage_extractor.cli path/to/view.sql -o columns.csv
+python -m tools.technical_logic_extractor.cli path/to/view.sql -o lineage.json
+python -m tools.business_logic_extractor.cli path/to/view.sql --schema data/schemas/clarity_schema.yaml
+python -m tools.report_description_generator.cli path/to/view.sql --schema data/schemas/clarity_schema.yaml
+```
+
+For folder/batch processing, see each tool's `batch.py` (where present).
+
+## Tests
 
 ```bash
-# Process all SQL files in a folder → Excel spreadsheet
-python3 cli/governance_extract.py ./sql_reports/ \
-    --schema clarity_schema.yaml \
-    --output governance_summary.xlsx \
-    --details-dir output/
-
-# Requires: pip install sqlglot openai openpyxl pyyaml
-# Set: export OPENAI_API_KEY="your-key"
+python -m pytest                              # engine + tool tests
+python case_studies/ssis_to_fabric_migration/tests/run_tests.py   # case-study fixtures
 ```
 
-**Output:**
-- `governance_summary.xlsx` - Spreadsheet grouped by business logic term
-- `output/details/` - Individual L3/L4 JSON files per report
+## Planning
 
-## Architecture
-
-```
-L1 (Extract) → L2 (Normalize) → L3 (Resolve) → L4 (Translate) → L5 (Compare)
-     ↓               ↓              ↓               ↓                ↓
- extract.py     normalize.py    resolve.py    cli/llm_translate.py  cli/compare_lineage.py
-```
-
-| Layer | Module | Purpose |
-|-------|--------|---------|
-| L1 | `sql_logic_extractor/extract.py` | Parse SQL into AST, extract raw column definitions |
-| L2 | `sql_logic_extractor/normalize.py` | Normalize expressions, classify calculation types |
-| L3 | `sql_logic_extractor/resolve.py` | **Resolve full lineage** - trace through CTEs to base tables |
-| L4 | `cli/llm_translate.py` | **LLM translation** - English definitions using data dictionary |
-| L5 | `cli/compare_lineage.py` | **Compare & detect conflicts** - find duplicates and inconsistencies |
-| Main | `cli/governance_extract.py` | **Orchestration** - batch process + Excel export |
-
-## Demo Scenarios
-
-See the `demos/` folder:
-
-| Demo | Type | Purpose |
-|------|------|---------|
-| `01_basic_extraction/` | Component | Test L3 (resolve) + L4 (translate) on one complex query |
-| `02_conflict_detection/` | **Integration** | Test full pipeline via `cli/governance_extract.py` |
-
-## Excel Output Format
-
-The governance spreadsheet groups definitions by business logic term:
-
-| Business Logic Term | Status | # Variations | Report Name | Business Definition | Technical Definition | Source Tables | Assigned To | Review Status |
-|---------------------|--------|--------------|-------------|---------------------|---------------------|---------------|-------------|---------------|
-| length_of_stay | CONFLICT | 4 | report_finance | Days from admission to discharge | DATEDIFF(DAY, HOSP_ADMSN_TIME, HOSP_DISCH_TIME) | PAT_ENC_HSP | | |
-| | | | report_quality | Days from admission to discharge plus one | DATEDIFF(DAY, ADM_DATE_TIME, DISCH_DATE_TIME) + 1 | HSP_ACCOUNT | | |
-| | | | report_billing | Days from service to posting | DATEDIFF(DAY, SERVICE_DATE, POST_DATE) | ARPB_TRANSACTIONS | | |
-
-**Status values:**
-- `CONFLICT` - Same name, different logic (needs resolution)
-- `SIMILAR` - Structurally similar (needs review)
-- `CONSISTENT` - Same logic across reports (OK)
-- `UNIQUE` - Single definition
-
-## Workflow
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        AUTOMATED (minutes)                              │
-│                                                                         │
-│   cli/governance_extract.py ./sql_reports/ --output governance.xlsx     │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    ↓
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        HUMAN-IN-THE-LOOP                                │
-│                                                                         │
-│   BI Manager divides spreadsheet among stewards                         │
-│   Stewards review, approve, or flag for discussion                      │
-│   Measurable: 200 terms assigned, 150 completed (75%)                   │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    ↓
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        COLLIBRA INGESTION                               │
-│                                                                         │
-│   Report Description     ← L4 query summary                             │
-│   Business Definition    ← L4 english_definition                        │
-│   Technical Definition   ← L3 expression + filters                      │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-## Data Dictionary
-
-The tool uses `clarity_schema.yaml` (Epic Clarity data dictionary) for:
-- Table and column descriptions
-- Enum value mappings (e.g., `ADT_PAT_CLASS_C: 1 = Inpatient`)
-- Relationship context for LLM translation
-
-## Individual Script Usage
-
-```bash
-# L3: Extract lineage from a single SQL query
-python3 -m sql_logic_extractor.resolve query.sql --output output/query
-
-# L5: Compare multiple queries for conflicts
-python3 cli/compare_lineage.py query1.sql query2.sql --output comparison.txt
-
-# L4: Generate English definitions for a single query
-python3 cli/llm_translate.py output/query.json --schema clarity_schema.yaml
-```
-
-## Requirements
-
-```bash
-pip install sqlglot openai openpyxl pyyaml
-```
-
-- Python 3.8+
-- `sqlglot` - SQL parsing
-- `openai` - LLM translation
-- `openpyxl` - Excel export
-- `pyyaml` - Schema loading
-
-## License
-
-MIT
+The 4-tool roadmap, by month and week, lives in `planning/`. May builds the
+tools; June ships the website + 3 monetization tiers (free single-use, paid
+subscription, on-prem license); July markets; August onboards first paying
+customers + Collibra connector; September adds an AI agent layer.

@@ -1,0 +1,470 @@
+================================================================================
+SQL QUERY BUSINESS LOGIC DOCUMENTATION (Offline Recursive Translation)
+================================================================================
+
+# QUERY SUMMARY
+
+   Query extracts 26 columns from 8 table(s) covering General, Patient Demographics, Referrals and 1 more domain(s)
+
+   Primary Purpose: Aggregated reporting for patient analysis
+
+   Key Entities: PATIENT, CLARITY_SER, F_SCHED_APPT, ZC_RFL_STATUS, ZC_SPECIALTY
+   Key Metrics: age_years, age_category, referral_class, referral_category, first_appt_outcome
+   Source Tables: CLARITY_DEP, CLARITY_SER, F_SCHED_APPT, PATIENT, PROBLEM_LIST, REFERRAL, ZC_RFL_STATUS, ZC_SPECIALTY
+   Business Domains: General, Patient Demographics, Referrals, Scheduling
+   Total Columns: 26
+
+   Query Filters (apply to the final result set):
+     - Appointment Sequence For Referral = 1 or Appointment Sequence For Referral is null
+         [ra.appt_sequence_for_referral = 1 OR ra.appt_sequence_for_referral IS NULL]
+     - Count of distinct Unique referral identifier ≥ 10
+         [COUNT(DISTINCT REFERRAL_ID) >= 10]
+     - Date referral was created ≥ today minus 2 years
+         [r.ENTRY_DATE >= DATEADD(YEAR, -2, GETDATE())]
+     - The category value corresponding to the status of each referral record is not null
+         [NOT r.REFERRAL_STATUS_C IS NULL]
+     - The date the problem was resolved in calendar format is null
+         [pl.RESOLVED_DATE IS NULL]
+     - Appointment date and time ≥ today minus 2 years
+         [fa.APPT_DTTM >= DATEADD(YEAR, -2, GETDATE())]
+
+   Governance signals:
+     Unknown columns: appt_outcome, br.referral_date, days_to_appointment, ra.active_problem_count, ra.age_category, ra.appt_outcome, ra.cumulative_no_shows, ra.referral_category
+
+================================================================================
+
+# COLUMN DEFINITIONS
+
+## REFERRAL_ID (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: REFERRAL.REFERRAL_ID
+
+   Base Tables: REFERRAL
+   Base Columns: REFERRAL.REFERRAL_ID
+
+   ### Business Definition
+
+   Unique referral identifier
+
+--------------------------------------------------------------------------------
+
+## PAT_ID (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: REFERRAL.PAT_ID
+
+   Base Tables: REFERRAL
+   Base Columns: REFERRAL.PAT_ID
+
+   ### Business Definition
+
+   Patient receiving referral
+
+--------------------------------------------------------------------------------
+
+## PAT_NAME (passthrough)
+   Domain: General
+
+   ### Technical Definition
+
+   Expression: PATIENT.PAT_NAME
+
+   Base Tables: PATIENT
+   Base Columns: PATIENT.PAT_NAME
+
+   ### Business Definition
+
+   Patient full name
+
+--------------------------------------------------------------------------------
+
+## age_years (calculated)
+   Domain: Patient Demographics
+
+   ### Technical Definition
+
+   Expression: DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE())
+
+   Base Tables: PATIENT
+   Base Columns: PATIENT.YEAR, PATIENT.BIRTH_DATE
+
+   ### Business Definition
+
+   Number of years between Patient date of birth and today
+
+--------------------------------------------------------------------------------
+
+## age_category (case)
+   Domain: Patient Demographics
+
+   ### Technical Definition
+
+   Expression: CASE WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) < 18 THEN 'Pediatric' WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) BETWEEN 18 AND 40 THEN 'Young Adult' WHEN DATEDIFF(YEAR, p.BIRTH_DATE, GETDATE()) BETWEEN 41 AND 65 THEN 'Middle Age' ELSE 'Senior' END
+
+   Base Tables: PATIENT
+   Base Columns: PATIENT.YEAR, PATIENT.BIRTH_DATE
+
+   ### Business Definition
+
+   Categorization: when Number of years between Patient date of birth and today < 18, 'Pediatric'; when Number of years between Patient date of birth and today between 18 and 40, 'Young Adult'; when Number of years between Patient date of birth and today between 41 and 65, 'Middle Age'; otherwise 'Senior'
+
+--------------------------------------------------------------------------------
+
+## active_problem_count (subquery)
+   Domain: General
+
+   ### Technical Definition
+
+   Expression: (SELECT COUNT(*) FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)
+
+   Base Tables: PROBLEM_LIST, PATIENT
+   Base Columns: PROBLEM_LIST.PAT_ID, PATIENT.PAT_ID, PROBLEM_LIST.RESOLVED_DATE
+
+   ### Business Definition
+
+   (Count of rows, from PROBLEM_LIST, where The date the problem was resolved in calendar format is null)
+
+--------------------------------------------------------------------------------
+
+## referral_date (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: REFERRAL.ENTRY_DATE
+
+   Base Tables: REFERRAL
+   Base Columns: REFERRAL.ENTRY_DATE
+
+   ### Business Definition
+
+   Date referral was created
+
+--------------------------------------------------------------------------------
+
+## referral_status_name (passthrough)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: ZC_RFL_STATUS.NAME
+
+   Base Tables: ZC_RFL_STATUS
+   Base Columns: ZC_RFL_STATUS.NAME
+
+   ### Business Definition
+
+   Referral status name
+
+--------------------------------------------------------------------------------
+
+## specialty_name (passthrough)
+   Domain: General
+
+   ### Technical Definition
+
+   Expression: ZC_SPECIALTY.NAME
+
+   Base Tables: ZC_SPECIALTY
+   Base Columns: ZC_SPECIALTY.NAME
+
+   ### Business Definition
+
+   Specialty name
+
+--------------------------------------------------------------------------------
+
+## referral_class (case)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: CASE r.RFL_CLASS_C WHEN 1 THEN 'Internal' WHEN 2 THEN 'Incoming' WHEN 3 THEN 'Outgoing' ELSE 'Unknown' END
+
+   Base Tables: REFERRAL
+   Base Columns: REFERRAL.RFL_CLASS_C
+
+   ### Business Definition
+
+   Mapped from The category value indicating the class of each referral record: 1 → 'Internal'; 2 → 'Incoming'; 3 → 'Outgoing'; otherwise 'Unknown'
+
+--------------------------------------------------------------------------------
+
+## referral_category (case)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: CASE WHEN r.REFERRAL_STATUS_C IN (1, 2) THEN 'Active' WHEN r.REFERRAL_STATUS_C IN (4, 5) THEN 'Closed-Negative' WHEN r.REFERRAL_STATUS_C = 6 THEN 'Closed-Complete' ELSE 'Pending' END
+
+   Base Tables: REFERRAL
+   Base Columns: REFERRAL.REFERRAL_STATUS_C
+
+   ### Business Definition
+
+   Categorization: when The category value corresponding to the status of each referral record in (1, 2), 'Active'; when The category value corresponding to the status of each referral record in (4, 5), 'Closed-Negative'; when The category value corresponding to the status of each referral record = 6, 'Closed-Complete'; otherwise 'Pending'
+
+--------------------------------------------------------------------------------
+
+## first_appt_csn (passthrough)
+   Domain: Scheduling
+
+   ### Technical Definition
+
+   Expression: F_SCHED_APPT.PAT_ENC_CSN_ID
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.PAT_ENC_CSN_ID
+
+   ### Business Definition
+
+   Scheduled appointment identifier
+
+--------------------------------------------------------------------------------
+
+## first_appt_date (passthrough)
+   Domain: Scheduling
+
+   ### Technical Definition
+
+   Expression: F_SCHED_APPT.APPT_DTTM
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.APPT_DTTM
+
+   ### Business Definition
+
+   Appointment date and time
+
+--------------------------------------------------------------------------------
+
+## first_appt_outcome (case)
+   Domain: Scheduling
+
+   ### Technical Definition
+
+   Expression: CASE fa.APPT_STATUS_C WHEN 2 THEN 'Completed' WHEN 3 THEN 'Cancelled' WHEN 4 THEN 'No Show' WHEN 5 THEN 'Left Without Seen' WHEN 6 THEN 'Arrived' ELSE 'Scheduled' END
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.APPT_STATUS_C
+
+   ### Business Definition
+
+   Mapped from Appointment status: 2 → 'Completed'; 3 → 'Cancelled'; 4 → 'No Show'; 5 → 'Left Without Seen'; 6 → 'Arrived'; otherwise 'Scheduled'
+
+--------------------------------------------------------------------------------
+
+## DEPARTMENT_NAME (passthrough)
+   Domain: General
+
+   ### Technical Definition
+
+   Expression: CLARITY_DEP.DEPARTMENT_NAME
+
+   Base Tables: CLARITY_DEP
+   Base Columns: CLARITY_DEP.DEPARTMENT_NAME
+
+   ### Business Definition
+
+   Department name
+
+--------------------------------------------------------------------------------
+
+## first_appt_provider (passthrough)
+   Domain: Scheduling
+
+   ### Technical Definition
+
+   Expression: CLARITY_SER.PROV_NAME
+
+   Base Tables: CLARITY_SER
+   Base Columns: CLARITY_SER.PROV_NAME
+
+   ### Business Definition
+
+   Provider full name
+
+--------------------------------------------------------------------------------
+
+## days_to_appointment (calculated)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: DATEDIFF(DAY, br.referral_date, ah.APPT_DTTM)
+
+   Base Tables: REFERRAL, F_SCHED_APPT
+   Base Columns: .DAY, REFERRAL.ENTRY_DATE, F_SCHED_APPT.APPT_DTTM
+
+   ### Business Definition
+
+   Number of days between Referral Date and Appointment date and time
+
+   Governance signals:
+     Unknown columns: br.referral_date
+
+--------------------------------------------------------------------------------
+
+## lead_time_days (calculated)
+   Domain: General
+
+   ### Technical Definition
+
+   Expression: DATEDIFF(DAY, fa.APPT_MADE_DTTM, fa.APPT_DTTM)
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.DAY, F_SCHED_APPT.APPT_MADE_DTTM, F_SCHED_APPT.APPT_DTTM
+
+   ### Business Definition
+
+   Number of days between When appointment was scheduled and Appointment date and time
+
+--------------------------------------------------------------------------------
+
+## visit_duration_minutes (case)
+   Domain: General
+
+   ### Technical Definition
+
+   Expression: CASE WHEN NOT fa.CHECKIN_DTTM IS NULL AND NOT fa.CHECKOUT_DTTM IS NULL THEN DATEDIFF(MINUTE, fa.CHECKIN_DTTM, fa.CHECKOUT_DTTM) ELSE NULL END
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.MINUTE, F_SCHED_APPT.CHECKIN_DTTM, F_SCHED_APPT.CHECKOUT_DTTM
+
+   ### Business Definition
+
+   Categorization: when When patient checked in is not null and When patient checked out is not null, Number of minutes between When patient checked in and When patient checked out; otherwise null
+
+--------------------------------------------------------------------------------
+
+## cumulative_no_shows (window)
+   Domain: General
+
+   ### Technical Definition
+
+   Expression: SUM(CASE WHEN fa.APPT_STATUS_C = 4 THEN 1 ELSE 0 END) OVER (PARTITION BY fa.PAT_ID ORDER BY fa.APPT_DTTM ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+
+   Base Tables: F_SCHED_APPT
+   Base Columns: F_SCHED_APPT.PAT_ID, F_SCHED_APPT.APPT_DTTM, F_SCHED_APPT.APPT_STATUS_C
+
+   ### Business Definition
+
+   Sum of Categorization: when Appointment status = 4, 1; otherwise 0, for same Unique patient identifier, ordered by Appointment date and time
+
+--------------------------------------------------------------------------------
+
+## specialty_avg_days (aggregate)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: AVG(CAST(DATEDIFF(DAY, br.referral_date, ah.APPT_DTTM) AS FLOAT))
+
+   Base Tables: REFERRAL, F_SCHED_APPT
+   Base Columns: .DAY, REFERRAL.ENTRY_DATE, F_SCHED_APPT.APPT_DTTM
+
+   ### Business Definition
+
+   Average of Number of days between Referral Date and Appointment date and time
+
+   Governance signals:
+     Unknown columns: br.referral_date
+
+--------------------------------------------------------------------------------
+
+## days_vs_specialty_avg (calculated)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: COALESCE(DATEDIFF(DAY, br.referral_date, ah.APPT_DTTM), 0) - COALESCE(AVG(CAST(days_to_appointment AS FLOAT)), 0)
+
+   Base Tables: REFERRAL, F_SCHED_APPT
+   Base Columns: .DAY, REFERRAL.ENTRY_DATE, F_SCHED_APPT.APPT_DTTM
+
+   ### Business Definition
+
+   first non-null of (Number of days between Referral Date and Appointment date and time, 0) minus first non-null of (Average of Days To Appointment, 0)
+
+   Governance signals:
+     Unknown columns: br.referral_date, days_to_appointment
+
+--------------------------------------------------------------------------------
+
+## specialty_conversion_rate (aggregate)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: CAST(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END) AS FLOAT) /* Conversion rate */ / NULLIF(COUNT(DISTINCT REFERRAL_ID), 0) * 100
+
+   Base Tables: REFERRAL, F_SCHED_APPT
+   Base Columns: REFERRAL.REFERRAL_ID, F_SCHED_APPT.PAT_ENC_CSN_ID
+
+   ### Business Definition
+
+   Count of distinct Categorization: when Unique encounter/appointment identifier (CSN) is not null, Unique referral identifier divided by null when Count of distinct Unique referral identifier = 0, otherwise Count of distinct Unique referral identifier times 100
+
+--------------------------------------------------------------------------------
+
+## specialty_completion_rate (aggregate)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: CAST(COUNT(DISTINCT CASE WHEN appt_outcome = 'Completed' THEN REFERRAL_ID END) AS FLOAT) /* Completion rate (of those with appointments) */ / NULLIF(COUNT(DISTINCT CASE WHEN NOT PAT_ENC_CSN_ID IS NULL THEN REFERRAL_ID END), 0) * 100
+
+   Base Tables: REFERRAL, F_SCHED_APPT
+   Base Columns: REFERRAL.REFERRAL_ID, F_SCHED_APPT.APPT_STATUS_C, F_SCHED_APPT.PAT_ENC_CSN_ID
+
+   ### Business Definition
+
+   Count of distinct Categorization: when Appointment Outcome = 'Completed', Unique referral identifier divided by null when Count of distinct Categorization: when Unique encounter/appointment identifier (CSN) is not null, Unique referral identifier = 0, otherwise Count of distinct Categorization: when Unique encounter/appointment identifier (CSN) is not null, Unique referral identifier times 100
+
+   Governance signals:
+     Unknown columns: appt_outcome
+
+--------------------------------------------------------------------------------
+
+## patient_risk_flag (case)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: CASE WHEN ra.cumulative_no_shows >= 3 THEN 'High Risk - Multiple No Shows' WHEN ra.cumulative_no_shows >= 1 AND ra.age_category = 'Senior' THEN 'Medium Risk - Senior with No Show History' WHEN ra.active_problem_count >= 5 THEN 'Medium Risk - Complex Patient' WHEN DATEDIFF(DAY, br.referral_date, ah.APPT_DTTM) > AVG(CAST(days_to_appointment AS FLOAT)) * 2 THEN 'Medium Risk - Long Wait Time' ELSE 'Standard' END
+
+   Base Tables: F_SCHED_APPT, PROBLEM_LIST, PATIENT, REFERRAL
+   Base Columns: F_SCHED_APPT.PAT_ID, F_SCHED_APPT.APPT_DTTM, F_SCHED_APPT.APPT_STATUS_C, PROBLEM_LIST.PAT_ID, PATIENT.PAT_ID, PROBLEM_LIST.RESOLVED_DATE, .DAY, REFERRAL.ENTRY_DATE, PATIENT.YEAR, PATIENT.BIRTH_DATE
+
+   ### Business Definition
+
+   Categorization: when Cumulative No Shows ≥ 3, 'High Risk - Multiple No Shows'; when Cumulative No Shows ≥ 1 and Age Category = 'Senior', 'Medium Risk - Senior with No Show History'; when Active Problem Count ≥ 5, 'Medium Risk - Complex Patient'; when Number of days between Referral Date and Appointment date and time > Average of Days To Appointment times 2, 'Medium Risk - Long Wait Time'; otherwise 'Standard'
+
+   Governance signals:
+     Unknown columns: br.referral_date, days_to_appointment, ra.active_problem_count, ra.age_category, ra.cumulative_no_shows
+
+--------------------------------------------------------------------------------
+
+## referral_success_flag (case)
+   Domain: Referrals
+
+   ### Technical Definition
+
+   Expression: CASE WHEN ra.appt_outcome = 'Completed' THEN 1 WHEN ra.appt_outcome IN ('Cancelled', 'No Show') THEN 0 WHEN ra.PAT_ENC_CSN_ID IS NULL AND ra.referral_category = 'Active' THEN NULL /* Still pending */ ELSE 0 END
+
+   Base Tables: F_SCHED_APPT, REFERRAL
+   Base Columns: F_SCHED_APPT.APPT_STATUS_C, F_SCHED_APPT.PAT_ENC_CSN_ID, REFERRAL.REFERRAL_STATUS_C
+
+   ### Business Definition
+
+   Categorization: when Appointment Outcome = 'Completed', 1; when Appointment Outcome in ('Cancelled', 'No Show'), 0; when Unique encounter/appointment identifier (CSN) is null and Referral Category = 'Active', null; otherwise 0
+
+   Governance signals:
+     Unknown columns: ra.appt_outcome, ra.referral_category
+
+--------------------------------------------------------------------------------

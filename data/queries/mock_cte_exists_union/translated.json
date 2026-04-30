@@ -1,0 +1,166 @@
+{
+  "summary": {
+    "query_summary": "Query extracts 4 columns from 1 table(s) covering General, Patient Demographics",
+    "primary_purpose": "Data extraction for patient analysis",
+    "key_entities": [
+      "PATIENT"
+    ],
+    "key_metrics": [],
+    "source_tables": [
+      "PATIENT"
+    ],
+    "business_domains": [
+      "General",
+      "Patient Demographics"
+    ],
+    "column_count": 4,
+    "unknown_columns": [
+      "PATIENT.SEX_C"
+    ],
+    "query_filters": [
+      "ap.BIRTH_DATE < DATE_ADD(CURRENT_TIMESTAMP(), -18, 'YEAR')",
+      "EXISTS(SELECT 1 FROM PAT_ENC AS pe WHERE pe.PAT_ID = p.PAT_ID AND pe.CONTACT_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -1, 'YEAR') UNION ALL SELECT 1 FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)"
+    ],
+    "query_filters_english": [
+      "Patient date of birth < today minus 18 years",
+      "there exists a row where either (from PAT_ENC, where Contact date for the encounter \u2265 today minus 1 years) or (from PROBLEM_LIST, where The date the problem was resolved in calendar format is null)"
+    ]
+  },
+  "columns": [
+    {
+      "column_name": "PAT_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_ID",
+        "base_columns": [
+          "PATIENT.PAT_ID"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "ap.BIRTH_DATE < DATE_ADD(CURRENT_TIMESTAMP(), -18, 'YEAR')",
+          "EXISTS(SELECT 1 FROM PAT_ENC AS pe WHERE pe.PAT_ID = p.PAT_ID AND pe.CONTACT_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -1, 'YEAR') UNION ALL SELECT 1 FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)"
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "PAT_ID",
+            "expression": "ap.PAT_ID",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ActivePatients",
+            "name": "PAT_ID",
+            "expression": "p.PAT_ID",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "Unique patient identifier",
+      "business_domain": "General"
+    },
+    {
+      "column_name": "PAT_NAME",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.PAT_NAME",
+        "base_columns": [
+          "PATIENT.PAT_NAME"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "ap.BIRTH_DATE < DATE_ADD(CURRENT_TIMESTAMP(), -18, 'YEAR')",
+          "EXISTS(SELECT 1 FROM PAT_ENC AS pe WHERE pe.PAT_ID = p.PAT_ID AND pe.CONTACT_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -1, 'YEAR') UNION ALL SELECT 1 FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)"
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "PAT_NAME",
+            "expression": "ap.PAT_NAME",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ActivePatients",
+            "name": "PAT_NAME",
+            "expression": "p.PAT_NAME",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "Patient full name",
+      "business_domain": "General"
+    },
+    {
+      "column_name": "BIRTH_DATE",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.BIRTH_DATE",
+        "base_columns": [
+          "PATIENT.BIRTH_DATE"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "ap.BIRTH_DATE < DATE_ADD(CURRENT_TIMESTAMP(), -18, 'YEAR')",
+          "EXISTS(SELECT 1 FROM PAT_ENC AS pe WHERE pe.PAT_ID = p.PAT_ID AND pe.CONTACT_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -1, 'YEAR') UNION ALL SELECT 1 FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)"
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "BIRTH_DATE",
+            "expression": "ap.BIRTH_DATE",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ActivePatients",
+            "name": "BIRTH_DATE",
+            "expression": "p.BIRTH_DATE",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "Patient date of birth",
+      "business_domain": "Patient Demographics"
+    },
+    {
+      "column_name": "SEX_C",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "PATIENT.SEX_C",
+        "base_columns": [
+          "PATIENT.SEX_C"
+        ],
+        "base_tables": [
+          "PATIENT"
+        ],
+        "filters": [
+          "ap.BIRTH_DATE < DATE_ADD(CURRENT_TIMESTAMP(), -18, 'YEAR')",
+          "EXISTS(SELECT 1 FROM PAT_ENC AS pe WHERE pe.PAT_ID = p.PAT_ID AND pe.CONTACT_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -1, 'YEAR') UNION ALL SELECT 1 FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)"
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "SEX_C",
+            "expression": "ap.SEX_C",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ActivePatients",
+            "name": "SEX_C",
+            "expression": "p.SEX_C",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "Sex C",
+      "business_domain": "General",
+      "unknown_columns": [
+        "PATIENT.SEX_C"
+      ]
+    }
+  ]
+}

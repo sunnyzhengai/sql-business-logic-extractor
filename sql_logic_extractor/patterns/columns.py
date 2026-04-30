@@ -64,6 +64,20 @@ def _table_index(schema: dict) -> dict:
     return idx
 
 
+def _clean_description(desc: str) -> str:
+    """Normalize schema descriptions for readable prose embedding.
+    - Strip trailing punctuation (periods, whitespace).
+    - Sentence-case ALL-CAPS descriptions (auto-extracted Clarity metadata).
+    Leaves well-cased descriptions alone."""
+    if not desc:
+        return desc
+    s = desc.rstrip(". \t")
+    if s and any(c.isalpha() for c in s) and not any(c.islower() for c in s):
+        # All caps → sentence case: first letter up, rest lower
+        s = s[0] + s[1:].lower()
+    return s
+
+
 def _lookup_column(schema: dict, table: str | None, column: str) -> dict | None:
     """Return the schema entry {description, ini, item} for a column, or None."""
     if not schema:
@@ -98,7 +112,7 @@ def column_ref(ctx: Context, node: exp.Expression, children: dict[str, Translati
     if entry is not None and entry.get("description"):
         ini_key = _ini_item_key(entry)
         return Translation(
-            english=entry["description"],
+            english=_clean_description(entry["description"]),
             category="passthrough",
             base_columns=[ref],
             base_tables=[table] if table else [],

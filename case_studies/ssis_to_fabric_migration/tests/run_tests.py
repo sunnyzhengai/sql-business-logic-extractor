@@ -1,23 +1,15 @@
 #!/usr/bin/env python3
-"""Run the standalone manifest builder against every view in tests/views/
-and print a per-view summary so regressions are visible.
+"""Run the archived standalone manifest builder against every view in
+tests/views/ and print a per-view summary so regressions are visible.
 
 Usage:
-    python3 view-migration/tests/run_tests.py
+    python3 case_studies/ssis_to_fabric_migration/tests/run_tests.py
 
-Behavior:
-- Iterates view-migration/tests/views/*.sql
-- For each view, runs extract_view_refs() and prints:
-    * pass/fail (whether any parse_error rows came back)
-    * which tables and columns were captured
-- Generates a UTF-16 LE BOM'd copy of test 09 in /tmp at runtime to
-  exercise the SSMS encoding handler against a real BOM'd file
-  without committing binary fixtures into git.
-
-Add new fixtures by dropping a *.sql file in tests/views/ — the runner
-picks them up automatically. To debug a real production view, drop a
-sanitised copy into tests/views/ (e.g. as `99_my_problem_view.sql`)
-and re-run; the output shows exactly what came out for that view.
+Note: as of the 4-tool restructure, the standalone manifest builder lives
+at docs/archive/build_manifest_standalone.py -- it's the predecessor of
+tools/column_lineage_extractor. These case-study tests pin its behavior
+so the fixtures stay reproducible while we transition to the productized
+tools.
 """
 
 import csv
@@ -25,10 +17,11 @@ import io
 import sys
 from pathlib import Path
 
-# Make the standalone module importable when running this script directly
+# Make the archived standalone module importable. Path: project_root/docs/archive/
 HERE = Path(__file__).resolve().parent
-SCRIPTS_DIR = HERE.parent / "scripts"
-sys.path.insert(0, str(SCRIPTS_DIR))
+PROJECT_ROOT = HERE.parent.parent.parent
+ARCHIVE_DIR = PROJECT_ROOT / "docs" / "archive"
+sys.path.insert(0, str(ARCHIVE_DIR))
 
 from build_manifest_standalone import extract_view_refs  # noqa: E402
 

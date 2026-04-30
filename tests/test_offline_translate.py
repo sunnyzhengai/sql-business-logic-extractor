@@ -28,7 +28,7 @@ from sql_logic_extractor.patterns import Context, translate
 
 
 FIXTURES_DIR = Path(__file__).parent / "golden" / "offline_translate"
-SCHEMA_PATH = Path(__file__).parent.parent / "clarity_schema.yaml"
+SCHEMA_PATH = Path(__file__).parent.parent / "data" / "schemas" / "clarity_schema.yaml"
 UPDATE_GOLDEN = os.environ.get("UPDATE_GOLDEN") == "1"
 
 CASES = [

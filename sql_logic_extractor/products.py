@@ -258,13 +258,13 @@ def _translate_with_llm(lineage: TechnicalLineage, schema: dict, llm_client) -> 
     """LLM-backed translator. Lazy-imports the client lib so a no-LLM
     install doesn't have it on disk.
 
-    TODO (May Week 3): adapt cli/llm_translate.py:translate_column logic
+    TODO (May Week 3): adapt docs/archive/cli/llm_translate.py:translate_column logic
     here. For now raises NotImplementedError so the gate-and-shape work
     is verifiable without committing to a model choice yet."""
     from . import _llm_clients  # noqa: F401  (forward-declares lazy import)
     raise NotImplementedError(
         "LLM-backed business logic translation is scheduled for May Week 3. "
-        "See cli/llm_translate.py for the existing prototype to port."
+        "See docs/archive/cli/llm_translate.py for the existing prototype to port."
     )
 
 
@@ -325,10 +325,10 @@ def _summarize_engineered(bl: BusinessLogic) -> tuple[str, str, list[str]]:
 def _summarize_with_llm(bl: BusinessLogic, llm_client) -> tuple[str, str, list[str]]:
     """LLM-backed summary. Lazy-imports the client lib.
 
-    TODO (May Week 4): port cli/llm_translate.py:summarize_query here."""
+    TODO (May Week 4): port docs/archive/cli/llm_translate.py:summarize_query here."""
     raise NotImplementedError(
         "LLM-backed report summary is scheduled for May Week 4. "
-        "See cli/llm_translate.py:summarize_query for the existing prototype."
+        "See docs/archive/cli/llm_translate.py:summarize_query for the existing prototype."
     )
 
 

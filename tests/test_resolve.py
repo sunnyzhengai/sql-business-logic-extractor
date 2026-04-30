@@ -51,7 +51,7 @@ class TestSimpleResolution:
             WHERE e.ADT_PAT_CLASS_C = 1
         """)
         assert len(cols["PAT_ENC_CSN_ID"].filters) >= 1
-        assert any("ADT_PAT_CLASS_C" in f for f in cols["PAT_ENC_CSN_ID"].filters)
+        assert any("ADT_PAT_CLASS_C" in f.expression for f in cols["PAT_ENC_CSN_ID"].filters)
 
 
 # ============================================================
@@ -101,7 +101,7 @@ class TestSingleCTE:
             SELECT PAT_ID FROM enc
         """)
         assert len(cols["PAT_ID"].filters) >= 1
-        assert any("ADT_PAT_CLASS_C" in f for f in cols["PAT_ID"].filters)
+        assert any("ADT_PAT_CLASS_C" in f.expression for f in cols["PAT_ID"].filters)
 
 
 # ============================================================
@@ -173,7 +173,7 @@ class TestChainedCTEs:
             SELECT PAT_ID FROM b WHERE PAT_ID < 999
         """)
         # Should have filters from all 3 levels
-        all_filter_text = " ".join(cols["PAT_ID"].filters)
+        all_filter_text = " ".join(f.expression for f in cols["PAT_ID"].filters)
         assert "ADT_PAT_CLASS_C" in all_filter_text
 
 

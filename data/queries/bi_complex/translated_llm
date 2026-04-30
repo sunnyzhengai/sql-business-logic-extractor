@@ -1,0 +1,1540 @@
+{
+  "summary": {
+    "query_summary": "This query retrieves detailed information for referral authorizations that have been denied, as well as authorization requests that are currently pending due to a 'Request for Information' (RFI). It provides key identifiers for referrals, coverages, and authorization requests, along with associated provider details, dates, and line of business. The output specifically highlights the denial dates, reasons, and RFI dates, tracking these critical status changes.",
+    "primary_purpose": "To identify and track denied referral authorizations and authorization requests that are pending due to a 'Request for Information'.",
+    "key_entities": [
+      "Referrals",
+      "Authorization Requests",
+      "Referral Bed Days",
+      "Providers",
+      "Coverages"
+    ],
+    "key_metrics": [
+      "Denial Date",
+      "Denial Reason",
+      "RFI Date",
+      "Denial Row",
+      "RFI Row"
+    ],
+    "source_tables": [
+      "REFERRAL",
+      "REFERRAL_BED_DAY",
+      "REFERRAL_HIST",
+      "REFERRAL_HISTORY",
+      "RFL_HX_ACT",
+      "RFL_HX_ITEM_CHANGE",
+      "RFL_HX_NEW_VAL",
+      "V_CCHP_AuthHeader_Fact",
+      "V_CCHP_UMAuthorizationHistory_Fact",
+      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+      "V_CCHP_UMAuthorizationRequest_Fact",
+      "V_CCHP_UMAuthorization_Fact"
+    ],
+    "business_domains": [
+      "Authorization & Referrals",
+      "Authorization Management",
+      "Authorization and Referrals",
+      "Payer/Coverage Management",
+      "Referral Management",
+      "Referral and Authorization Status",
+      "Utilization Management",
+      "Utilization Management Status"
+    ],
+    "column_count": 19
+  },
+  "columns": [
+    {
+      "column_name": "REFERRAL_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "V_CCHP_AuthHeader_Fact.Referralid",
+        "base_columns": [
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "0 = 0"
+          },
+          {
+            "expression": "EXISTS(SELECT 1 FROM Clarity.dbo.REFERRAL_HIST AS RFLH WHERE RFLH.REFERRAL_ID = RFL.Referralid AND RFLH.NEW_RFL_STATUS_C = 5 /* Denied */ UNION ALL SELECT 1 FROM Clarity.dbo.REFERRAL_BED_DAY AS RFLBD WHERE RFL.Referralid = RFLBD.REFERRAL_ID AND RFLBD.BED_DAY_STATUS_C = 2 /* Denied */)",
+            "subqueries": [
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_HIST.REFERRAL_ID",
+                      "REFERRAL_HIST.NEW_RFL_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_HIST"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFLH.REFERRAL_ID = RFL.Referralid"
+                      },
+                      {
+                        "expression": "RFLH.NEW_RFL_STATUS_C = 5 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_HIST"
+                ]
+              },
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_BED_DAY.REFERRAL_ID",
+                      "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_BED_DAY"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFL.Referralid = RFLBD.REFERRAL_ID"
+                      },
+                      {
+                        "expression": "RFLBD.BED_DAY_STATUS_C = 2 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_BED_DAY"
+                ]
+              }
+            ]
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "REFERRAL_ID",
+            "expression": "rd.\"REFERRAL_ID\"",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ReferralDenials",
+            "name": "REFERRAL_ID",
+            "expression": "RFL.Referralid AS \"REFERRAL_ID\"",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The referral identifier for referrals that have a 'Denied' status in either the referral history or referral bed day records.",
+      "business_domain": "Referral Management"
+    },
+    {
+      "column_name": "COVERAGE_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "V_CCHP_AuthHeader_Fact.Coverageid",
+        "base_columns": [
+          "V_CCHP_AuthHeader_Fact.Coverageid",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "0 = 0"
+          },
+          {
+            "expression": "EXISTS(SELECT 1 FROM Clarity.dbo.REFERRAL_HIST AS RFLH WHERE RFLH.REFERRAL_ID = RFL.Referralid AND RFLH.NEW_RFL_STATUS_C = 5 /* Denied */ UNION ALL SELECT 1 FROM Clarity.dbo.REFERRAL_BED_DAY AS RFLBD WHERE RFL.Referralid = RFLBD.REFERRAL_ID AND RFLBD.BED_DAY_STATUS_C = 2 /* Denied */)",
+            "subqueries": [
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_HIST.REFERRAL_ID",
+                      "REFERRAL_HIST.NEW_RFL_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_HIST"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFLH.REFERRAL_ID = RFL.Referralid"
+                      },
+                      {
+                        "expression": "RFLH.NEW_RFL_STATUS_C = 5 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_HIST"
+                ]
+              },
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_BED_DAY.REFERRAL_ID",
+                      "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_BED_DAY"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFL.Referralid = RFLBD.REFERRAL_ID"
+                      },
+                      {
+                        "expression": "RFLBD.BED_DAY_STATUS_C = 2 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_BED_DAY"
+                ]
+              }
+            ]
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "COVERAGE_ID",
+            "expression": "rd.\"COVERAGE_ID\"",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ReferralDenials",
+            "name": "COVERAGE_ID",
+            "expression": "RFL.Coverageid AS \"COVERAGE_ID\"",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The coverage ID from the authorization header fact table, specifically for referrals that have a denied status in either referral history or bed day records.",
+      "business_domain": "Payer/Coverage Management"
+    },
+    {
+      "column_name": "ENTRY_DATE",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "V_CCHP_AuthHeader_Fact.EntryDate",
+        "base_columns": [
+          "V_CCHP_AuthHeader_Fact.EntryDate",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "0 = 0"
+          },
+          {
+            "expression": "EXISTS(SELECT 1 FROM Clarity.dbo.REFERRAL_HIST AS RFLH WHERE RFLH.REFERRAL_ID = RFL.Referralid AND RFLH.NEW_RFL_STATUS_C = 5 /* Denied */ UNION ALL SELECT 1 FROM Clarity.dbo.REFERRAL_BED_DAY AS RFLBD WHERE RFL.Referralid = RFLBD.REFERRAL_ID AND RFLBD.BED_DAY_STATUS_C = 2 /* Denied */)",
+            "subqueries": [
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_HIST.REFERRAL_ID",
+                      "REFERRAL_HIST.NEW_RFL_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_HIST"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFLH.REFERRAL_ID = RFL.Referralid"
+                      },
+                      {
+                        "expression": "RFLH.NEW_RFL_STATUS_C = 5 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_HIST"
+                ]
+              },
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_BED_DAY.REFERRAL_ID",
+                      "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_BED_DAY"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFL.Referralid = RFLBD.REFERRAL_ID"
+                      },
+                      {
+                        "expression": "RFLBD.BED_DAY_STATUS_C = 2 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_BED_DAY"
+                ]
+              }
+            ]
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "ENTRY_DATE",
+            "expression": "rd.\"ENTRY_DATE\"",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ReferralDenials",
+            "name": "ENTRY_DATE",
+            "expression": "RFL.EntryDate AS \"ENTRY_DATE\"",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The entry date for referrals that have a denied status in either referral history or bed day status.",
+      "business_domain": "Referral Management"
+    },
+    {
+      "column_name": "START_DATE",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "V_CCHP_AuthHeader_Fact.StartDate",
+        "base_columns": [
+          "V_CCHP_AuthHeader_Fact.StartDate",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "0 = 0"
+          },
+          {
+            "expression": "EXISTS(SELECT 1 FROM Clarity.dbo.REFERRAL_HIST AS RFLH WHERE RFLH.REFERRAL_ID = RFL.Referralid AND RFLH.NEW_RFL_STATUS_C = 5 /* Denied */ UNION ALL SELECT 1 FROM Clarity.dbo.REFERRAL_BED_DAY AS RFLBD WHERE RFL.Referralid = RFLBD.REFERRAL_ID AND RFLBD.BED_DAY_STATUS_C = 2 /* Denied */)",
+            "subqueries": [
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_HIST.REFERRAL_ID",
+                      "REFERRAL_HIST.NEW_RFL_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_HIST"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFLH.REFERRAL_ID = RFL.Referralid"
+                      },
+                      {
+                        "expression": "RFLH.NEW_RFL_STATUS_C = 5 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_HIST"
+                ]
+              },
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_BED_DAY.REFERRAL_ID",
+                      "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_BED_DAY"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFL.Referralid = RFLBD.REFERRAL_ID"
+                      },
+                      {
+                        "expression": "RFLBD.BED_DAY_STATUS_C = 2 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_BED_DAY"
+                ]
+              }
+            ]
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "START_DATE",
+            "expression": "rd.\"START_DATE\"",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ReferralDenials",
+            "name": "START_DATE",
+            "expression": "RFL.StartDate AS \"START_DATE\"",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The start date from the authorization header for referrals that have a denied status in either their referral history or bed day records.",
+      "business_domain": "Authorization Management"
+    },
+    {
+      "column_name": "PRIORITY",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "V_CCHP_AuthHeader_Fact.ReferralPriority",
+        "base_columns": [
+          "V_CCHP_AuthHeader_Fact.ReferralPriority",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "0 = 0"
+          },
+          {
+            "expression": "EXISTS(SELECT 1 FROM Clarity.dbo.REFERRAL_HIST AS RFLH WHERE RFLH.REFERRAL_ID = RFL.Referralid AND RFLH.NEW_RFL_STATUS_C = 5 /* Denied */ UNION ALL SELECT 1 FROM Clarity.dbo.REFERRAL_BED_DAY AS RFLBD WHERE RFL.Referralid = RFLBD.REFERRAL_ID AND RFLBD.BED_DAY_STATUS_C = 2 /* Denied */)",
+            "subqueries": [
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_HIST.REFERRAL_ID",
+                      "REFERRAL_HIST.NEW_RFL_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_HIST"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFLH.REFERRAL_ID = RFL.Referralid"
+                      },
+                      {
+                        "expression": "RFLH.NEW_RFL_STATUS_C = 5 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_HIST"
+                ]
+              },
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_BED_DAY.REFERRAL_ID",
+                      "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_BED_DAY"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFL.Referralid = RFLBD.REFERRAL_ID"
+                      },
+                      {
+                        "expression": "RFLBD.BED_DAY_STATUS_C = 2 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_BED_DAY"
+                ]
+              }
+            ]
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "PRIORITY",
+            "expression": "rd.\"PRIORITY\"",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ReferralDenials",
+            "name": "PRIORITY",
+            "expression": "RFL.ReferralPriority AS \"PRIORITY\"",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The priority of a referral, specifically for referrals that have a 'Denied' status recorded in either the referral history or referral bed day records.",
+      "business_domain": "Referral Management"
+    },
+    {
+      "column_name": "REFERRAL_PROV_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "V_CCHP_AuthHeader_Fact.ReferralProviderId",
+        "base_columns": [
+          "V_CCHP_AuthHeader_Fact.ReferralProviderId",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "0 = 0"
+          },
+          {
+            "expression": "EXISTS(SELECT 1 FROM Clarity.dbo.REFERRAL_HIST AS RFLH WHERE RFLH.REFERRAL_ID = RFL.Referralid AND RFLH.NEW_RFL_STATUS_C = 5 /* Denied */ UNION ALL SELECT 1 FROM Clarity.dbo.REFERRAL_BED_DAY AS RFLBD WHERE RFL.Referralid = RFLBD.REFERRAL_ID AND RFLBD.BED_DAY_STATUS_C = 2 /* Denied */)",
+            "subqueries": [
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_HIST.REFERRAL_ID",
+                      "REFERRAL_HIST.NEW_RFL_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_HIST"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFLH.REFERRAL_ID = RFL.Referralid"
+                      },
+                      {
+                        "expression": "RFLH.NEW_RFL_STATUS_C = 5 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_HIST"
+                ]
+              },
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_BED_DAY.REFERRAL_ID",
+                      "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_BED_DAY"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFL.Referralid = RFLBD.REFERRAL_ID"
+                      },
+                      {
+                        "expression": "RFLBD.BED_DAY_STATUS_C = 2 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_BED_DAY"
+                ]
+              }
+            ]
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "REFERRAL_PROV_ID",
+            "expression": "rd.\"REFERRAL_PROV_ID\"",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ReferralDenials",
+            "name": "REFERRAL_PROV_ID",
+            "expression": "RFL.ReferralProviderId AS \"REFERRAL_PROV_ID\"",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The ID of the referral provider for referrals that have been denied.",
+      "business_domain": "Referral Management"
+    },
+    {
+      "column_name": "REFERRING_PROV_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "V_CCHP_AuthHeader_Fact.ReferringProviderId",
+        "base_columns": [
+          "V_CCHP_AuthHeader_Fact.ReferringProviderId",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "0 = 0"
+          },
+          {
+            "expression": "EXISTS(SELECT 1 FROM Clarity.dbo.REFERRAL_HIST AS RFLH WHERE RFLH.REFERRAL_ID = RFL.Referralid AND RFLH.NEW_RFL_STATUS_C = 5 /* Denied */ UNION ALL SELECT 1 FROM Clarity.dbo.REFERRAL_BED_DAY AS RFLBD WHERE RFL.Referralid = RFLBD.REFERRAL_ID AND RFLBD.BED_DAY_STATUS_C = 2 /* Denied */)",
+            "subqueries": [
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_HIST.REFERRAL_ID",
+                      "REFERRAL_HIST.NEW_RFL_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_HIST"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFLH.REFERRAL_ID = RFL.Referralid"
+                      },
+                      {
+                        "expression": "RFLH.NEW_RFL_STATUS_C = 5 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_HIST"
+                ]
+              },
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "REFERRAL_BED_DAY.REFERRAL_ID",
+                      "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "REFERRAL_BED_DAY"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "RFL.Referralid = RFLBD.REFERRAL_ID"
+                      },
+                      {
+                        "expression": "RFLBD.BED_DAY_STATUS_C = 2 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "REFERRAL_BED_DAY"
+                ]
+              }
+            ]
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "REFERRING_PROV_ID",
+            "expression": "rd.\"REFERRING_PROV_ID\"",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ReferralDenials",
+            "name": "REFERRING_PROV_ID",
+            "expression": "RFL.ReferringProviderId AS \"REFERRING_PROV_ID\"",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The ID of the referring provider for referrals that have a denied status.",
+      "business_domain": "Referral Management"
+    },
+    {
+      "column_name": "AUTH_REQUEST_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID",
+        "base_columns": [
+          "V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID",
+          "REFERRAL.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_UMAuthorizationRequest_Fact",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+          "REFERRAL",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "0 = 0"
+          },
+          {
+            "expression": "EXISTS(SELECT 1 FROM CookClarity.Reporting.V_CCHP_UMAuthorizationRequestStatusHistory_Fact AS aughx WHERE aughx.AUTH_REQUEST_ID = aug.AUTH_REQUEST_ID AND aughx.UM_STATUS_C = 5 /* Denied */)",
+            "subqueries": [
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "aughx.AUTH_REQUEST_ID = aug.AUTH_REQUEST_ID"
+                      },
+                      {
+                        "expression": "aughx.UM_STATUS_C = 5 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "V_CCHP_UMAuthorizationRequestStatusHistory_Fact"
+                ]
+              }
+            ]
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "AUTH_REQUEST_ID",
+            "expression": "aug.AUTH_REQUEST_ID",
+            "type": "passthrough"
+          },
+          {
+            "scope": "AugDenialSla",
+            "name": "AUTH_REQUEST_ID",
+            "expression": "aug.AUTH_REQUEST_ID",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The unique identifier for an authorization request that has a 'Denied' status.",
+      "business_domain": "Authorization Management"
+    },
+    {
+      "column_name": "AUG_RECEIVED_DTTM",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "V_CCHP_UMAuthorizationRequest_Fact.AUG_RECEIVED_DTTM",
+        "base_columns": [
+          "V_CCHP_UMAuthorizationRequest_Fact.AUG_RECEIVED_DTTM",
+          "REFERRAL.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_UMAuthorizationRequest_Fact",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+          "REFERRAL",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "0 = 0"
+          },
+          {
+            "expression": "EXISTS(SELECT 1 FROM CookClarity.Reporting.V_CCHP_UMAuthorizationRequestStatusHistory_Fact AS aughx WHERE aughx.AUTH_REQUEST_ID = aug.AUTH_REQUEST_ID AND aughx.UM_STATUS_C = 5 /* Denied */)",
+            "subqueries": [
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "aughx.AUTH_REQUEST_ID = aug.AUTH_REQUEST_ID"
+                      },
+                      {
+                        "expression": "aughx.UM_STATUS_C = 5 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "V_CCHP_UMAuthorizationRequestStatusHistory_Fact"
+                ]
+              }
+            ]
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "AUG_RECEIVED_DTTM",
+            "expression": "aug.AUG_RECEIVED_DTTM",
+            "type": "passthrough"
+          },
+          {
+            "scope": "AugDenialSla",
+            "name": "AUG_RECEIVED_DTTM",
+            "expression": "aug.AUG_RECEIVED_DTTM",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The date and time an authorization request was received.",
+      "business_domain": "Authorization Management"
+    },
+    {
+      "column_name": "LOB_ID",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "V_CCHP_UMAuthorizationRequest_Fact.LOB_ID",
+        "base_columns": [
+          "V_CCHP_UMAuthorizationRequest_Fact.LOB_ID",
+          "REFERRAL.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_UMAuthorizationRequest_Fact",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+          "REFERRAL",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "0 = 0"
+          },
+          {
+            "expression": "EXISTS(SELECT 1 FROM CookClarity.Reporting.V_CCHP_UMAuthorizationRequestStatusHistory_Fact AS aughx WHERE aughx.AUTH_REQUEST_ID = aug.AUTH_REQUEST_ID AND aughx.UM_STATUS_C = 5 /* Denied */)",
+            "subqueries": [
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "aughx.AUTH_REQUEST_ID = aug.AUTH_REQUEST_ID"
+                      },
+                      {
+                        "expression": "aughx.UM_STATUS_C = 5 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "V_CCHP_UMAuthorizationRequestStatusHistory_Fact"
+                ]
+              }
+            ]
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "LOB_ID",
+            "expression": "aug.LOB_ID",
+            "type": "passthrough"
+          },
+          {
+            "scope": "AugDenialSla",
+            "name": "LOB_ID",
+            "expression": "aug.LOB_ID",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The Line of Business identifier from the UM Authorization Request fact table.",
+      "business_domain": "Authorization and Referrals"
+    },
+    {
+      "column_name": "RFL_TYPE_C",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "V_CCHP_UMAuthorizationRequest_Fact.RFL_TYPE_C",
+        "base_columns": [
+          "V_CCHP_UMAuthorizationRequest_Fact.RFL_TYPE_C",
+          "REFERRAL.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_UMAuthorizationRequest_Fact",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+          "REFERRAL",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "0 = 0"
+          },
+          {
+            "expression": "EXISTS(SELECT 1 FROM CookClarity.Reporting.V_CCHP_UMAuthorizationRequestStatusHistory_Fact AS aughx WHERE aughx.AUTH_REQUEST_ID = aug.AUTH_REQUEST_ID AND aughx.UM_STATUS_C = 5 /* Denied */)",
+            "subqueries": [
+              {
+                "columns": [
+                  {
+                    "name": "1",
+                    "type": "literal",
+                    "resolved_expression": "1",
+                    "base_columns": [
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C"
+                    ],
+                    "base_tables": [
+                      "V_CCHP_UMAuthorizationRequestStatusHistory_Fact"
+                    ],
+                    "filters": [
+                      {
+                        "expression": "aughx.AUTH_REQUEST_ID = aug.AUTH_REQUEST_ID"
+                      },
+                      {
+                        "expression": "aughx.UM_STATUS_C = 5 /* Denied */"
+                      }
+                    ]
+                  }
+                ],
+                "base_tables": [
+                  "V_CCHP_UMAuthorizationRequestStatusHistory_Fact"
+                ]
+              }
+            ]
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "RFL_TYPE_C",
+            "expression": "aug.RFL_TYPE_C",
+            "type": "passthrough"
+          },
+          {
+            "scope": "AugDenialSla",
+            "name": "RFL_TYPE_C",
+            "expression": "aug.RFL_TYPE_C",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The referral type code from the UM authorization request fact table.",
+      "business_domain": "Authorization & Referrals"
+    },
+    {
+      "column_name": "ITEM_CHANGE",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "RFL_HX_ITEM_CHANGE.ITEM_CHANGE",
+        "base_columns": [
+          "RFL_HX_ITEM_CHANGE.ITEM_CHANGE",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C",
+          "REFERRAL_HISTORY.REFERRAL_ID",
+          "RFL_HX_ACT.REFERRAL_ID",
+          "RFL_HX_ACT.GROUP_LINE",
+          "REFERRAL_HISTORY.LINE",
+          "RFL_HX_ITEM_CHANGE.VALUE_LINE",
+          "RFL_HX_ACT.VALUE_LINE",
+          "RFL_HX_ITEM_CHANGE.REFERRAL_ID",
+          "RFL_HX_ITEM_CHANGE.GROUP_LINE",
+          "RFL_HX_NEW_VAL.VALUE_LINE",
+          "RFL_HX_NEW_VAL.REFERRAL_ID",
+          "RFL_HX_NEW_VAL.GROUP_LINE",
+          "RFL_HX_NEW_VAL.NEW_VAL"
+        ],
+        "base_tables": [
+          "RFL_HX_ITEM_CHANGE",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY",
+          "REFERRAL_HISTORY",
+          "RFL_HX_ACT",
+          "RFL_HX_NEW_VAL"
+        ],
+        "filters": [
+          {
+            "expression": "RFLHA.REFERRAL_ID = RFLH.REFERRAL_ID AND RFLHA.GROUP_LINE = RFLH.LINE"
+          },
+          {
+            "expression": "RFLHIC.REFERRAL_ID = RFLHA.REFERRAL_ID AND RFLHIC.GROUP_LINE = RFLHA.GROUP_LINE AND RFLHIC.VALUE_LINE = RFLHA.VALUE_LINE AND RFLHIC.ITEM_CHANGE IN (50 /* Referral Status */, 18007 /* Denial Reason */, 18003 /* Pending Reason */, 2081 /* Bed Day Status */, 2080 /* Bed Day Denied Reason */)"
+          },
+          {
+            "expression": "RFLHNV.REFERRAL_ID = RFLHA.REFERRAL_ID AND RFLHNV.GROUP_LINE = RFLHA.GROUP_LINE AND RFLHNV.VALUE_LINE = RFLHA.VALUE_LINE AND ((RFLHIC.ITEM_CHANGE = 18007 AND NOT RFLHNV.NEW_VAL IS NULL) OR (RFLHIC.ITEM_CHANGE = 18003 AND RFLHNV.NEW_VAL = 1640000010 /* Request for Information */) OR (RFLHIC.ITEM_CHANGE = 50 AND RFLHNV.NEW_VAL = '5' /* Denied */) OR (RFLHIC.ITEM_CHANGE = 2081 AND RFLHNV.NEW_VAL = '2' /* Denied */) OR (RFLHIC.ITEM_CHANGE = 2080 AND NOT RFLHNV.NEW_VAL IS NULL))"
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "ITEM_CHANGE",
+            "expression": "rhiv.ITEM_CHANGE",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ReferralHistoryItemValues",
+            "name": "ITEM_CHANGE",
+            "expression": "RFLHIC.ITEM_CHANGE",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "A code identifying the type of change made to a referral or bed day, specifically for referral status changes to 'Denied', bed day status changes to 'Denied', or when a denial reason, pending reason ('Request for Information'), or bed day denied reason is recorded.",
+      "business_domain": "Referral and Authorization Status"
+    },
+    {
+      "column_name": "NEW_VALUE_EXTERNAL",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "RFL_HX_NEW_VAL.NEW_VALUE_EXTERNAL",
+        "base_columns": [
+          "RFL_HX_NEW_VAL.NEW_VALUE_EXTERNAL",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C",
+          "REFERRAL_HISTORY.REFERRAL_ID",
+          "RFL_HX_ACT.REFERRAL_ID",
+          "RFL_HX_ACT.GROUP_LINE",
+          "REFERRAL_HISTORY.LINE",
+          "RFL_HX_ITEM_CHANGE.ITEM_CHANGE",
+          "RFL_HX_ITEM_CHANGE.VALUE_LINE",
+          "RFL_HX_ACT.VALUE_LINE",
+          "RFL_HX_ITEM_CHANGE.REFERRAL_ID",
+          "RFL_HX_ITEM_CHANGE.GROUP_LINE",
+          "RFL_HX_NEW_VAL.VALUE_LINE",
+          "RFL_HX_NEW_VAL.REFERRAL_ID",
+          "RFL_HX_NEW_VAL.GROUP_LINE",
+          "RFL_HX_NEW_VAL.NEW_VAL"
+        ],
+        "base_tables": [
+          "RFL_HX_NEW_VAL",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY",
+          "REFERRAL_HISTORY",
+          "RFL_HX_ACT",
+          "RFL_HX_ITEM_CHANGE"
+        ],
+        "filters": [
+          {
+            "expression": "RFLHA.REFERRAL_ID = RFLH.REFERRAL_ID AND RFLHA.GROUP_LINE = RFLH.LINE"
+          },
+          {
+            "expression": "RFLHIC.REFERRAL_ID = RFLHA.REFERRAL_ID AND RFLHIC.GROUP_LINE = RFLHA.GROUP_LINE AND RFLHIC.VALUE_LINE = RFLHA.VALUE_LINE AND RFLHIC.ITEM_CHANGE IN (50 /* Referral Status */, 18007 /* Denial Reason */, 18003 /* Pending Reason */, 2081 /* Bed Day Status */, 2080 /* Bed Day Denied Reason */)"
+          },
+          {
+            "expression": "RFLHNV.REFERRAL_ID = RFLHA.REFERRAL_ID AND RFLHNV.GROUP_LINE = RFLHA.GROUP_LINE AND RFLHNV.VALUE_LINE = RFLHA.VALUE_LINE AND ((RFLHIC.ITEM_CHANGE = 18007 AND NOT RFLHNV.NEW_VAL IS NULL) OR (RFLHIC.ITEM_CHANGE = 18003 AND RFLHNV.NEW_VAL = 1640000010 /* Request for Information */) OR (RFLHIC.ITEM_CHANGE = 50 AND RFLHNV.NEW_VAL = '5' /* Denied */) OR (RFLHIC.ITEM_CHANGE = 2081 AND RFLHNV.NEW_VAL = '2' /* Denied */) OR (RFLHIC.ITEM_CHANGE = 2080 AND NOT RFLHNV.NEW_VAL IS NULL))"
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "NEW_VALUE_EXTERNAL",
+            "expression": "rhiv.NEW_VALUE_EXTERNAL",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ReferralHistoryItemValues",
+            "name": "NEW_VALUE_EXTERNAL",
+            "expression": "RFLHNV.NEW_VALUE_EXTERNAL",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "The external representation of a new value from the referral history new value table.",
+      "business_domain": "Referral Management"
+    },
+    {
+      "column_name": "ACTION_DTTM",
+      "column_type": "passthrough",
+      "technical_definition": {
+        "resolved_expression": "RFL_HX_ACT.ACTION_DTTM",
+        "base_columns": [
+          "RFL_HX_ACT.ACTION_DTTM",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C",
+          "REFERRAL_HISTORY.REFERRAL_ID",
+          "RFL_HX_ACT.REFERRAL_ID",
+          "RFL_HX_ACT.GROUP_LINE",
+          "REFERRAL_HISTORY.LINE",
+          "RFL_HX_ITEM_CHANGE.ITEM_CHANGE",
+          "RFL_HX_ITEM_CHANGE.VALUE_LINE",
+          "RFL_HX_ACT.VALUE_LINE",
+          "RFL_HX_ITEM_CHANGE.REFERRAL_ID",
+          "RFL_HX_ITEM_CHANGE.GROUP_LINE",
+          "RFL_HX_NEW_VAL.VALUE_LINE",
+          "RFL_HX_NEW_VAL.REFERRAL_ID",
+          "RFL_HX_NEW_VAL.GROUP_LINE",
+          "RFL_HX_NEW_VAL.NEW_VAL"
+        ],
+        "base_tables": [
+          "RFL_HX_ACT",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY",
+          "REFERRAL_HISTORY",
+          "RFL_HX_ITEM_CHANGE",
+          "RFL_HX_NEW_VAL"
+        ],
+        "filters": [
+          {
+            "expression": "RFLHA.REFERRAL_ID = RFLH.REFERRAL_ID AND RFLHA.GROUP_LINE = RFLH.LINE"
+          },
+          {
+            "expression": "RFLHIC.REFERRAL_ID = RFLHA.REFERRAL_ID AND RFLHIC.GROUP_LINE = RFLHA.GROUP_LINE AND RFLHIC.VALUE_LINE = RFLHA.VALUE_LINE AND RFLHIC.ITEM_CHANGE IN (50 /* Referral Status */, 18007 /* Denial Reason */, 18003 /* Pending Reason */, 2081 /* Bed Day Status */, 2080 /* Bed Day Denied Reason */)"
+          },
+          {
+            "expression": "RFLHNV.REFERRAL_ID = RFLHA.REFERRAL_ID AND RFLHNV.GROUP_LINE = RFLHA.GROUP_LINE AND RFLHNV.VALUE_LINE = RFLHA.VALUE_LINE AND ((RFLHIC.ITEM_CHANGE = 18007 AND NOT RFLHNV.NEW_VAL IS NULL) OR (RFLHIC.ITEM_CHANGE = 18003 AND RFLHNV.NEW_VAL = 1640000010 /* Request for Information */) OR (RFLHIC.ITEM_CHANGE = 50 AND RFLHNV.NEW_VAL = '5' /* Denied */) OR (RFLHIC.ITEM_CHANGE = 2081 AND RFLHNV.NEW_VAL = '2' /* Denied */) OR (RFLHIC.ITEM_CHANGE = 2080 AND NOT RFLHNV.NEW_VAL IS NULL))"
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "ACTION_DTTM",
+            "expression": "rhiv.ACTION_DTTM",
+            "type": "passthrough"
+          },
+          {
+            "scope": "ReferralHistoryItemValues",
+            "name": "ACTION_DTTM",
+            "expression": "RFLHA.ACTION_DTTM",
+            "type": "passthrough"
+          }
+        ]
+      },
+      "english_definition": "Date and time when a referral's denial reason was recorded, a 'Request for Information' pending reason was set, a referral status changed to 'Denied', or a bed day status changed to 'Denied' or its denial reason was recorded.",
+      "business_domain": "Referral Management"
+    },
+    {
+      "column_name": "DENIAL_ROW",
+      "column_type": "window",
+      "technical_definition": {
+        "resolved_expression": "ROW_NUMBER() OVER (PARTITION BY aut.UM_AUTH_REQUEST_ID ORDER BY CASE WHEN authx.UM_STATUS = 'Denied' THEN authx.CHANGED_DTTM ELSE '99991231' END)",
+        "base_columns": [
+          "V_CCHP_UMAuthorization_Fact.UM_AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.CHANGED_DTTM",
+          "V_CCHP_UMAuthorizationHistory_Fact.UM_STATUS",
+          "REFERRAL.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C",
+          "V_CCHP_UMAuthorization_Fact.AUTH_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.AUTH_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.UM_PENDING_RSN",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_UMAuthorization_Fact",
+          "V_CCHP_UMAuthorizationHistory_Fact",
+          "V_CCHP_UMAuthorizationRequest_Fact",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+          "REFERRAL",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "authx.UM_STATUS = 'Denied' OR (authx.UM_STATUS = 'Pending Review' AND authx.UM_PENDING_RSN = 'HP Request for Information')"
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "DENIAL_ROW",
+            "expression": "ahs.DENIAL_ROW",
+            "type": "passthrough"
+          },
+          {
+            "scope": "AugHistorySla",
+            "name": "DENIAL_ROW",
+            "expression": "ROW_NUMBER() OVER (PARTITION BY aut.UM_AUTH_REQUEST_ID ORDER BY CASE WHEN authx.UM_STATUS = 'Denied' THEN authx.CHANGED_DTTM ELSE '99991231' END) AS \"DENIAL_ROW\"",
+            "type": "window"
+          }
+        ]
+      },
+      "english_definition": "A sequential number assigned to each authorization request, ordered by the change date if the status is 'Denied', otherwise ordered by a default late date.",
+      "business_domain": "Authorization Management"
+    },
+    {
+      "column_name": "DENIAL_DATE",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "CASE WHEN authx.UM_STATUS = 'Denied' THEN authx.CHANGED_DTTM ELSE NULL END",
+        "base_columns": [
+          "V_CCHP_UMAuthorizationHistory_Fact.CHANGED_DTTM",
+          "V_CCHP_UMAuthorizationHistory_Fact.UM_STATUS",
+          "REFERRAL.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C",
+          "V_CCHP_UMAuthorization_Fact.UM_AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorization_Fact.AUTH_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.AUTH_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.UM_PENDING_RSN",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_UMAuthorizationHistory_Fact",
+          "V_CCHP_UMAuthorizationRequest_Fact",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+          "REFERRAL",
+          "V_CCHP_UMAuthorization_Fact",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "authx.UM_STATUS = 'Denied' OR (authx.UM_STATUS = 'Pending Review' AND authx.UM_PENDING_RSN = 'HP Request for Information')"
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "DENIAL_DATE",
+            "expression": "ahs.DENIAL_DATE",
+            "type": "passthrough"
+          },
+          {
+            "scope": "AugHistorySla",
+            "name": "DENIAL_DATE",
+            "expression": "CASE WHEN authx.UM_STATUS = 'Denied' THEN authx.CHANGED_DTTM ELSE NULL END AS \"DENIAL_DATE\"",
+            "type": "calculated"
+          }
+        ]
+      },
+      "english_definition": "The date and time when the authorization status is 'Denied', otherwise null.",
+      "business_domain": "Utilization Management"
+    },
+    {
+      "column_name": "DENIAL_REASON",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "CASE WHEN authx.UM_STATUS = 'Denied' THEN authx.UM_DENIED_RSN ELSE NULL END",
+        "base_columns": [
+          "V_CCHP_UMAuthorizationHistory_Fact.UM_DENIED_RSN",
+          "V_CCHP_UMAuthorizationHistory_Fact.UM_STATUS",
+          "REFERRAL.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C",
+          "V_CCHP_UMAuthorization_Fact.UM_AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorization_Fact.AUTH_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.AUTH_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.UM_PENDING_RSN",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_UMAuthorizationHistory_Fact",
+          "V_CCHP_UMAuthorizationRequest_Fact",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+          "REFERRAL",
+          "V_CCHP_UMAuthorization_Fact",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "authx.UM_STATUS = 'Denied' OR (authx.UM_STATUS = 'Pending Review' AND authx.UM_PENDING_RSN = 'HP Request for Information')"
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "DENIAL_REASON",
+            "expression": "ahs.DENIAL_REASON",
+            "type": "passthrough"
+          },
+          {
+            "scope": "AugHistorySla",
+            "name": "DENIAL_REASON",
+            "expression": "CASE WHEN authx.UM_STATUS = 'Denied' THEN authx.UM_DENIED_RSN ELSE NULL END AS \"DENIAL_REASON\"",
+            "type": "calculated"
+          }
+        ]
+      },
+      "english_definition": "The reason for denial if the authorization status is 'Denied', otherwise null.",
+      "business_domain": "Authorization Management"
+    },
+    {
+      "column_name": "RFI_ROW",
+      "column_type": "window",
+      "technical_definition": {
+        "resolved_expression": "ROW_NUMBER() OVER (PARTITION BY aut.UM_AUTH_REQUEST_ID ORDER BY CASE WHEN authx.UM_PENDING_RSN = 'HP Request for Information' THEN authx.CHANGED_DTTM ELSE '99991231' END)",
+        "base_columns": [
+          "V_CCHP_UMAuthorization_Fact.UM_AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.CHANGED_DTTM",
+          "V_CCHP_UMAuthorizationHistory_Fact.UM_PENDING_RSN",
+          "REFERRAL.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C",
+          "V_CCHP_UMAuthorization_Fact.AUTH_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.AUTH_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.UM_STATUS",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_UMAuthorization_Fact",
+          "V_CCHP_UMAuthorizationHistory_Fact",
+          "V_CCHP_UMAuthorizationRequest_Fact",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+          "REFERRAL",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "authx.UM_STATUS = 'Denied' OR (authx.UM_STATUS = 'Pending Review' AND authx.UM_PENDING_RSN = 'HP Request for Information')"
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "RFI_ROW",
+            "expression": "ahs.RFI_ROW",
+            "type": "passthrough"
+          },
+          {
+            "scope": "AugHistorySla",
+            "name": "RFI_ROW",
+            "expression": "ROW_NUMBER() OVER (PARTITION BY aut.UM_AUTH_REQUEST_ID ORDER BY CASE WHEN authx.UM_PENDING_RSN = 'HP Request for Information' THEN authx.CHANGED_DTTM ELSE '99991231' END) AS \"RFI_ROW\"",
+            "type": "window"
+          }
+        ]
+      },
+      "english_definition": "A sequential row number assigned to each authorization request, ordered by the change date and time for records with a 'HP Request for Information' pending reason, with all other records ordered last.",
+      "business_domain": "Authorization Management"
+    },
+    {
+      "column_name": "RFI_DATE",
+      "column_type": "calculated",
+      "technical_definition": {
+        "resolved_expression": "CASE WHEN authx.UM_PENDING_RSN = 'HP Request for Information' THEN authx.CHANGED_DTTM ELSE NULL END",
+        "base_columns": [
+          "V_CCHP_UMAuthorizationHistory_Fact.CHANGED_DTTM",
+          "V_CCHP_UMAuthorizationHistory_Fact.UM_PENDING_RSN",
+          "REFERRAL.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.REFERRAL_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact.UM_STATUS_C",
+          "V_CCHP_UMAuthorization_Fact.UM_AUTH_REQUEST_ID",
+          "V_CCHP_UMAuthorization_Fact.AUTH_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.AUTH_ID",
+          "V_CCHP_UMAuthorizationHistory_Fact.UM_STATUS",
+          "REFERRAL_HIST.REFERRAL_ID",
+          "V_CCHP_AuthHeader_Fact.Referralid",
+          "REFERRAL_HIST.NEW_RFL_STATUS_C",
+          "REFERRAL_BED_DAY.REFERRAL_ID",
+          "REFERRAL_BED_DAY.BED_DAY_STATUS_C"
+        ],
+        "base_tables": [
+          "V_CCHP_UMAuthorizationHistory_Fact",
+          "V_CCHP_UMAuthorizationRequest_Fact",
+          "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+          "REFERRAL",
+          "V_CCHP_UMAuthorization_Fact",
+          "V_CCHP_AuthHeader_Fact",
+          "REFERRAL_HIST",
+          "REFERRAL_BED_DAY"
+        ],
+        "filters": [
+          {
+            "expression": "authx.UM_STATUS = 'Denied' OR (authx.UM_STATUS = 'Pending Review' AND authx.UM_PENDING_RSN = 'HP Request for Information')"
+          }
+        ],
+        "transformation_chain": [
+          {
+            "scope": "query",
+            "name": "RFI_DATE",
+            "expression": "ahs.RFI_DATE",
+            "type": "passthrough"
+          },
+          {
+            "scope": "AugHistorySla",
+            "name": "RFI_DATE",
+            "expression": "CASE WHEN authx.UM_PENDING_RSN = 'HP Request for Information' THEN authx.CHANGED_DTTM ELSE NULL END AS \"RFI_DATE\"",
+            "type": "calculated"
+          }
+        ]
+      },
+      "english_definition": "The date and time when the authorization's pending reason is 'HP Request for Information', otherwise NULL.",
+      "business_domain": "Utilization Management Status"
+    }
+  ]
+}

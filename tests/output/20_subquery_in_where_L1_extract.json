@@ -1,0 +1,363 @@
+{
+  "sources": [
+    {
+      "name": "PATIENT",
+      "alias": "p",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "PAT_ENC_HSP",
+      "alias": "e",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "HSP_ACCT_DX_LIST",
+      "alias": "dl",
+      "schema": null,
+      "type": "table"
+    },
+    {
+      "name": "CLARITY_EDG",
+      "alias": "dx",
+      "schema": null,
+      "type": "table"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "PAT_MRN_ID",
+      "expression": "p.PAT_MRN_ID",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_MRN_ID",
+          "table": "p",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "PAT_FIRST_NAME",
+      "expression": "p.PAT_FIRST_NAME",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_FIRST_NAME",
+          "table": "p",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "name": "PAT_LAST_NAME",
+      "expression": "p.PAT_LAST_NAME",
+      "type": "passthrough",
+      "source_columns": [
+        {
+          "column": "PAT_LAST_NAME",
+          "table": "p",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "expression": "e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID",
+      "scope": "join",
+      "columns": [
+        {
+          "column": "HSP_ACCOUNT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "HSP_ACCOUNT_ID",
+          "table": "dl",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "dl.DX_ID = dx.DX_ID",
+      "scope": "join",
+      "columns": [
+        {
+          "column": "DX_ID",
+          "table": "dl",
+          "schema": null
+        },
+        {
+          "column": "DX_ID",
+          "table": "dx",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "expression": "p.PAT_ID IN (SELECT DISTINCT e.PAT_ID FROM PAT_ENC_HSP AS e JOIN HSP_ACCT_DX_LIST AS dl ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID JOIN CLARITY_EDG AS dx ON dl.DX_ID = dx.DX_ID WHERE dx.ICD10_CODE LIKE 'I50%')",
+      "scope": "where",
+      "columns": [
+        {
+          "column": "PAT_ID",
+          "table": "p",
+          "schema": null
+        },
+        {
+          "column": "PAT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "HSP_ACCOUNT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "HSP_ACCOUNT_ID",
+          "table": "dl",
+          "schema": null
+        },
+        {
+          "column": "DX_ID",
+          "table": "dl",
+          "schema": null
+        },
+        {
+          "column": "DX_ID",
+          "table": "dx",
+          "schema": null
+        },
+        {
+          "column": "ICD10_CODE",
+          "table": "dx",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "joins": [
+    {
+      "join_type": "JOIN",
+      "right_table": "HSP_ACCT_DX_LIST",
+      "right_alias": "dl",
+      "on_expression": "e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID",
+      "columns": [
+        {
+          "column": "HSP_ACCOUNT_ID",
+          "table": "e",
+          "schema": null
+        },
+        {
+          "column": "HSP_ACCOUNT_ID",
+          "table": "dl",
+          "schema": null
+        }
+      ]
+    },
+    {
+      "join_type": "JOIN",
+      "right_table": "CLARITY_EDG",
+      "right_alias": "dx",
+      "on_expression": "dl.DX_ID = dx.DX_ID",
+      "columns": [
+        {
+          "column": "DX_ID",
+          "table": "dl",
+          "schema": null
+        },
+        {
+          "column": "DX_ID",
+          "table": "dx",
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "subqueries": [
+    {
+      "context": "in",
+      "expression": "SELECT DISTINCT e.PAT_ID FROM PAT_ENC_HSP AS e JOIN HSP_ACCT_DX_LIST AS dl ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID JOIN CLARITY_EDG AS dx ON dl.DX_ID = dx.DX_ID WHERE dx.ICD10_CODE LIKE 'I50%'",
+      "alias": null,
+      "logic": {
+        "sources": [
+          {
+            "name": "PAT_ENC_HSP",
+            "alias": "e",
+            "schema": null,
+            "type": "table"
+          },
+          {
+            "name": "HSP_ACCT_DX_LIST",
+            "alias": "dl",
+            "schema": null,
+            "type": "table"
+          },
+          {
+            "name": "CLARITY_EDG",
+            "alias": "dx",
+            "schema": null,
+            "type": "table"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "PAT_ID",
+            "expression": "e.PAT_ID",
+            "type": "passthrough",
+            "source_columns": [
+              {
+                "column": "PAT_ID",
+                "table": "e",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "filters": [
+          {
+            "expression": "e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID",
+            "scope": "join",
+            "columns": [
+              {
+                "column": "HSP_ACCOUNT_ID",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "HSP_ACCOUNT_ID",
+                "table": "dl",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "expression": "dl.DX_ID = dx.DX_ID",
+            "scope": "join",
+            "columns": [
+              {
+                "column": "DX_ID",
+                "table": "dl",
+                "schema": null
+              },
+              {
+                "column": "DX_ID",
+                "table": "dx",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "expression": "dx.ICD10_CODE LIKE 'I50%'",
+            "scope": "where",
+            "columns": [
+              {
+                "column": "ICD10_CODE",
+                "table": "dx",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "joins": [
+          {
+            "join_type": "JOIN",
+            "right_table": "HSP_ACCT_DX_LIST",
+            "right_alias": "dl",
+            "on_expression": "e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID",
+            "columns": [
+              {
+                "column": "HSP_ACCOUNT_ID",
+                "table": "e",
+                "schema": null
+              },
+              {
+                "column": "HSP_ACCOUNT_ID",
+                "table": "dl",
+                "schema": null
+              }
+            ]
+          },
+          {
+            "join_type": "JOIN",
+            "right_table": "CLARITY_EDG",
+            "right_alias": "dx",
+            "on_expression": "dl.DX_ID = dx.DX_ID",
+            "columns": [
+              {
+                "column": "DX_ID",
+                "table": "dl",
+                "schema": null
+              },
+              {
+                "column": "DX_ID",
+                "table": "dx",
+                "schema": null
+              }
+            ]
+          }
+        ],
+        "lineage": [
+          {
+            "output": "PAT_ID",
+            "expression": "e.PAT_ID",
+            "depends_on": [
+              "e.PAT_ID"
+            ],
+            "filtered_by": {}
+          }
+        ],
+        "distinct": true,
+        "raw_sql": "SELECT DISTINCT e.PAT_ID FROM PAT_ENC_HSP AS e JOIN HSP_ACCT_DX_LIST AS dl ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID JOIN CLARITY_EDG AS dx ON dl.DX_ID = dx.DX_ID WHERE dx.ICD10_CODE LIKE 'I50%'"
+      }
+    }
+  ],
+  "lineage": [
+    {
+      "output": "PAT_MRN_ID",
+      "expression": "p.PAT_MRN_ID",
+      "depends_on": [
+        "p.PAT_MRN_ID"
+      ],
+      "filtered_by": {
+        "p.PAT_MRN_ID": [
+          "p.PAT_ID IN (SELECT DISTINCT e.PAT_ID FROM PAT_ENC_HSP AS e JOIN HSP_ACCT_DX_LIST AS dl ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID JOIN CLARITY_EDG AS dx ON dl.DX_ID = dx.DX_ID WHERE dx.ICD10_CODE LIKE 'I50%')"
+        ]
+      }
+    },
+    {
+      "output": "PAT_FIRST_NAME",
+      "expression": "p.PAT_FIRST_NAME",
+      "depends_on": [
+        "p.PAT_FIRST_NAME"
+      ],
+      "filtered_by": {
+        "p.PAT_FIRST_NAME": [
+          "p.PAT_ID IN (SELECT DISTINCT e.PAT_ID FROM PAT_ENC_HSP AS e JOIN HSP_ACCT_DX_LIST AS dl ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID JOIN CLARITY_EDG AS dx ON dl.DX_ID = dx.DX_ID WHERE dx.ICD10_CODE LIKE 'I50%')"
+        ]
+      }
+    },
+    {
+      "output": "PAT_LAST_NAME",
+      "expression": "p.PAT_LAST_NAME",
+      "depends_on": [
+        "p.PAT_LAST_NAME"
+      ],
+      "filtered_by": {
+        "p.PAT_LAST_NAME": [
+          "p.PAT_ID IN (SELECT DISTINCT e.PAT_ID FROM PAT_ENC_HSP AS e JOIN HSP_ACCT_DX_LIST AS dl ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID JOIN CLARITY_EDG AS dx ON dl.DX_ID = dx.DX_ID WHERE dx.ICD10_CODE LIKE 'I50%')"
+        ]
+      }
+    }
+  ],
+  "distinct": true,
+  "raw_sql": "SELECT p.PAT_MRN_ID, p.PAT_FIRST_NAME, p.PAT_LAST_NAME\n        
+  FROM PATIENT p\n        
+  WHERE p.PAT_ID IN (\n            
+  SELECT DISTINCT e.PAT_ID FROM PAT_ENC_HSP e\n            
+  JOIN HSP_ACCT_DX_LIST dl ON e.HSP_ACCOUNT_ID = dl.HSP_ACCOUNT_ID\n            
+  JOIN CLARITY_EDG dx ON dl.DX_ID = dx.DX_ID\n           
+   WHERE dx.ICD10_CODE LIKE 'I50%'\n        )"
+}

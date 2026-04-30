@@ -1,10 +1,14 @@
-"""SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translate SQL.
+"""SQL Business Logic Extractor -- the engine that powers the 4 tools.
 
-Minimum download for L1-L3 (technical lineage extraction): __init__.py,
-extract.py, normalize.py, resolve.py -- this file's L4+ imports below are
-wrapped in try/except so missing files / dependencies don't block the L1-L3
-path from working. Add the L4+ files (compare.py, translate.py, collibra.py,
-batch.py) only when you need those capabilities."""
+Required files (Tools 1-4):
+    __init__.py, license.py, products.py
+    extract.py (L1), normalize.py (L2), resolve.py (L3)
+    translate.py (L4 -- needed for Tool 3 engineered mode), patterns/
+
+Optional / archived submodules (compare.py, batch.py, collibra.py, metadata.py)
+have been moved to docs/archive/sql_logic_extractor_extras/ -- they are not
+used by Tools 1-4. The try/except blocks below quietly skip them if the
+files happen to be present in some other deployment."""
 
 from .extract import SQLBusinessLogicExtractor, to_dict
 from .normalize import (

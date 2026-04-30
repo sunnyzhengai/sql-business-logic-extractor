@@ -1,0 +1,120 @@
+{
+  "columns": [
+    {
+      "name": "PAT_ID",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_ID",
+      "base_columns": [
+        "PATIENT.PAT_ID"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "ap.BIRTH_DATE < DATE_ADD(CURRENT_TIMESTAMP(), -18, 'YEAR')",
+        "EXISTS(SELECT 1 FROM PAT_ENC AS pe WHERE pe.PAT_ID = p.PAT_ID AND pe.CONTACT_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -1, 'YEAR') UNION ALL SELECT 1 FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "PAT_ID",
+          "expression": "ap.PAT_ID",
+          "type": "passthrough"
+        },
+        {
+          "scope": "ActivePatients",
+          "name": "PAT_ID",
+          "expression": "p.PAT_ID",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "PAT_NAME",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.PAT_NAME",
+      "base_columns": [
+        "PATIENT.PAT_NAME"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "ap.BIRTH_DATE < DATE_ADD(CURRENT_TIMESTAMP(), -18, 'YEAR')",
+        "EXISTS(SELECT 1 FROM PAT_ENC AS pe WHERE pe.PAT_ID = p.PAT_ID AND pe.CONTACT_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -1, 'YEAR') UNION ALL SELECT 1 FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "PAT_NAME",
+          "expression": "ap.PAT_NAME",
+          "type": "passthrough"
+        },
+        {
+          "scope": "ActivePatients",
+          "name": "PAT_NAME",
+          "expression": "p.PAT_NAME",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "BIRTH_DATE",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.BIRTH_DATE",
+      "base_columns": [
+        "PATIENT.BIRTH_DATE"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "ap.BIRTH_DATE < DATE_ADD(CURRENT_TIMESTAMP(), -18, 'YEAR')",
+        "EXISTS(SELECT 1 FROM PAT_ENC AS pe WHERE pe.PAT_ID = p.PAT_ID AND pe.CONTACT_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -1, 'YEAR') UNION ALL SELECT 1 FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "BIRTH_DATE",
+          "expression": "ap.BIRTH_DATE",
+          "type": "passthrough"
+        },
+        {
+          "scope": "ActivePatients",
+          "name": "BIRTH_DATE",
+          "expression": "p.BIRTH_DATE",
+          "type": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "SEX_C",
+      "type": "passthrough",
+      "resolved_expression": "PATIENT.SEX_C",
+      "base_columns": [
+        "PATIENT.SEX_C"
+      ],
+      "base_tables": [
+        "PATIENT"
+      ],
+      "filters": [
+        "ap.BIRTH_DATE < DATE_ADD(CURRENT_TIMESTAMP(), -18, 'YEAR')",
+        "EXISTS(SELECT 1 FROM PAT_ENC AS pe WHERE pe.PAT_ID = p.PAT_ID AND pe.CONTACT_DATE >= DATE_ADD(CURRENT_TIMESTAMP(), -1, 'YEAR') UNION ALL SELECT 1 FROM PROBLEM_LIST AS pl WHERE pl.PAT_ID = p.PAT_ID AND pl.RESOLVED_DATE IS NULL)"
+      ],
+      "transformation_chain": [
+        {
+          "scope": "query",
+          "name": "SEX_C",
+          "expression": "ap.SEX_C",
+          "type": "passthrough"
+        },
+        {
+          "scope": "ActivePatients",
+          "name": "SEX_C",
+          "expression": "p.SEX_C",
+          "type": "passthrough"
+        }
+      ]
+    }
+  ]
+}

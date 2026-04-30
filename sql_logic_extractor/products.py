@@ -298,34 +298,20 @@ def extract_business_logic(sql: str, schema: dict, *,
 
 
 def _summarize_engineered(bl: BusinessLogic) -> tuple[str, str, list[str]]:
-    """Deterministic report summary built from the structured signals.
-
-    TODO (May Week 4): expand to a richer template using business_domains,
-    granularity (window/aggregate/case), and lead filter narratives. For
-    now returns a minimal but honest summary so the scaffold is runnable."""
-    n = len(bl.column_translations)
-    tables = sorted({t for col in bl.lineage.resolved_columns
-                       for t in (col.get("base_tables", []) or [])})
-    metrics = [c["column_name"] for c in bl.column_translations
-                if c.get("column_type") in ("calculated", "aggregate", "case", "window")]
-    summary = (
-        f"Report producing {n} output column(s) sourced from "
-        f"{len(tables)} base table(s)."
-    )
-    if bl.lineage.query_filters:
-        summary += f" Constrained by {len(bl.lineage.query_filters)} filter clause(s)."
-    purpose = "Data extraction" if not metrics else "Aggregated reporting"
-    return summary, purpose, metrics[:5]
+    """Deterministic report summary built from structured signals -- no LLM."""
+    from .business_logic import summarize_engineered
+    result = summarize_engineered(bl)
+    return result["query_summary"], result["primary_purpose"], result["key_metrics"]
 
 
 def _summarize_with_llm(bl: BusinessLogic, llm_client) -> tuple[str, str, list[str]]:
-    """LLM-backed summary. Lazy-imports the client lib.
-
-    TODO (May Week 4): port docs/archive/cli/llm_translate.py:summarize_query here."""
-    raise NotImplementedError(
-        "LLM-backed report summary is scheduled for May Week 4. "
-        "See docs/archive/cli/llm_translate.py:summarize_query for the existing prototype."
-    )
+    """LLM-backed report summary. Lazy-imports google.genai INSIDE the call
+    so a no-LLM install doesn't pull the lib into sys.modules."""
+    from .business_logic import summarize_llm, make_llm_client
+    if llm_client is None:
+        llm_client = make_llm_client()
+    result = summarize_llm(bl, llm_client)
+    return result["query_summary"], result["primary_purpose"], result["key_metrics"]
 
 
 def _generate_report_description_core(sql: str, schema: dict, *,

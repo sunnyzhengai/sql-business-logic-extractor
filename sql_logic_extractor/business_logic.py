@@ -312,3 +312,159 @@ def make_llm_client(api_key: Optional[str] = None):
             "offline / on-prem tier.)"
         )
     return genai.Client(api_key=api_key)
+
+
+# ---------------------------------------------------------------------------
+# Tool 4: Query-level summarisation (engineered + LLM)
+# ---------------------------------------------------------------------------
+
+def summarize_engineered(business_logic) -> dict:
+    """Deterministic query-level summary built from structured signals.
+    Healthcare-safe: no LLM, no data exfiltration. Reads as a structured
+    paragraph rather than fluent prose -- the LLM mode is where polish
+    lives. Truthful is more important than pretty here.
+
+    Returns dict with query_summary, primary_purpose, key_metrics.
+    """
+    lineage = business_logic.lineage
+    translations = business_logic.column_translations
+    n_cols = len(translations)
+    col_types = [t.get("column_type", "") for t in translations]
+
+    # Granularity signal: the dominant column type tells us the shape.
+    if "window" in col_types:
+        grain = "Ranked / windowed analysis"
+    elif "aggregate" in col_types:
+        grain = "Aggregated reporting"
+    elif "case" in col_types:
+        grain = "Categorisation and classification"
+    else:
+        grain = "Row-level extraction"
+
+    # Domains: bucket per column, take the dominant one.
+    domains = [t.get("business_domain", "") for t in translations
+                if t.get("business_domain") and t.get("business_domain") != "General"]
+    domain_str = ""
+    if domains:
+        from collections import Counter
+        top = Counter(domains).most_common(1)[0][0]
+        domain_str = f" for {top.lower()}"
+
+    # Distinct base tables across all columns.
+    base_tables = sorted({tbl for col in lineage.resolved_columns
+                            for tbl in (col.get("base_tables", []) or [])})
+
+    # Computed metrics = non-passthrough column names.
+    metrics = [t.get("column_name", "") for t in translations
+                if t.get("column_type") not in ("passthrough", "")]
+
+    # Filter slice -- the strongest semantic signal we have.
+    filter_narratives = []
+    for f in lineage.query_filters:
+        # Strip pure correlation keys ("col = col") and trivially true ("0 = 0")
+        if not f or re.match(r"^\s*\d+\s*=\s*\d+\s*$", f.strip()):
+            continue
+        filter_narratives.append(f)
+
+    # Build the summary paragraph.
+    parts = [
+        f"{grain}{domain_str}: {n_cols} output column(s) "
+        f"sourced from {len(base_tables)} base table(s) ({', '.join(base_tables[:5])}"
+        f"{'...' if len(base_tables) > 5 else ''})."
+    ]
+    if metrics:
+        parts.append(
+            f"Computed columns: {', '.join(metrics[:5])}"
+            f"{f' and {len(metrics)-5} more' if len(metrics) > 5 else ''}."
+        )
+    if filter_narratives:
+        first = filter_narratives[0]
+        if len(first) > 240:
+            first = first[:240] + "..."
+        more = f" (+{len(filter_narratives)-1} more filter clause(s))" \
+                if len(filter_narratives) > 1 else ""
+        parts.append(f"Constrained by: {first}{more}.")
+
+    summary = " ".join(parts)
+    purpose = grain + domain_str if domain_str else grain
+    return {
+        "query_summary": summary,
+        "primary_purpose": purpose,
+        "key_metrics": metrics[:10],
+    }
+
+
+_LLM_SUMMARY_SYSTEM_PROMPT = """You summarize SQL queries based on their output columns, source tables, and filter predicates.
+
+Rules:
+1. Be ACCURATE: only describe what the query actually produces.
+2. Be SUCCINCT: 2-4 sentences max.
+3. Identify the PRIMARY PURPOSE: what business question does this query answer?
+4. Mention key entities (patients, referrals, encounters, etc.).
+5. Note key computed metrics.
+6. FILTERS DEFINE THE BUSINESS SLICE. If filters constrain to "denied", "active", "completed" etc., the summary MUST reflect that slice -- not the unfiltered shape.
+7. Do NOT speculate on use cases or downstream applications.
+
+Output JSON:
+{
+  "query_summary": "succinct description that reflects the business slice the filters define",
+  "primary_purpose": "the business question this query answers",
+  "key_metrics": ["list", "of", "key", "computed", "columns"]
+}"""
+
+
+def summarize_llm(business_logic, llm_client) -> dict:
+    """LLM-backed query-level summary. Lazy-imports the client library."""
+    from google.genai import types  # noqa: F401
+
+    lineage = business_logic.lineage
+    translations = business_logic.column_translations
+
+    base_tables = sorted({tbl for col in lineage.resolved_columns
+                            for tbl in (col.get("base_tables", []) or [])})
+    column_lines = [f"- {t.get('column_name', '')}: {t.get('english_definition', '')}"
+                    for t in translations]
+
+    # Filter narrative: prefer engineered-translated filter prose if present,
+    # else fall back to raw filter SQL.
+    filter_lines = [f for f in lineage.query_filters
+                    if f and not re.match(r"^\s*\d+\s*=\s*\d+\s*$", f.strip())]
+
+    context_parts = [
+        f"## Source Tables ({len(base_tables)})",
+        ", ".join(base_tables),
+        "",
+        f"## Output Columns ({len(translations)})",
+        "\n".join(column_lines),
+    ]
+    if filter_lines:
+        context_parts += [
+            "",
+            f"## Query Filters ({len(filter_lines)} -- these constrain which rows the query returns)",
+            "\n".join(f"- {f}" for f in filter_lines),
+        ]
+    user_prompt = "Summarize this SQL query based on its columns, source tables, and filters:\n\n" + \
+                    "\n".join(context_parts)
+
+    try:
+        response = llm_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=_LLM_SUMMARY_SYSTEM_PROMPT,
+                temperature=0.3,
+                response_mime_type="application/json",
+            ),
+        )
+        result = json.loads(response.text)
+        return {
+            "query_summary": result.get("query_summary", ""),
+            "primary_purpose": result.get("primary_purpose", ""),
+            "key_metrics": result.get("key_metrics", []),
+        }
+    except Exception as e:
+        return {
+            "query_summary": f"[LLM error: {type(e).__name__}: {str(e)[:80]}]",
+            "primary_purpose": "",
+            "key_metrics": [],
+        }

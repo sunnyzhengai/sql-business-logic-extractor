@@ -90,21 +90,14 @@ def _table_level_rows(sql: str, dialect: str, view_file: str, view_name: str,
     return rows
 
 
-def _process_view(view_path: Path, dialect: str = "tsql") -> list[dict]:
-    """Run Tool 1 on one file, shape the output for the manifest CSV."""
-    sql = _read_sql_file(view_path)
-    if not sql.strip():
-        return [_error_row(view_path, "EMPTY: file is empty after decoding")]
-
-    try:
-        inv = extract_columns(sql, dialect=dialect)
-    except Exception as e:
-        return [_error_row(view_path, f"PARSE ERROR: {e}")]
-
-    view_name = view_path.stem
+def rows_from_inventory(view_path: Path, view_name: str, inventory) -> tuple[list[dict], set]:
+    """Shape a ColumnInventory into manifest rows. Used by _process_view
+    AND by tools/batch_all.py (which feeds a pre-computed inventory to
+    avoid re-running the engine). Returns (rows, seen_set) so the caller
+    can extend with table-level rows without re-deduping."""
     rows: list[dict] = []
     seen: set[tuple] = set()
-    for c in inv.columns:
+    for c in inventory.columns:
         key = (view_path.name, c.database or "", c.schema or "", c.table, c.column)
         if key in seen:
             continue
@@ -119,6 +112,22 @@ def _process_view(view_path: Path, dialect: str = "tsql") -> list[dict]:
             "reference_type": "column",
             "confidence": "high" if (c.database or c.schema) else "medium",
         })
+    return rows, seen
+
+
+def _process_view(view_path: Path, dialect: str = "tsql") -> list[dict]:
+    """Run Tool 1 on one file, shape the output for the manifest CSV."""
+    sql = _read_sql_file(view_path)
+    if not sql.strip():
+        return [_error_row(view_path, "EMPTY: file is empty after decoding")]
+
+    try:
+        inv = extract_columns(sql, dialect=dialect)
+    except Exception as e:
+        return [_error_row(view_path, f"PARSE ERROR: {e}")]
+
+    view_name = view_path.stem
+    rows, seen = rows_from_inventory(view_path, view_name, inv)
     rows.extend(_table_level_rows(sql, dialect, view_path.name, view_name, seen))
     return rows
 

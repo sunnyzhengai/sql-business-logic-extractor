@@ -47,19 +47,10 @@ def _read_sql_file(path: Path) -> str:
         return raw.decode("utf-16-le", errors="replace")
 
 
-def _process_view(view_path: Path, schema: dict, *, use_llm: bool, llm_client,
-                  dialect: str) -> list[dict]:
-    sql = _read_sql_file(view_path)
-    if not sql.strip():
-        return [_error_row(view_path, "EMPTY", use_llm)]
-
-    try:
-        bl = extract_business_logic(sql, schema, use_llm=use_llm,
-                                      llm_client=llm_client, dialect=dialect)
-    except Exception as e:
-        return [_error_row(view_path, f"ERROR: {type(e).__name__}: {e}", use_llm)]
-
-    view_name = view_path.stem
+def rows_from_business_logic(view_path: Path, view_name: str, bl,
+                                use_llm: bool) -> list[dict]:
+    """Shape a BusinessLogic into business-logic rows. Used by
+    _process_view AND tools/batch_all.py."""
     rows: list[dict] = []
     for t in bl.column_translations:
         rows.append({
@@ -76,6 +67,21 @@ def _process_view(view_path: Path, schema: dict, *, use_llm: bool, llm_client,
             "use_llm": "true" if use_llm else "false",
         })
     return rows
+
+
+def _process_view(view_path: Path, schema: dict, *, use_llm: bool, llm_client,
+                  dialect: str) -> list[dict]:
+    sql = _read_sql_file(view_path)
+    if not sql.strip():
+        return [_error_row(view_path, "EMPTY", use_llm)]
+
+    try:
+        bl = extract_business_logic(sql, schema, use_llm=use_llm,
+                                      llm_client=llm_client, dialect=dialect)
+    except Exception as e:
+        return [_error_row(view_path, f"ERROR: {type(e).__name__}: {e}", use_llm)]
+
+    return rows_from_business_logic(view_path, view_path.stem, bl, use_llm)
 
 
 def _error_row(view_path: Path, msg: str, use_llm: bool) -> dict:

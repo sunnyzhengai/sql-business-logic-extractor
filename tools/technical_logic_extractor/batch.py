@@ -54,31 +54,22 @@ def _filter_text(f) -> str:
     return str(f or "").strip()
 
 
-def _process_view(view_path: Path, dialect: str = "tsql") -> list[dict]:
-    """Run Tool 2 on one file, shape into transformation rows. Skip
-    truly-trivial passthrough columns (no filters, no transformation)."""
-    sql = _read_sql_file(view_path)
-    if not sql.strip():
-        return [_error_row(view_path, "EMPTY: file is empty after decoding")]
+def rows_from_lineage(view_path: Path, view_name: str, lineage,
+                        alias_map: dict, dialect: str = "tsql") -> list[dict]:
+    """Shape a TechnicalLineage into transformation rows. Used by
+    _process_view AND tools/batch_all.py.
 
-    try:
-        lineage = extract_technical_lineage(sql, dialect=dialect)
-    except Exception as e:
-        return [_error_row(view_path, f"PARSE ERROR: {e}")]
-
-    # Build the alias -> real-table map so we can rewrite filter SQL
-    # (CVGEPT.X -> COVERAGE_MEMBER_LIST.X) and strip JOIN correlation
-    # keys (t1.K = t2.K) that aren't real business filters.
-    alias_map = build_alias_map(sql, dialect=dialect)
-
-    view_name = view_path.stem
+    Skips truly-trivial passthroughs (no filters, no transformation).
+    Cleans filter expressions in two ways: strips JOIN correlation keys
+    (t1.K = t2.K) and resolves aliases to real table names using
+    alias_map. A column whose filters were ALL correlation keys lands
+    in the skipped pile -- correctly, since it's then truly trivial.
+    """
     rows: list[dict] = []
     for col in lineage.resolved_columns:
         col_type = col.get("type", "unknown")
         col_filters = col.get("filters", []) or []
 
-        # Clean each filter: strip correlation keys, resolve aliases.
-        # Drop any filter that becomes empty after cleanup, and dedupe.
         cleaned = []
         seen = set()
         for f in col_filters:
@@ -90,9 +81,6 @@ def _process_view(view_path: Path, dialect: str = "tsql") -> list[dict]:
                 seen.add(cleaned_text)
                 cleaned.append(cleaned_text)
 
-        # Skip TRULY trivial passthrough -- no real filters, no transformation.
-        # A column whose filters were ALL correlation keys ends up here too,
-        # because cleaned[] is empty even though col_filters wasn't.
         if col_type == "passthrough" and not cleaned:
             continue
 
@@ -107,6 +95,22 @@ def _process_view(view_path: Path, dialect: str = "tsql") -> list[dict]:
             "filters": "; ".join(cleaned),
         })
     return rows
+
+
+def _process_view(view_path: Path, dialect: str = "tsql") -> list[dict]:
+    """Run Tool 2 on one file, shape into transformation rows. Skip
+    truly-trivial passthrough columns (no filters, no transformation)."""
+    sql = _read_sql_file(view_path)
+    if not sql.strip():
+        return [_error_row(view_path, "EMPTY: file is empty after decoding")]
+
+    try:
+        lineage = extract_technical_lineage(sql, dialect=dialect)
+    except Exception as e:
+        return [_error_row(view_path, f"PARSE ERROR: {e}")]
+
+    alias_map = build_alias_map(sql, dialect=dialect)
+    return rows_from_lineage(view_path, view_path.stem, lineage, alias_map, dialect)
 
 
 def _error_row(view_path: Path, msg: str) -> dict:

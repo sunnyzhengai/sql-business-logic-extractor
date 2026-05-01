@@ -1,12 +1,12 @@
 # Graph Report - /Users/admin/sql-logic-extractor  (2026-05-01)
 
 ## Corpus Check
-- 71 files · ~129,045 words
+- 74 files · ~129,999 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1253 nodes · 2882 edges · 109 communities detected
-- Extraction: 61% EXTRACTED · 39% INFERRED · 0% AMBIGUOUS · INFERRED: 1112 edges (avg confidence: 0.59)
+- 1257 nodes · 2906 edges · 108 communities detected
+- Extraction: 62% EXTRACTED · 38% INFERRED · 0% AMBIGUOUS · INFERRED: 1113 edges (avg confidence: 0.59)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -118,7 +118,6 @@
 - [[_COMMUNITY_Community 105|Community 105]]
 - [[_COMMUNITY_Community 106|Community 106]]
 - [[_COMMUNITY_Community 107|Community 107]]
-- [[_COMMUNITY_Community 108|Community 108]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `SQLBusinessLogicExtractor` - 243 edges
@@ -164,23 +163,23 @@ Nodes (79): avg(), count(), max_agg(), min_agg(), Aggregate function patterns: C
 
 ### Community 4 - "Community 4"
 Cohesion: 0.05
-Nodes (78): batch_process(), BatchResult, _classify_error(), main(), _progress(), Process all SQL files matching pattern under path.      Args:         path: Dire, Write combined Collibra import files., Write a summary report. (+70 more)
+Nodes (66): ComparisonReport, ConflictGroup, _def_to_dict(), _describe_group(), format_report(), LineageComparator, main(), MatchGroup (+58 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.06
-Nodes (48): BusinessLogicComparator, ComparisonReport, _compute_group_similarity(), _def_summary(), _describe_differences(), _describe_group(), main(), MatchGroup (+40 more)
+Cohesion: 0.05
+Nodes (76): batch_process(), BatchResult, _classify_error(), _progress(), Process all SQL files matching pattern under path.      Args:         path: Dire, Write combined Collibra import files., Write a summary report., Write a human-readable action items report for failures that need review. (+68 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.06
-Nodes (46): ComparisonReport, ConflictGroup, _def_to_dict(), _describe_group(), format_report(), LineageComparator, main(), MatchGroup (+38 more)
+Nodes (48): BusinessLogicComparator, ComparisonReport, _compute_group_similarity(), _def_summary(), _describe_differences(), _describe_group(), main(), MatchGroup (+40 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.06
-Nodes (46): build_business_logic(), build_manifest(), build_report_descriptions(), build_transformations(), _error_row(), _filter_text(), _is_notebook(), _process_view() (+38 more)
+Cohesion: 0.09
+Nodes (23): CTEDef, _extract_columns(), _get_alias(), _is_aggregate(), _is_case(), _is_literal(), _is_simple_column(), _is_star() (+15 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.1
-Nodes (23): CTEDef, _extract_columns(), _get_alias(), _is_aggregate(), _is_case(), _is_literal(), _is_simple_column(), _is_star() (+15 more)
+Cohesion: 0.07
+Nodes (42): build_manifest(), _build_qualifier_map(), _error_row(), extract_view_refs(), _flatten_cte_columns(), _is_notebook(), main(), _qualify_table() (+34 more)
 
 ### Community 9 - "Community 9"
 Cohesion: 0.19
@@ -199,12 +198,12 @@ Cohesion: 0.09
 Nodes (27): _is_notebook(), _load_schema(), main(), CLI entry point for Tool 3 -- Business logic extractor., Read a SQL file, handling SSMS's default UTF-16 LE BOM and other     common enco, _read_sql_file(), export_neo4j_direct(), export_to_neo4j() (+19 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.09
-Nodes (33): classify_business_domain(), describe_column_ref(), expand_abbreviations(), format_output(), get_column_description(), get_enum_value(), load_schema(), main() (+25 more)
+Cohesion: 0.13
+Nodes (29): build_business_logic(), build_manifest(), build_report_descriptions(), build_transformations(), _error_row(), _filter_text(), _is_notebook(), main() (+21 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.12
-Nodes (23): build_manifest(), _build_qualifier_map(), _error_row(), extract_view_refs(), _flatten_cte_columns(), _is_notebook(), main(), _qualify_table() (+15 more)
+Cohesion: 0.09
+Nodes (33): classify_business_domain(), describe_column_ref(), expand_abbreviations(), format_output(), get_column_description(), get_enum_value(), load_schema(), main() (+25 more)
 
 ### Community 15 - "Community 15"
 Cohesion: 0.14
@@ -215,24 +214,24 @@ Cohesion: 0.13
 Nodes (22): _build_llm_context(), classify_business_domain(), _filter_text(), load_schema(), Translate L3 filter predicates by walking each with the registry.     Distinguis, Best-effort domain bucket from name/table heuristics. Useful as a     grouping s, Translate one resolved column (from the L3 resolver) into a     business-logic d, Build a focused context string for the LLM: the column's resolved     expression (+14 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.16
-Nodes (19): _build_manifest_rows(), _build_qualifier_map(), _build_transformation_rows(), extract_to_csvs(), extract_view(), _filter_text(), main(), _manifest_error_row() (+11 more)
-
-### Community 18 - "Community 18"
 Cohesion: 0.17
 Nodes (12): execute_cypher(), format_results_for_display(), get_graph_stats(), get_neo4j_driver(), nl_to_cypher(), Get cached Neo4j driver., Convert natural language question to Cypher query., Convert Neo4j types to clean, readable Python types. (+4 more)
 
-### Community 19 - "Community 19"
+### Community 18 - "Community 18"
 Cohesion: 0.43
 Nodes (6): _child_env(), list_queries(), main(), Inject project root onto PYTHONPATH so subprocesses can import     `sql_logic_ex, Always launch the resolver as the installed package — _child_env() puts the, _resolve_cmd()
 
-### Community 20 - "Community 20"
+### Community 19 - "Community 19"
 Cohesion: 0.4
 Nodes (1): HTTP entry point for Tool 3 -- Business logic extractor (online SaaS).  Implemen
 
-### Community 21 - "Community 21"
+### Community 20 - "Community 20"
 Cohesion: 1.0
 Nodes (2): csv_to_schema(), main()
+
+### Community 21 - "Community 21"
+Cohesion: 1.0
+Nodes (0): 
 
 ### Community 22 - "Community 22"
 Cohesion: 1.0
@@ -248,151 +247,151 @@ Nodes (0):
 
 ### Community 25 - "Community 25"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Run Tool 2 on one file, shape into transformation rows. Skip     truly-trivial p
 
 ### Community 26 - "Community 26"
 Cohesion: 1.0
-Nodes (1): Run Tool 2 on one file, shape into transformation rows. Skip     truly-trivial p
+Nodes (1): Deterministic query-level summary built from structured signals.     Healthcare-
 
 ### Community 27 - "Community 27"
 Cohesion: 1.0
-Nodes (1): Deterministic query-level summary built from structured signals.     Healthcare-
+Nodes (1): LLM-backed query-level summary. Lazy-imports the client library.
 
 ### Community 28 - "Community 28"
 Cohesion: 1.0
-Nodes (1): LLM-backed query-level summary. Lazy-imports the client library.
+Nodes (1): LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port do
 
 ### Community 29 - "Community 29"
 Cohesion: 1.0
-Nodes (1): LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port do
+Nodes (1): Ungated core for Tool 4.
 
 ### Community 30 - "Community 30"
 Cohesion: 1.0
-Nodes (1): Ungated core for Tool 4.
+Nodes (1): Tool 4 -- natural-language description of what the SQL report does.     `use_llm
 
 ### Community 31 - "Community 31"
 Cohesion: 1.0
-Nodes (1): Tool 4 -- natural-language description of what the SQL report does.     `use_llm
+Nodes (1): LLM-backed translator. Lazy-imports the client lib so a no-LLM     install doesn
 
 ### Community 32 - "Community 32"
 Cohesion: 1.0
-Nodes (1): LLM-backed translator. Lazy-imports the client lib so a no-LLM     install doesn
+Nodes (1): Ungated core for Tool 3. Tool 4's core calls this directly.
 
 ### Community 33 - "Community 33"
 Cohesion: 1.0
-Nodes (1): Ungated core for Tool 3. Tool 4's core calls this directly.
+Nodes (1): Tool 3 -- English business definition for each transformed column.     `use_llm=
 
 ### Community 34 - "Community 34"
 Cohesion: 1.0
-Nodes (1): Tool 3 -- English business definition for each transformed column.     `use_llm=
+Nodes (1): Deterministic report summary built from the structured signals.      TODO (May W
 
 ### Community 35 - "Community 35"
 Cohesion: 1.0
-Nodes (1): Deterministic report summary built from the structured signals.      TODO (May W
+Nodes (1): LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port cl
 
 ### Community 36 - "Community 36"
 Cohesion: 1.0
-Nodes (1): LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port cl
+Nodes (1): Ungated core for Tool 4.
 
 ### Community 37 - "Community 37"
 Cohesion: 1.0
-Nodes (1): Ungated core for Tool 4.
+Nodes (1): Tool 4 -- natural-language description of what the SQL report does.     `use_llm
 
 ### Community 38 - "Community 38"
 Cohesion: 1.0
-Nodes (1): Tool 4 -- natural-language description of what the SQL report does.     `use_llm
+Nodes (1): Re-encode the SSMS marker SQL as UTF-16 LE with a BOM in /tmp so the     runner
 
 ### Community 39 - "Community 39"
 Cohesion: 1.0
-Nodes (1): Re-encode the SSMS marker SQL as UTF-16 LE with a BOM in /tmp so the     runner
+Nodes (1): Tool 1 -- enumerate every (database, schema, table, column) the SQL     referenc
 
 ### Community 40 - "Community 40"
 Cohesion: 1.0
-Nodes (1): Tool 1 -- enumerate every (database, schema, table, column) the SQL     referenc
+Nodes (1): Ungated core for Tool 2. Tool 3's core calls this directly.
 
 ### Community 41 - "Community 41"
 Cohesion: 1.0
-Nodes (1): Ungated core for Tool 2. Tool 3's core calls this directly.
+Nodes (1): Tool 2 -- per-output-column lineage with WHERE/JOIN/EXISTS filter     propagatio
 
 ### Community 42 - "Community 42"
 Cohesion: 1.0
-Nodes (1): Tool 2 -- per-output-column lineage with WHERE/JOIN/EXISTS filter     propagatio
+Nodes (1): Pattern-library translator -- pure deterministic logic, no LLM.      TODO (May W
 
 ### Community 43 - "Community 43"
 Cohesion: 1.0
-Nodes (1): Pattern-library translator -- pure deterministic logic, no LLM.      TODO (May W
+Nodes (1): LLM-backed translator. Lazy-imports the client lib so a no-LLM     install doesn
 
 ### Community 44 - "Community 44"
 Cohesion: 1.0
-Nodes (1): LLM-backed translator. Lazy-imports the client lib so a no-LLM     install doesn
+Nodes (1): Ungated core for Tool 3. Tool 4's core calls this directly.
 
 ### Community 45 - "Community 45"
 Cohesion: 1.0
-Nodes (1): Ungated core for Tool 3. Tool 4's core calls this directly.
+Nodes (1): Tool 3 -- English business definition for each transformed column.     `use_llm=
 
 ### Community 46 - "Community 46"
 Cohesion: 1.0
-Nodes (1): Tool 3 -- English business definition for each transformed column.     `use_llm=
+Nodes (1): Deterministic report summary built from the structured signals.      TODO (May W
 
 ### Community 47 - "Community 47"
 Cohesion: 1.0
-Nodes (1): Deterministic report summary built from the structured signals.      TODO (May W
+Nodes (1): LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port cl
 
 ### Community 48 - "Community 48"
 Cohesion: 1.0
-Nodes (1): LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port cl
+Nodes (1): Ungated core for Tool 4.
 
 ### Community 49 - "Community 49"
 Cohesion: 1.0
-Nodes (1): Ungated core for Tool 4.
+Nodes (1): Tool 4 -- natural-language description of what the SQL report does.     `use_llm
 
 ### Community 50 - "Community 50"
 Cohesion: 1.0
-Nodes (1): Tool 4 -- natural-language description of what the SQL report does.     `use_llm
+Nodes (1): Extract transformed (non-passthrough) columns from a folder of SQL views.  Singl
 
 ### Community 51 - "Community 51"
 Cohesion: 1.0
-Nodes (1): Extract transformed (non-passthrough) columns from a folder of SQL views.  Singl
+Nodes (1): Read a SQL file, handling SSMS's default UTF-16 LE BOM.
 
 ### Community 52 - "Community 52"
 Cohesion: 1.0
-Nodes (1): Read a SQL file, handling SSMS's default UTF-16 LE BOM.
+Nodes (1): Return a short label describing the transformation in this expression.     Retur
 
 ### Community 53 - "Community 53"
 Cohesion: 1.0
-Nodes (1): Return a short label describing the transformation in this expression.     Retur
+Nodes (1): Find the top-level SELECT inside a parsed CREATE VIEW (or bare SELECT).
 
 ### Community 54 - "Community 54"
 Cohesion: 1.0
-Nodes (1): Find the top-level SELECT inside a parsed CREATE VIEW (or bare SELECT).
+Nodes (1): Render a node's SQL for the CSV, collapsing whitespace and truncating     if abs
 
 ### Community 55 - "Community 55"
 Cohesion: 1.0
-Nodes (1): Render a node's SQL for the CSV, collapsing whitespace and truncating     if abs
+Nodes (1): Parse one view; return a list of CSV rows, one per transformed column.
 
 ### Community 56 - "Community 56"
 Cohesion: 1.0
-Nodes (1): Parse one view; return a list of CSV rows, one per transformed column.
+Nodes (1): Remove USE / GO / SET-option statements and header block comments that     SSMS
 
 ### Community 57 - "Community 57"
 Cohesion: 1.0
-Nodes (1): Remove USE / GO / SET-option statements and header block comments that     SSMS
+Nodes (1): (database, schema, table) for a sqlglot Table node. In sqlglot's MySQL-     root
 
 ### Community 58 - "Community 58"
 Cohesion: 1.0
-Nodes (1): (database, schema, table) for a sqlglot Table node. In sqlglot's MySQL-     root
+Nodes (1): {alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia
 
 ### Community 59 - "Community 59"
 Cohesion: 1.0
-Nodes (1): {alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia
+Nodes (1): For each CTE, qualify its body separately and emit:         {(cte_alias_lower, c
 
 ### Community 60 - "Community 60"
 Cohesion: 1.0
-Nodes (1): For each CTE, qualify its body separately and emit:         {(cte_alias_lower, c
+Nodes (1): Parse one view file → list of manifest rows. Importable for per-file     use in
 
 ### Community 61 - "Community 61"
 Cohesion: 1.0
-Nodes (1): Parse one view file → list of manifest rows. Importable for per-file     use in
+Nodes (1): Notebook-callable entry point. Walks input_dir for *.sql files, parses     each,
 
 ### Community 62 - "Community 62"
 Cohesion: 1.0
@@ -400,375 +399,371 @@ Nodes (1): Notebook-callable entry point. Walks input_dir for *.sql files, parse
 
 ### Community 63 - "Community 63"
 Cohesion: 1.0
-Nodes (1): Notebook-callable entry point. Walks input_dir for *.sql files, parses     each,
+Nodes (1): (database, schema, table) for a sqlglot Table node. In sqlglot's MySQL-     root
 
 ### Community 64 - "Community 64"
 Cohesion: 1.0
-Nodes (1): (database, schema, table) for a sqlglot Table node. In sqlglot's MySQL-     root
+Nodes (1): {alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia
 
 ### Community 65 - "Community 65"
 Cohesion: 1.0
-Nodes (1): {alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia
+Nodes (1): For each CTE, qualify its body separately and emit:         {(cte_alias_lower, c
 
 ### Community 66 - "Community 66"
 Cohesion: 1.0
-Nodes (1): For each CTE, qualify its body separately and emit:         {(cte_alias_lower, c
+Nodes (1): Parse one view file → list of manifest rows. Importable for per-file     use in
 
 ### Community 67 - "Community 67"
 Cohesion: 1.0
-Nodes (1): Parse one view file → list of manifest rows. Importable for per-file     use in
+Nodes (1): Notebook-callable entry point. Walks input_dir for *.sql files, parses     each,
 
 ### Community 68 - "Community 68"
 Cohesion: 1.0
-Nodes (1): Notebook-callable entry point. Walks input_dir for *.sql files, parses     each,
+Nodes (1): True if the filter is a bare `column = column` relational key, not a row-restric
 
 ### Community 69 - "Community 69"
 Cohesion: 1.0
-Nodes (1): True if the filter is a bare `column = column` relational key, not a row-restric
+Nodes (1): Parse and re-emit with table qualifiers stripped, for dedup purposes.
 
 ### Community 70 - "Community 70"
 Cohesion: 1.0
-Nodes (1): Parse and re-emit with table qualifiers stripped, for dedup purposes.
+Nodes (1): Drop correlation keys and collapse filters that differ only in alias qualifiers.
 
 ### Community 71 - "Community 71"
 Cohesion: 1.0
-Nodes (1): Drop correlation keys and collapse filters that differ only in alias qualifiers.
+Nodes (1): Load and index the clarity_schema.yaml for fast lookup.      Returns:         {
 
 ### Community 72 - "Community 72"
 Cohesion: 1.0
-Nodes (1): Load and index the clarity_schema.yaml for fast lookup.      Returns:         {
+Nodes (1): Get description for a table.
 
 ### Community 73 - "Community 73"
 Cohesion: 1.0
-Nodes (1): Get description for a table.
+Nodes (1): Get description for a column.
 
 ### Community 74 - "Community 74"
 Cohesion: 1.0
-Nodes (1): Get description for a column.
+Nodes (1): Get enum value mappings for a ZC_ table.
 
 ### Community 75 - "Community 75"
 Cohesion: 1.0
-Nodes (1): Get enum value mappings for a ZC_ table.
+Nodes (1): Build context string for a single resolved column.      Args:         resolved_c
 
 ### Community 76 - "Community 76"
 Cohesion: 1.0
-Nodes (1): Build context string for a single resolved column.      Args:         resolved_c
+Nodes (1): Translate a single resolved column to English using LLM.      Args:         reso
 
 ### Community 77 - "Community 77"
 Cohesion: 1.0
-Nodes (1): Translate a single resolved column to English using LLM.      Args:         reso
+Nodes (1): Generate a summary of the entire SQL query based on column definitions.      Arg
 
 ### Community 78 - "Community 78"
 Cohesion: 1.0
-Nodes (1): Generate a summary of the entire SQL query based on column definitions.      Arg
+Nodes (1): Translate all columns in an L5 output file to English and generate query summary
 
 ### Community 79 - "Community 79"
 Cohesion: 1.0
-Nodes (1): Translate all columns in an L5 output file to English and generate query summary
+Nodes (1): Format translation results for output.      Args:         results: Dict with 'su
 
 ### Community 80 - "Community 80"
 Cohesion: 1.0
-Nodes (1): Format translation results for output.      Args:         results: Dict with 'su
+Nodes (1): Use the package form when available (repo dev); otherwise the flat form (work la
 
 ### Community 81 - "Community 81"
 Cohesion: 1.0
-Nodes (1): Use the package form when available (repo dev); otherwise the flat form (work la
+Nodes (1): Parse a bare SQL fragment (not wrapped in SELECT) and translate.
 
 ### Community 82 - "Community 82"
 Cohesion: 1.0
-Nodes (1): Parse a bare SQL fragment (not wrapped in SELECT) and translate.
+Nodes (1): Convert dataclass tree to plain dict, filtering empty fields.
 
 ### Community 83 - "Community 83"
 Cohesion: 1.0
-Nodes (1): Convert dataclass tree to plain dict, filtering empty fields.
+Nodes (1): Load clarity_schema.yaml as the raw dict. The pattern library builds     its own
 
 ### Community 84 - "Community 84"
 Cohesion: 1.0
-Nodes (1): Load clarity_schema.yaml as the raw dict. The pattern library builds     its own
+Nodes (1): Classify the business domain based on column name, expression, and base tables.
 
 ### Community 85 - "Community 85"
 Cohesion: 1.0
-Nodes (1): Classify the business domain based on column name, expression, and base tables.
+Nodes (1): Parse a resolved SQL expression and walk it with the pattern registry.      Fall
 
 ### Community 86 - "Community 86"
 Cohesion: 1.0
-Nodes (1): Parse a resolved SQL expression and walk it with the pattern registry.      Fall
+Nodes (1): Translate L3 filter predicates by walking each with the registry.      Distingui
 
 ### Community 87 - "Community 87"
 Cohesion: 1.0
-Nodes (1): Translate L3 filter predicates by walking each with the registry.      Distingui
+Nodes (1): Parse a bare SQL fragment (not wrapped in SELECT) and translate.
 
 ### Community 88 - "Community 88"
 Cohesion: 1.0
-Nodes (1): Parse a bare SQL fragment (not wrapped in SELECT) and translate.
+Nodes (1): Classify the business domain based on column name, expression, and base tables.
 
 ### Community 89 - "Community 89"
 Cohesion: 1.0
-Nodes (1): Classify the business domain based on column name, expression, and base tables.
+Nodes (1): Parse a resolved SQL expression and walk it with the pattern registry.      Fall
 
 ### Community 90 - "Community 90"
 Cohesion: 1.0
-Nodes (1): Parse a resolved SQL expression and walk it with the pattern registry.      Fall
+Nodes (1): Translate L3 filter predicates by walking each with the registry.      Distingui
 
 ### Community 91 - "Community 91"
 Cohesion: 1.0
-Nodes (1): Translate L3 filter predicates by walking each with the registry.      Distingui
+Nodes (1): Parse a bare SQL fragment (not wrapped in SELECT) and translate.
 
 ### Community 92 - "Community 92"
 Cohesion: 1.0
-Nodes (1): Parse a bare SQL fragment (not wrapped in SELECT) and translate.
+Nodes (1): Load and index the clarity_schema.yaml for fast lookup.
 
 ### Community 93 - "Community 93"
 Cohesion: 1.0
-Nodes (1): Load and index the clarity_schema.yaml for fast lookup.
+Nodes (1): Expand common abbreviations in column/table names.
 
 ### Community 94 - "Community 94"
 Cohesion: 1.0
-Nodes (1): Expand common abbreviations in column/table names.
+Nodes (1): Get description for a column, fall back to abbreviation expansion.
 
 ### Community 95 - "Community 95"
 Cohesion: 1.0
-Nodes (1): Get description for a column, fall back to abbreviation expansion.
+Nodes (1): Get enum value name from ZC_ table.
 
 ### Community 96 - "Community 96"
 Cohesion: 1.0
-Nodes (1): Get enum value name from ZC_ table.
+Nodes (1): Translate DATEDIFF expressions.
 
 ### Community 97 - "Community 97"
 Cohesion: 1.0
-Nodes (1): Translate DATEDIFF expressions.
+Nodes (1): Translate CASE expressions.
 
 ### Community 98 - "Community 98"
 Cohesion: 1.0
-Nodes (1): Translate CASE expressions.
+Nodes (1): Translate aggregate functions (SUM, AVG, COUNT, etc.).
 
 ### Community 99 - "Community 99"
 Cohesion: 1.0
-Nodes (1): Translate aggregate functions (SUM, AVG, COUNT, etc.).
+Nodes (1): Translate window functions (ROW_NUMBER, RANK, LAG, etc.).
 
 ### Community 100 - "Community 100"
 Cohesion: 1.0
-Nodes (1): Translate window functions (ROW_NUMBER, RANK, LAG, etc.).
+Nodes (1): Get a human-readable description for a column reference.
 
 ### Community 101 - "Community 101"
 Cohesion: 1.0
-Nodes (1): Get a human-readable description for a column reference.
+Nodes (1): Classify the business domain based on column name and context.
 
 ### Community 102 - "Community 102"
 Cohesion: 1.0
-Nodes (1): Classify the business domain based on column name and context.
+Nodes (1): Translate a SQL expression to plain English.
 
 ### Community 103 - "Community 103"
 Cohesion: 1.0
-Nodes (1): Translate a SQL expression to plain English.
+Nodes (1): Translate filter conditions to plain English.
 
 ### Community 104 - "Community 104"
 Cohesion: 1.0
-Nodes (1): Translate filter conditions to plain English.
+Nodes (1): Translate a single resolved column to English using templates.
 
 ### Community 105 - "Community 105"
 Cohesion: 1.0
-Nodes (1): Translate a single resolved column to English using templates.
+Nodes (1): Generate a summary of the entire SQL query.
 
 ### Community 106 - "Community 106"
 Cohesion: 1.0
-Nodes (1): Generate a summary of the entire SQL query.
-
-### Community 107 - "Community 107"
-Cohesion: 1.0
 Nodes (1): Translate all columns in an L3 output file to English.      This is the main ent
 
-### Community 108 - "Community 108"
+### Community 107 - "Community 107"
 Cohesion: 1.0
 Nodes (1): Format translation results for output.
 
 ## Knowledge Gaps
-- **285 isolated node(s):** `Read SQL handling SSMS's default UTF-16 LE BOM and other encodings.`, `Run Tool 4 on one view; return one CSV row.`, `Read a SQL file, handling SSMS's default UTF-16 LE BOM and other     common enco`, `Run Tool 2 on one file, shape into transformation rows. Skip     truly-trivial p`, `Golden-file regression tests for Tool 2.  For each subdirectory under fixtures/` (+280 more)
+- **284 isolated node(s):** `Read SQL handling SSMS's default UTF-16 LE BOM and other encodings.`, `Run Tool 4 on one view; return one CSV row.`, `Read a SQL file, handling SSMS's default UTF-16 LE BOM and other     common enco`, `Run Tool 2 on one file, shape into transformation rows. Skip     truly-trivial p`, `Each subdir of fixtures/ that has an input.sql is one test case.` (+279 more)
   These have ≤1 connection - possible missing edges or undocumented components.
+- **Thin community `Community 21`** (1 nodes): `__init__.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 22`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 23`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 24`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 25`** (1 nodes): `__init__.py`
+- **Thin community `Community 25`** (1 nodes): `Run Tool 2 on one file, shape into transformation rows. Skip     truly-trivial p`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 26`** (1 nodes): `Run Tool 2 on one file, shape into transformation rows. Skip     truly-trivial p`
+- **Thin community `Community 26`** (1 nodes): `Deterministic query-level summary built from structured signals.     Healthcare-`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 27`** (1 nodes): `Deterministic query-level summary built from structured signals.     Healthcare-`
+- **Thin community `Community 27`** (1 nodes): `LLM-backed query-level summary. Lazy-imports the client library.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 28`** (1 nodes): `LLM-backed query-level summary. Lazy-imports the client library.`
+- **Thin community `Community 28`** (1 nodes): `LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port do`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 29`** (1 nodes): `LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port do`
+- **Thin community `Community 29`** (1 nodes): `Ungated core for Tool 4.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 30`** (1 nodes): `Ungated core for Tool 4.`
+- **Thin community `Community 30`** (1 nodes): `Tool 4 -- natural-language description of what the SQL report does.     `use_llm`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 31`** (1 nodes): `Tool 4 -- natural-language description of what the SQL report does.     `use_llm`
+- **Thin community `Community 31`** (1 nodes): `LLM-backed translator. Lazy-imports the client lib so a no-LLM     install doesn`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 32`** (1 nodes): `LLM-backed translator. Lazy-imports the client lib so a no-LLM     install doesn`
+- **Thin community `Community 32`** (1 nodes): `Ungated core for Tool 3. Tool 4's core calls this directly.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 33`** (1 nodes): `Ungated core for Tool 3. Tool 4's core calls this directly.`
+- **Thin community `Community 33`** (1 nodes): `Tool 3 -- English business definition for each transformed column.     `use_llm=`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 34`** (1 nodes): `Tool 3 -- English business definition for each transformed column.     `use_llm=`
+- **Thin community `Community 34`** (1 nodes): `Deterministic report summary built from the structured signals.      TODO (May W`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 35`** (1 nodes): `Deterministic report summary built from the structured signals.      TODO (May W`
+- **Thin community `Community 35`** (1 nodes): `LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port cl`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 36`** (1 nodes): `LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port cl`
+- **Thin community `Community 36`** (1 nodes): `Ungated core for Tool 4.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 37`** (1 nodes): `Ungated core for Tool 4.`
+- **Thin community `Community 37`** (1 nodes): `Tool 4 -- natural-language description of what the SQL report does.     `use_llm`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 38`** (1 nodes): `Tool 4 -- natural-language description of what the SQL report does.     `use_llm`
+- **Thin community `Community 38`** (1 nodes): `Re-encode the SSMS marker SQL as UTF-16 LE with a BOM in /tmp so the     runner`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 39`** (1 nodes): `Re-encode the SSMS marker SQL as UTF-16 LE with a BOM in /tmp so the     runner`
+- **Thin community `Community 39`** (1 nodes): `Tool 1 -- enumerate every (database, schema, table, column) the SQL     referenc`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 40`** (1 nodes): `Tool 1 -- enumerate every (database, schema, table, column) the SQL     referenc`
+- **Thin community `Community 40`** (1 nodes): `Ungated core for Tool 2. Tool 3's core calls this directly.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 41`** (1 nodes): `Ungated core for Tool 2. Tool 3's core calls this directly.`
+- **Thin community `Community 41`** (1 nodes): `Tool 2 -- per-output-column lineage with WHERE/JOIN/EXISTS filter     propagatio`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 42`** (1 nodes): `Tool 2 -- per-output-column lineage with WHERE/JOIN/EXISTS filter     propagatio`
+- **Thin community `Community 42`** (1 nodes): `Pattern-library translator -- pure deterministic logic, no LLM.      TODO (May W`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 43`** (1 nodes): `Pattern-library translator -- pure deterministic logic, no LLM.      TODO (May W`
+- **Thin community `Community 43`** (1 nodes): `LLM-backed translator. Lazy-imports the client lib so a no-LLM     install doesn`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 44`** (1 nodes): `LLM-backed translator. Lazy-imports the client lib so a no-LLM     install doesn`
+- **Thin community `Community 44`** (1 nodes): `Ungated core for Tool 3. Tool 4's core calls this directly.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 45`** (1 nodes): `Ungated core for Tool 3. Tool 4's core calls this directly.`
+- **Thin community `Community 45`** (1 nodes): `Tool 3 -- English business definition for each transformed column.     `use_llm=`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 46`** (1 nodes): `Tool 3 -- English business definition for each transformed column.     `use_llm=`
+- **Thin community `Community 46`** (1 nodes): `Deterministic report summary built from the structured signals.      TODO (May W`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 47`** (1 nodes): `Deterministic report summary built from the structured signals.      TODO (May W`
+- **Thin community `Community 47`** (1 nodes): `LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port cl`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 48`** (1 nodes): `LLM-backed summary. Lazy-imports the client lib.      TODO (May Week 4): port cl`
+- **Thin community `Community 48`** (1 nodes): `Ungated core for Tool 4.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 49`** (1 nodes): `Ungated core for Tool 4.`
+- **Thin community `Community 49`** (1 nodes): `Tool 4 -- natural-language description of what the SQL report does.     `use_llm`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 50`** (1 nodes): `Tool 4 -- natural-language description of what the SQL report does.     `use_llm`
+- **Thin community `Community 50`** (1 nodes): `Extract transformed (non-passthrough) columns from a folder of SQL views.  Singl`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 51`** (1 nodes): `Extract transformed (non-passthrough) columns from a folder of SQL views.  Singl`
+- **Thin community `Community 51`** (1 nodes): `Read a SQL file, handling SSMS's default UTF-16 LE BOM.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 52`** (1 nodes): `Read a SQL file, handling SSMS's default UTF-16 LE BOM.`
+- **Thin community `Community 52`** (1 nodes): `Return a short label describing the transformation in this expression.     Retur`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 53`** (1 nodes): `Return a short label describing the transformation in this expression.     Retur`
+- **Thin community `Community 53`** (1 nodes): `Find the top-level SELECT inside a parsed CREATE VIEW (or bare SELECT).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 54`** (1 nodes): `Find the top-level SELECT inside a parsed CREATE VIEW (or bare SELECT).`
+- **Thin community `Community 54`** (1 nodes): `Render a node's SQL for the CSV, collapsing whitespace and truncating     if abs`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 55`** (1 nodes): `Render a node's SQL for the CSV, collapsing whitespace and truncating     if abs`
+- **Thin community `Community 55`** (1 nodes): `Parse one view; return a list of CSV rows, one per transformed column.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 56`** (1 nodes): `Parse one view; return a list of CSV rows, one per transformed column.`
+- **Thin community `Community 56`** (1 nodes): `Remove USE / GO / SET-option statements and header block comments that     SSMS`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 57`** (1 nodes): `Remove USE / GO / SET-option statements and header block comments that     SSMS`
+- **Thin community `Community 57`** (1 nodes): `(database, schema, table) for a sqlglot Table node. In sqlglot's MySQL-     root`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 58`** (1 nodes): `(database, schema, table) for a sqlglot Table node. In sqlglot's MySQL-     root`
+- **Thin community `Community 58`** (1 nodes): `{alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 59`** (1 nodes): `{alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia`
+- **Thin community `Community 59`** (1 nodes): `For each CTE, qualify its body separately and emit:         {(cte_alias_lower, c`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 60`** (1 nodes): `For each CTE, qualify its body separately and emit:         {(cte_alias_lower, c`
+- **Thin community `Community 60`** (1 nodes): `Parse one view file → list of manifest rows. Importable for per-file     use in`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 61`** (1 nodes): `Parse one view file → list of manifest rows. Importable for per-file     use in`
+- **Thin community `Community 61`** (1 nodes): `Notebook-callable entry point. Walks input_dir for *.sql files, parses     each,`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 62`** (1 nodes): `Notebook-callable entry point. Walks input_dir for *.sql files, parses     each,`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 63`** (1 nodes): `Notebook-callable entry point. Walks input_dir for *.sql files, parses     each,`
+- **Thin community `Community 63`** (1 nodes): `(database, schema, table) for a sqlglot Table node. In sqlglot's MySQL-     root`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 64`** (1 nodes): `(database, schema, table) for a sqlglot Table node. In sqlglot's MySQL-     root`
+- **Thin community `Community 64`** (1 nodes): `{alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 65`** (1 nodes): `{alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia`
+- **Thin community `Community 65`** (1 nodes): `For each CTE, qualify its body separately and emit:         {(cte_alias_lower, c`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 66`** (1 nodes): `For each CTE, qualify its body separately and emit:         {(cte_alias_lower, c`
+- **Thin community `Community 66`** (1 nodes): `Parse one view file → list of manifest rows. Importable for per-file     use in`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 67`** (1 nodes): `Parse one view file → list of manifest rows. Importable for per-file     use in`
+- **Thin community `Community 67`** (1 nodes): `Notebook-callable entry point. Walks input_dir for *.sql files, parses     each,`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 68`** (1 nodes): `Notebook-callable entry point. Walks input_dir for *.sql files, parses     each,`
+- **Thin community `Community 68`** (1 nodes): `True if the filter is a bare `column = column` relational key, not a row-restric`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 69`** (1 nodes): `True if the filter is a bare `column = column` relational key, not a row-restric`
+- **Thin community `Community 69`** (1 nodes): `Parse and re-emit with table qualifiers stripped, for dedup purposes.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 70`** (1 nodes): `Parse and re-emit with table qualifiers stripped, for dedup purposes.`
+- **Thin community `Community 70`** (1 nodes): `Drop correlation keys and collapse filters that differ only in alias qualifiers.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 71`** (1 nodes): `Drop correlation keys and collapse filters that differ only in alias qualifiers.`
+- **Thin community `Community 71`** (1 nodes): `Load and index the clarity_schema.yaml for fast lookup.      Returns:         {`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 72`** (1 nodes): `Load and index the clarity_schema.yaml for fast lookup.      Returns:         {`
+- **Thin community `Community 72`** (1 nodes): `Get description for a table.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 73`** (1 nodes): `Get description for a table.`
+- **Thin community `Community 73`** (1 nodes): `Get description for a column.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 74`** (1 nodes): `Get description for a column.`
+- **Thin community `Community 74`** (1 nodes): `Get enum value mappings for a ZC_ table.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 75`** (1 nodes): `Get enum value mappings for a ZC_ table.`
+- **Thin community `Community 75`** (1 nodes): `Build context string for a single resolved column.      Args:         resolved_c`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 76`** (1 nodes): `Build context string for a single resolved column.      Args:         resolved_c`
+- **Thin community `Community 76`** (1 nodes): `Translate a single resolved column to English using LLM.      Args:         reso`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 77`** (1 nodes): `Translate a single resolved column to English using LLM.      Args:         reso`
+- **Thin community `Community 77`** (1 nodes): `Generate a summary of the entire SQL query based on column definitions.      Arg`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 78`** (1 nodes): `Generate a summary of the entire SQL query based on column definitions.      Arg`
+- **Thin community `Community 78`** (1 nodes): `Translate all columns in an L5 output file to English and generate query summary`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 79`** (1 nodes): `Translate all columns in an L5 output file to English and generate query summary`
+- **Thin community `Community 79`** (1 nodes): `Format translation results for output.      Args:         results: Dict with 'su`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 80`** (1 nodes): `Format translation results for output.      Args:         results: Dict with 'su`
+- **Thin community `Community 80`** (1 nodes): `Use the package form when available (repo dev); otherwise the flat form (work la`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 81`** (1 nodes): `Use the package form when available (repo dev); otherwise the flat form (work la`
+- **Thin community `Community 81`** (1 nodes): `Parse a bare SQL fragment (not wrapped in SELECT) and translate.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 82`** (1 nodes): `Parse a bare SQL fragment (not wrapped in SELECT) and translate.`
+- **Thin community `Community 82`** (1 nodes): `Convert dataclass tree to plain dict, filtering empty fields.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 83`** (1 nodes): `Convert dataclass tree to plain dict, filtering empty fields.`
+- **Thin community `Community 83`** (1 nodes): `Load clarity_schema.yaml as the raw dict. The pattern library builds     its own`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 84`** (1 nodes): `Load clarity_schema.yaml as the raw dict. The pattern library builds     its own`
+- **Thin community `Community 84`** (1 nodes): `Classify the business domain based on column name, expression, and base tables.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 85`** (1 nodes): `Classify the business domain based on column name, expression, and base tables.`
+- **Thin community `Community 85`** (1 nodes): `Parse a resolved SQL expression and walk it with the pattern registry.      Fall`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 86`** (1 nodes): `Parse a resolved SQL expression and walk it with the pattern registry.      Fall`
+- **Thin community `Community 86`** (1 nodes): `Translate L3 filter predicates by walking each with the registry.      Distingui`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 87`** (1 nodes): `Translate L3 filter predicates by walking each with the registry.      Distingui`
+- **Thin community `Community 87`** (1 nodes): `Parse a bare SQL fragment (not wrapped in SELECT) and translate.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 88`** (1 nodes): `Parse a bare SQL fragment (not wrapped in SELECT) and translate.`
+- **Thin community `Community 88`** (1 nodes): `Classify the business domain based on column name, expression, and base tables.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 89`** (1 nodes): `Classify the business domain based on column name, expression, and base tables.`
+- **Thin community `Community 89`** (1 nodes): `Parse a resolved SQL expression and walk it with the pattern registry.      Fall`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 90`** (1 nodes): `Parse a resolved SQL expression and walk it with the pattern registry.      Fall`
+- **Thin community `Community 90`** (1 nodes): `Translate L3 filter predicates by walking each with the registry.      Distingui`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 91`** (1 nodes): `Translate L3 filter predicates by walking each with the registry.      Distingui`
+- **Thin community `Community 91`** (1 nodes): `Parse a bare SQL fragment (not wrapped in SELECT) and translate.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 92`** (1 nodes): `Parse a bare SQL fragment (not wrapped in SELECT) and translate.`
+- **Thin community `Community 92`** (1 nodes): `Load and index the clarity_schema.yaml for fast lookup.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 93`** (1 nodes): `Load and index the clarity_schema.yaml for fast lookup.`
+- **Thin community `Community 93`** (1 nodes): `Expand common abbreviations in column/table names.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 94`** (1 nodes): `Expand common abbreviations in column/table names.`
+- **Thin community `Community 94`** (1 nodes): `Get description for a column, fall back to abbreviation expansion.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 95`** (1 nodes): `Get description for a column, fall back to abbreviation expansion.`
+- **Thin community `Community 95`** (1 nodes): `Get enum value name from ZC_ table.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 96`** (1 nodes): `Get enum value name from ZC_ table.`
+- **Thin community `Community 96`** (1 nodes): `Translate DATEDIFF expressions.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 97`** (1 nodes): `Translate DATEDIFF expressions.`
+- **Thin community `Community 97`** (1 nodes): `Translate CASE expressions.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 98`** (1 nodes): `Translate CASE expressions.`
+- **Thin community `Community 98`** (1 nodes): `Translate aggregate functions (SUM, AVG, COUNT, etc.).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 99`** (1 nodes): `Translate aggregate functions (SUM, AVG, COUNT, etc.).`
+- **Thin community `Community 99`** (1 nodes): `Translate window functions (ROW_NUMBER, RANK, LAG, etc.).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 100`** (1 nodes): `Translate window functions (ROW_NUMBER, RANK, LAG, etc.).`
+- **Thin community `Community 100`** (1 nodes): `Get a human-readable description for a column reference.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 101`** (1 nodes): `Get a human-readable description for a column reference.`
+- **Thin community `Community 101`** (1 nodes): `Classify the business domain based on column name and context.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 102`** (1 nodes): `Classify the business domain based on column name and context.`
+- **Thin community `Community 102`** (1 nodes): `Translate a SQL expression to plain English.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 103`** (1 nodes): `Translate a SQL expression to plain English.`
+- **Thin community `Community 103`** (1 nodes): `Translate filter conditions to plain English.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 104`** (1 nodes): `Translate filter conditions to plain English.`
+- **Thin community `Community 104`** (1 nodes): `Translate a single resolved column to English using templates.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 105`** (1 nodes): `Translate a single resolved column to English using templates.`
+- **Thin community `Community 105`** (1 nodes): `Generate a summary of the entire SQL query.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 106`** (1 nodes): `Generate a summary of the entire SQL query.`
+- **Thin community `Community 106`** (1 nodes): `Translate all columns in an L3 output file to English.      This is the main ent`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 107`** (1 nodes): `Translate all columns in an L3 output file to English.      This is the main ent`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 108`** (1 nodes): `Format translation results for output.`
+- **Thin community `Community 107`** (1 nodes): `Format translation results for output.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SQLBusinessLogicExtractor` connect `Community 1` to `Community 0`, `Community 2`, `Community 4`, `Community 5`, `Community 8`, `Community 9`, `Community 10`?**
-  _High betweenness centrality (0.274) - this node is a cross-community bridge._
-- **Why does `resolve_query()` connect `Community 4` to `Community 0`, `Community 1`, `Community 2`, `Community 6`, `Community 8`, `Community 10`, `Community 11`, `Community 17`?**
-  _High betweenness centrality (0.131) - this node is a cross-community bridge._
-- **Why does `SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translat` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 4`, `Community 5`?**
-  _High betweenness centrality (0.125) - this node is a cross-community bridge._
+- **Why does `SQLBusinessLogicExtractor` connect `Community 1` to `Community 0`, `Community 2`, `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 10`?**
+  _High betweenness centrality (0.315) - this node is a cross-community bridge._
+- **Why does `SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translat` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 5`, `Community 6`?**
+  _High betweenness centrality (0.145) - this node is a cross-community bridge._
+- **Why does `resolve_query()` connect `Community 5` to `Community 0`, `Community 1`, `Community 2`, `Community 4`, `Community 7`, `Community 8`, `Community 10`, `Community 11`?**
+  _High betweenness centrality (0.111) - this node is a cross-community bridge._
 - **Are the 216 inferred relationships involving `SQLBusinessLogicExtractor` (e.g. with `ResolvedFilter` and `ResolvedColumn`) actually correct?**
   _`SQLBusinessLogicExtractor` has 216 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 65 inferred relationships involving `AliasResolver` (e.g. with `SQLBusinessLogicExtractor` and `QueryLogic`) actually correct?**

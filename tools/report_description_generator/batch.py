@@ -44,6 +44,24 @@ def _read_sql_file(path: Path) -> str:
         return raw.decode("utf-16-le", errors="replace")
 
 
+def row_from_report_description(view_path: Path, view_name: str, desc,
+                                   use_llm: bool) -> dict:
+    """Shape a ReportDescription into one CSV row. Used by _process_view
+    AND tools/batch_all.py."""
+    base_tables = sorted({t for col in desc.business_logic.lineage.resolved_columns
+                            for t in (col.get("base_tables", []) or [])})
+    return {
+        "view_file": view_path.name,
+        "view_name": view_name,
+        "query_summary": desc.query_summary,
+        "primary_purpose": desc.primary_purpose,
+        "key_metrics": ", ".join(desc.key_metrics or []),
+        "source_tables": ", ".join(base_tables),
+        "column_count": len(desc.business_logic.column_translations),
+        "use_llm": "true" if use_llm else "false",
+    }
+
+
 def _process_view(view_path: Path, schema: dict, *, use_llm: bool, llm_client,
                   dialect: str) -> dict:
     """Run Tool 4 on one view; return one CSV row."""
@@ -57,18 +75,7 @@ def _process_view(view_path: Path, schema: dict, *, use_llm: bool, llm_client,
     except Exception as e:
         return _error_row(view_path, f"ERROR: {type(e).__name__}: {e}", use_llm)
 
-    base_tables = sorted({t for col in desc.business_logic.lineage.resolved_columns
-                            for t in (col.get("base_tables", []) or [])})
-    return {
-        "view_file": view_path.name,
-        "view_name": view_path.stem,
-        "query_summary": desc.query_summary,
-        "primary_purpose": desc.primary_purpose,
-        "key_metrics": ", ".join(desc.key_metrics or []),
-        "source_tables": ", ".join(base_tables),
-        "column_count": len(desc.business_logic.column_translations),
-        "use_llm": "true" if use_llm else "false",
-    }
+    return row_from_report_description(view_path, view_path.stem, desc, use_llm)
 
 
 def _error_row(view_path: Path, msg: str, use_llm: bool) -> dict:

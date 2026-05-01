@@ -395,9 +395,9 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/batch.py",
       "source_location": "L58",
-      "id": "batch_rationale_58",
       "community": 9,
-      "norm_label": "run tool 2 on one file, shape into transformation rows. skip     truly-trivial p"
+      "norm_label": "run tool 2 on one file, shape into transformation rows. skip     truly-trivial p",
+      "id": "batch_rationale_58"
     },
     {
       "label": "__init__.py",
@@ -692,18 +692,18 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/tests/test_extract_technical_lineage.py",
       "source_location": "L208",
-      "id": "test_extract_technical_lineage_rationale_208",
       "community": 0,
-      "norm_label": "a filter that's nothing but `col = col` should clean to empty."
+      "norm_label": "a filter that's nothing but `col = col` should clean to empty.",
+      "id": "test_extract_technical_lineage_rationale_208"
     },
     {
       "label": "Both transforms applied together to one expression.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/tests/test_extract_technical_lineage.py",
       "source_location": "L215",
-      "id": "test_extract_technical_lineage_rationale_215",
       "community": 0,
-      "norm_label": "both transforms applied together to one expression."
+      "norm_label": "both transforms applied together to one expression.",
+      "id": "test_extract_technical_lineage_rationale_215"
     },
     {
       "label": "batch.py",
@@ -3356,36 +3356,36 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L331",
-      "id": "business_logic_rationale_331",
       "community": 2,
-      "norm_label": "strip join correlation keys (col = col on opposite tables) and     resolve alias"
+      "norm_label": "strip join correlation keys (col = col on opposite tables) and     resolve alias",
+      "id": "business_logic_rationale_331"
     },
     {
       "label": "Build a Gemini client. Lazy-imports `google.genai`. Customers using     LLM mode",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L358",
-      "id": "business_logic_rationale_358",
       "community": 0,
-      "norm_label": "build a gemini client. lazy-imports `google.genai`. customers using     llm mode"
+      "norm_label": "build a gemini client. lazy-imports `google.genai`. customers using     llm mode",
+      "id": "business_logic_rationale_358"
     },
     {
       "label": "Deterministic query-level summary built from structured signals.     Healthcare-",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L379",
-      "id": "business_logic_rationale_379",
       "community": 17,
-      "norm_label": "deterministic query-level summary built from structured signals.     healthcare-"
+      "norm_label": "deterministic query-level summary built from structured signals.     healthcare-",
+      "id": "business_logic_rationale_379"
     },
     {
       "label": "LLM-backed query-level summary. Lazy-imports the client library.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L474",
-      "id": "business_logic_rationale_474",
       "community": 17,
-      "norm_label": "llm-backed query-level summary. lazy-imports the client library."
+      "norm_label": "llm-backed query-level summary. lazy-imports the client library.",
+      "id": "business_logic_rationale_474"
     },
     {
       "label": "license.py",
@@ -14188,9 +14188,9 @@
       "weight": 0.8,
       "_src": "test_extract_technical_lineage_rationale_208",
       "_tgt": "products_technicallineage",
+      "confidence_score": 0.5,
       "source": "test_extract_technical_lineage_rationale_208",
-      "target": "products_technicallineage",
-      "confidence_score": 0.5
+      "target": "products_technicallineage"
     },
     {
       "relation": "uses",
@@ -14200,9 +14200,9 @@
       "weight": 0.8,
       "_src": "test_extract_technical_lineage_rationale_208",
       "_tgt": "products_columninventory",
+      "confidence_score": 0.5,
       "source": "test_extract_technical_lineage_rationale_208",
-      "target": "products_columninventory",
-      "confidence_score": 0.5
+      "target": "products_columninventory"
     },
     {
       "relation": "uses",
@@ -14212,9 +14212,9 @@
       "weight": 0.8,
       "_src": "test_extract_technical_lineage_rationale_215",
       "_tgt": "products_technicallineage",
+      "confidence_score": 0.5,
       "source": "test_extract_technical_lineage_rationale_215",
-      "target": "products_technicallineage",
-      "confidence_score": 0.5
+      "target": "products_technicallineage"
     },
     {
       "relation": "uses",
@@ -14224,9 +14224,9 @@
       "weight": 0.8,
       "_src": "test_extract_technical_lineage_rationale_215",
       "_tgt": "products_columninventory",
+      "confidence_score": 0.5,
       "source": "test_extract_technical_lineage_rationale_215",
-      "target": "products_columninventory",
-      "confidence_score": 0.5
+      "target": "products_columninventory"
     },
     {
       "relation": "contains",
@@ -20487,8 +20487,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L305",
       "weight": 1.0,
-      "_src": "business_logic_build_alias_map",
-      "_tgt": "resolve_preprocess_ssms",
+      "_src": "resolve_preprocess_ssms",
+      "_tgt": "business_logic_build_alias_map",
       "source": "resolve_preprocess_ssms",
       "target": "business_logic_build_alias_map"
     },

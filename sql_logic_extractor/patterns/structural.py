@@ -13,12 +13,12 @@ def case(ctx: Context, node: exp.Expression, children: dict[str, Translation]) -
     # `this` is absent, and each If's condition is a predicate.
     subject = children.get("this")
     default = children.get("default")
-    # ``ifs`` isn't pre-translated by the walker (it's a list) — we iterate
+    # ``ifs`` isn't pre-translated by the walker (it's a list) -- we iterate
     # over the raw node to get per-branch values/labels and translate the
     # condition/label parts on demand.
     branches = []
     if ctx.registry is None:
-        return Translation(english="(CASE — walker context missing)", category="case")
+        return Translation(english="(CASE -- walker context missing)", category="case")
     from .walker import translate  # local import to avoid cycle
     for if_node in node.args.get("ifs", []) or []:
         cond_t = translate(if_node.args.get("this"), ctx.child("Case.cond")) if if_node.args.get("this") is not None else None
@@ -29,13 +29,13 @@ def case(ctx: Context, node: exp.Expression, children: dict[str, Translation]) -
     for cond_t, then_t in branches:
         label = then_t.english if then_t else "?"
         if subject is not None and cond_t is not None and cond_t.category == "literal":
-            # Simple case: "subject = <value> → label"
-            parts.append(f"{cond_t.english} → {label}")
+            # Simple case: "subject = <value> -> label"
+            parts.append(f"{cond_t.english} -> {label}")
         elif cond_t is not None:
             # Searched case: "when <condition>, label"
             parts.append(f"when {cond_t.english}, {label}")
         else:
-            parts.append(f"? → {label}")
+            parts.append(f"? -> {label}")
     if default is not None:
         parts.append(f"otherwise {default.english}")
 
@@ -146,11 +146,11 @@ register(name="div", node_class=exp.Div, category="calculated", priority=30)(_bi
 
 # Comparison operators for CASE-WHEN predicates
 register(name="eq", node_class=exp.EQ, category="filter", priority=30)(_binop("=", "equality"))
-register(name="neq", node_class=exp.NEQ, category="filter", priority=30)(_binop("≠", "inequality"))
+register(name="neq", node_class=exp.NEQ, category="filter", priority=30)(_binop("!=", "inequality"))
 register(name="lt", node_class=exp.LT, category="filter", priority=30)(_binop("<", "lt"))
-register(name="lte", node_class=exp.LTE, category="filter", priority=30)(_binop("≤", "lte"))
+register(name="lte", node_class=exp.LTE, category="filter", priority=30)(_binop("<=", "lte"))
 register(name="gt", node_class=exp.GT, category="filter", priority=30)(_binop(">", "gt"))
-register(name="gte", node_class=exp.GTE, category="filter", priority=30)(_binop("≥", "gte"))
+register(name="gte", node_class=exp.GTE, category="filter", priority=30)(_binop(">=", "gte"))
 
 
 # ---------------------------------------------------------------------------
@@ -246,7 +246,7 @@ register(name="or_op", node_class=exp.Or, category="filter", priority=30)(_binop
 
 @register(name="paren", node_class=exp.Paren, category="passthrough", priority=10)
 def paren(ctx: Context, node: exp.Expression, children: dict[str, Translation]) -> Translation:
-    # Transparent — parentheses carry no semantics; pass the inner through.
+    # Transparent -- parentheses carry no semantics; pass the inner through.
     inner = children.get("this")
     if inner is None:
         return Translation(english="()", category="unknown", unknown_nodes=["Paren"])
@@ -313,7 +313,7 @@ def distinct_wrap(ctx: Context, node: exp.Expression, children: dict[str, Transl
 
 
 # ---------------------------------------------------------------------------
-# Subquery / Select plumbing — keep renders readable instead of Lisp-y
+# Subquery / Select plumbing -- keep renders readable instead of Lisp-y
 # ---------------------------------------------------------------------------
 
 @register(name="table_ref", node_class=exp.Table, category="passthrough", priority=15)
@@ -331,7 +331,7 @@ def from_clause(ctx: Context, node: exp.Expression, children: dict[str, Translat
 
 
 def _is_correlation_key(node: exp.Expression) -> bool:
-    """True if node is a bare `column = column` equi-join — plumbing, not a row filter."""
+    """True if node is a bare `column = column` equi-join -- plumbing, not a row filter."""
     if not isinstance(node, exp.EQ):
         return False
     return isinstance(node.args.get("this"), exp.Column) and isinstance(node.args.get("expression"), exp.Column)
@@ -367,7 +367,7 @@ def where_clause(ctx: Context, node: exp.Expression, children: dict[str, Transla
     raw_inner = node.args.get("this")
     cleaned = _strip_correlation_keys(raw_inner)
     if cleaned is None:
-        # Entire WHERE is correlation plumbing — render as empty.
+        # Entire WHERE is correlation plumbing -- render as empty.
         return Translation(english="", category="filter", subcategory="where_correlation_only")
     from .walker import translate
     return translate(cleaned, ctx.child("Where.cleaned"))
@@ -386,7 +386,7 @@ def select_expr(ctx: Context, node: exp.Expression, children: dict[str, Translat
     where_t = children.get("where")
 
     # Suppress placeholder projections (`SELECT 1 FROM ...` / `SELECT * FROM ...`)
-    # — common in EXISTS/UNION wrappers where the projection is noise.
+    # -- common in EXISTS/UNION wrappers where the projection is noise.
     placeholder_only = (
         from_t is not None
         and len(raw_exprs) == 1

@@ -136,7 +136,7 @@ def _extract_columns_core(sql: str, dialect: str = "tsql") -> ColumnInventory:
         clean_sql = sql.strip()
     parsed = parse_one(clean_sql, dialect=dialect)
 
-    # CTE names (e.g. "ActiveReferrals") — always lowercased for comparison.
+    # CTE names (e.g. "ActiveReferrals") -- always lowercased for comparison.
     cte_names = {(cte.alias_or_name or "").lower() for cte in parsed.find_all(exp.CTE)}
 
     self_name: Optional[str] = None

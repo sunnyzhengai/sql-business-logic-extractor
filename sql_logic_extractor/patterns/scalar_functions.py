@@ -51,7 +51,7 @@ def current_date(ctx: Context, node: exp.Expression, children: dict[str, Transla
 
 @register(name="dateadd", node_class=exp.DateAdd, category="calculated", priority=20)
 def dateadd(ctx: Context, node: exp.Expression, children: dict[str, Translation]) -> Translation:
-    # DATEADD(unit, amount, anchor_date) → "anchor plus/minus N units"
+    # DATEADD(unit, amount, anchor_date) -> "anchor plus/minus N units"
     unit_node = node.args.get("unit")
     unit_name = unit_node.name if unit_node is not None else "UNIT"
     unit_word = {"DAY": "days", "YEAR": "years", "MONTH": "months",

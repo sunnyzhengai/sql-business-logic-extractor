@@ -7,7 +7,7 @@ from .registry import register
 
 
 # Ported from offline_translate.py. Fallback expansion applied when a column
-# is not found in the schema — produces a best-guess English name from the
+# is not found in the schema -- produces a best-guess English name from the
 # conventional Epic-Clarity naming fragments.
 _ABBREVIATIONS = {
     "ADMSN": "Admission", "ADM": "Admission", "DISCH": "Discharge",
@@ -73,7 +73,7 @@ def _clean_description(desc: str) -> str:
         return desc
     s = desc.rstrip(". \t")
     if s and any(c.isalpha() for c in s) and not any(c.islower() for c in s):
-        # All caps → sentence case: first letter up, rest lower
+        # All caps -> sentence case: first letter up, rest lower
         s = s[0] + s[1:].lower()
     return s
 
@@ -140,7 +140,7 @@ def literal(ctx: Context, node: exp.Expression, children: dict[str, Translation]
 
 @register(name="alias_unwrap", node_class=exp.Alias, category="passthrough", priority=10)
 def alias_unwrap(ctx: Context, node: exp.Expression, children: dict[str, Translation]) -> Translation:
-    # The alias itself carries no semantic content — pass through the inner
+    # The alias itself carries no semantic content -- pass through the inner
     # translation.
     inner = children.get("this")
     if inner is None:

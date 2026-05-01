@@ -3,7 +3,7 @@
 Given a sqlglot AST node and a Context, returns a Translation by looking
 up a pattern in the registry and invoking its template with
 pre-translated children. Unknown nodes fall back to structural
-decomposition — never opaque placeholders — and register themselves in
+decomposition -- never opaque placeholders -- and register themselves in
 the result's unknown_nodes list.
 
 Import the specific pattern modules (``columns``, ``aggregates``,

@@ -1,4 +1,4 @@
-Sum of Categorization: when Days To Readmit ≤ 30, 1; otherwise 0
+Sum of Categorization: when Days To Readmit <= 30, 1; otherwise 0
 # sql: SUM(CASE WHEN days_to_readmit <= 30 THEN 1 ELSE 0 END)
 # category: aggregate
 # subcategory: sum

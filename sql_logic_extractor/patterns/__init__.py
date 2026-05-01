@@ -4,7 +4,7 @@ Implements the recursive translation principle
 (wiki/concepts/recursive-translation-principle.md): translate every SQL
 construct by recursion to raw column references, with a growing library
 of pattern templates keyed by AST shape. Unknown patterns produce
-structural decomposition plus a governance signal — never opaque
+structural decomposition plus a governance signal -- never opaque
 fallbacks.
 
 Public API:

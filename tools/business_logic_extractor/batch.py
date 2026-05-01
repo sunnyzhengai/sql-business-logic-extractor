@@ -90,7 +90,7 @@ def _error_row(view_path: Path, msg: str, use_llm: bool) -> dict:
 
 
 def build_business_logic(input_dir: str, schema_path: str | None = None,
-                          output_csv: str = "business_logic.csv",
+                          output_csv: str = "business_logic_extractor.csv",
                           *, use_llm: bool = False, llm_client=None,
                           dialect: str = "tsql") -> int:
     """Folder mode entry point. Returns 0 on success, 1 on usage error."""
@@ -138,7 +138,7 @@ def main() -> int:
     )
     parser.add_argument("input_dir", help="Folder containing view *.sql files")
     parser.add_argument("--schema", default=None, help="Schema YAML/JSON (data dictionary)")
-    parser.add_argument("-o", "--output", default="business_logic.csv")
+    parser.add_argument("-o", "--output", default="business_logic_extractor.csv")
     parser.add_argument("-d", "--dialect", default="tsql")
     parser.add_argument("--use-llm", action="store_true",
                         help="Use LLM mode (requires business_logic_llm license feature)")

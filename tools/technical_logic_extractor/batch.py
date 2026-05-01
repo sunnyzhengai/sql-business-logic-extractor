@@ -98,7 +98,7 @@ def _error_row(view_path: Path, msg: str) -> dict:
     }
 
 
-def build_transformations(input_dir: str, output_csv: str = "transformations.csv",
+def build_transformations(input_dir: str, output_csv: str = "technical_logic_extractor.csv",
                            dialect: str = "tsql") -> int:
     in_dir = Path(input_dir)
     if not in_dir.is_dir():
@@ -136,7 +136,7 @@ def main() -> int:
         description="Build a transformations CSV from a folder of SQL views."
     )
     parser.add_argument("input_dir", help="Folder containing view *.sql files")
-    parser.add_argument("-o", "--output", default="transformations.csv")
+    parser.add_argument("-o", "--output", default="technical_logic_extractor.csv")
     parser.add_argument("-d", "--dialect", default="tsql")
     args = parser.parse_args()
     return build_transformations(args.input_dir, args.output, args.dialect)

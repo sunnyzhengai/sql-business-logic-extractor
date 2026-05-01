@@ -132,7 +132,7 @@ def _error_row(view_path: Path, msg: str) -> dict:
     }
 
 
-def build_manifest(input_dir: str, output_csv: str = "manifest.csv",
+def build_manifest(input_dir: str, output_csv: str = "column_lineage_extractor.csv",
                    dialect: str = "tsql") -> int:
     in_dir = Path(input_dir)
     if not in_dir.is_dir():
@@ -171,7 +171,7 @@ def main() -> int:
         description="Build a column-inventory manifest CSV from a folder of SQL views."
     )
     parser.add_argument("input_dir", help="Folder containing view *.sql files")
-    parser.add_argument("-o", "--output", default="manifest.csv")
+    parser.add_argument("-o", "--output", default="column_lineage_extractor.csv")
     parser.add_argument("-d", "--dialect", default="tsql")
     args = parser.parse_args()
     return build_manifest(args.input_dir, args.output, args.dialect)

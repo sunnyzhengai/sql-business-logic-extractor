@@ -81,7 +81,7 @@ def _error_row(view_path: Path, msg: str, use_llm: bool) -> dict:
 
 
 def build_report_descriptions(input_dir: str, schema_path: str | None = None,
-                                output_csv: str = "report_descriptions.csv",
+                                output_csv: str = "report_description_generator.csv",
                                 *, use_llm: bool = False, llm_client=None,
                                 dialect: str = "tsql") -> int:
     in_dir = Path(input_dir)
@@ -126,7 +126,7 @@ def main() -> int:
     )
     parser.add_argument("input_dir", help="Folder containing view *.sql files")
     parser.add_argument("--schema", default=None, help="Schema YAML/JSON")
-    parser.add_argument("-o", "--output", default="report_descriptions.csv")
+    parser.add_argument("-o", "--output", default="report_description_generator.csv")
     parser.add_argument("-d", "--dialect", default="tsql")
     parser.add_argument("--use-llm", action="store_true",
                         help="Use LLM mode (requires report_description_llm license)")

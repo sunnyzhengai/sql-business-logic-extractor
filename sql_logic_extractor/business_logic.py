@@ -297,6 +297,63 @@ def translate_column_llm(resolved_col: dict, schema: dict, llm_client) -> dict:
     }
 
 
+def build_alias_map(sql: str, dialect: str = "tsql") -> dict[str, str]:
+    """Walk a SQL view, return {alias_lower: real_table_name} for every
+    non-CTE table reference. CTE aliases are excluded -- they're query-
+    internal, not real database objects."""
+    from .resolve import preprocess_ssms
+    clean_sql, _ = preprocess_ssms(sql)
+    if not clean_sql.strip():
+        clean_sql = sql.strip() if sql else ""
+    if not clean_sql:
+        return {}
+    try:
+        parsed = parse_one(clean_sql, dialect=dialect)
+    except Exception:
+        return {}
+    cte_names = {(c.alias_or_name or "").lower() for c in parsed.find_all(exp.CTE)}
+    self_name = None
+    if isinstance(parsed, exp.Create) and isinstance(parsed.this, exp.Table):
+        self_name = (parsed.this.name or "").lower()
+    alias_map: dict[str, str] = {}
+    for t in parsed.find_all(exp.Table):
+        nm = (t.name or "").lower()
+        if nm in cte_names or nm == self_name:
+            continue
+        alias = t.alias_or_name
+        if alias and alias.lower() != nm and t.name:
+            alias_map[alias.lower()] = t.name
+    return alias_map
+
+
+def clean_filter_sql(filter_expr: str, alias_map: dict[str, str],
+                       dialect: str = "tsql") -> str:
+    """Strip JOIN correlation keys (col = col on opposite tables) and
+    resolve aliases to real table names. Returns cleaned filter SQL, or
+    empty string if the filter was pure correlation plumbing.
+
+    Two cleanups in one pass:
+    1. `_strip_correlation_keys` removes predicates like `t1.X = t2.X`
+       that are join keys, not row-restricting filters.
+    2. Walks remaining Column nodes and rewrites their .table to the real
+       table name when the alias is in alias_map.
+    """
+    if not filter_expr or not filter_expr.strip():
+        return ""
+    try:
+        node = parse_one(filter_expr, dialect=dialect)
+    except Exception:
+        return filter_expr
+    cleaned = _strip_correlation_keys(node)
+    if cleaned is None:
+        return ""
+    for col in cleaned.find_all(exp.Column):
+        tbl = (col.table or "").lower()
+        if tbl in alias_map:
+            col.set("table", exp.Identifier(this=alias_map[tbl]))
+    return cleaned.sql(dialect=dialect)
+
+
 def make_llm_client(api_key: Optional[str] = None):
     """Build a Gemini client. Lazy-imports `google.genai`. Customers using
     LLM mode bring their own API key (BYOK) -- you don't pay for their LLM

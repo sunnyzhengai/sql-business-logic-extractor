@@ -153,3 +153,73 @@ def test_join_brings_all_join_tables_into_lineage():
     cols = _columns_by_name(extract_technical_lineage(sql))
     assert "REFERRAL" in (cols["REFERRAL_ID"].get("base_tables") or [])
     assert "PATIENT" in (cols["PAT_NAME"].get("base_tables") or [])
+
+
+# ---------------------------------------------------------------------------
+# Helpers used by Tool 2's batch.py to clean filter SQL (strip JOIN
+# correlation keys + resolve aliases to real table names).
+# ---------------------------------------------------------------------------
+
+def test_build_alias_map_returns_alias_to_real_table():
+    from sql_logic_extractor.business_logic import build_alias_map
+    sql = """
+    SELECT R.X
+    FROM Clarity.dbo.REFERRAL R
+    JOIN Clarity.dbo.PATIENT P ON P.PAT_ID = R.PATIENT_ID
+    """
+    m = build_alias_map(sql)
+    assert m.get("r") == "REFERRAL"
+    assert m.get("p") == "PATIENT"
+
+
+def test_build_alias_map_excludes_ctes():
+    from sql_logic_extractor.business_logic import build_alias_map
+    sql = """
+    WITH AR AS (SELECT R.X FROM Clarity.dbo.REFERRAL R)
+    SELECT AR.X FROM AR
+    """
+    m = build_alias_map(sql)
+    # Real-table alias R is mapped; the CTE alias AR is NOT.
+    assert m.get("r") == "REFERRAL"
+    assert "ar" not in m
+
+
+def test_clean_filter_sql_strips_correlation_keys():
+    from sql_logic_extractor.business_logic import clean_filter_sql
+    # `a.k = b.k` is a JOIN correlation key (col=col on opposite tables);
+    # it should be stripped. `a.x > 5` is a real predicate; it should stay.
+    out = clean_filter_sql("a.k = b.k AND a.x > 5", {}, dialect="tsql")
+    assert "a.k" not in out  # correlation stripped
+    assert "x > 5" in out    # real filter kept
+
+
+def test_clean_filter_sql_resolves_aliases():
+    from sql_logic_extractor.business_logic import clean_filter_sql
+    out = clean_filter_sql(
+        "cvgept.MEM_COVERED_YN = 'Y'",
+        {"cvgept": "COVERAGE_MEMBER_LIST"},
+        dialect="tsql",
+    )
+    assert "COVERAGE_MEMBER_LIST.MEM_COVERED_YN" in out
+    assert "cvgept" not in out.lower() or out.lower().count("cvgept") == 0
+
+
+def test_clean_filter_sql_returns_empty_for_pure_correlation():
+    """A filter that's nothing but `col = col` should clean to empty."""
+    from sql_logic_extractor.business_logic import clean_filter_sql
+    out = clean_filter_sql("a.k = b.k", {}, dialect="tsql")
+    assert out == ""
+
+
+def test_clean_filter_sql_combines_strip_and_alias_resolve():
+    """Both transforms applied together to one expression."""
+    from sql_logic_extractor.business_logic import clean_filter_sql
+    out = clean_filter_sql(
+        "cvgept.COVERAGE_ID = cvg.COVERAGE_ID AND cvg.COVERAGE_TYPE_C = 2",
+        {"cvg": "COVERAGE", "cvgept": "COVERAGE_MEMBER_LIST"},
+        dialect="tsql",
+    )
+    # correlation key stripped
+    assert "cvgept.COVERAGE_ID = cvg.COVERAGE_ID" not in out
+    # alias resolved on the surviving predicate
+    assert "COVERAGE.COVERAGE_TYPE_C = 2" in out

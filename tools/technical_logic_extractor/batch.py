@@ -30,6 +30,7 @@ import sys
 from pathlib import Path
 
 from sql_logic_extractor.products import extract_technical_lineage
+from sql_logic_extractor.business_logic import build_alias_map, clean_filter_sql
 
 
 def _read_sql_file(path: Path) -> str:
@@ -65,15 +66,34 @@ def _process_view(view_path: Path, dialect: str = "tsql") -> list[dict]:
     except Exception as e:
         return [_error_row(view_path, f"PARSE ERROR: {e}")]
 
+    # Build the alias -> real-table map so we can rewrite filter SQL
+    # (CVGEPT.X -> COVERAGE_MEMBER_LIST.X) and strip JOIN correlation
+    # keys (t1.K = t2.K) that aren't real business filters.
+    alias_map = build_alias_map(sql, dialect=dialect)
+
     view_name = view_path.stem
     rows: list[dict] = []
     for col in lineage.resolved_columns:
         col_type = col.get("type", "unknown")
         col_filters = col.get("filters", []) or []
 
-        # Skip TRULY trivial passthrough -- no filters, no transformation.
-        # Passthrough WITH filters stays (the WHERE clause encodes meaning).
-        if col_type == "passthrough" and not col_filters:
+        # Clean each filter: strip correlation keys, resolve aliases.
+        # Drop any filter that becomes empty after cleanup, and dedupe.
+        cleaned = []
+        seen = set()
+        for f in col_filters:
+            text = _filter_text(f)
+            if not text:
+                continue
+            cleaned_text = clean_filter_sql(text, alias_map, dialect=dialect)
+            if cleaned_text and cleaned_text not in seen:
+                seen.add(cleaned_text)
+                cleaned.append(cleaned_text)
+
+        # Skip TRULY trivial passthrough -- no real filters, no transformation.
+        # A column whose filters were ALL correlation keys ends up here too,
+        # because cleaned[] is empty even though col_filters wasn't.
+        if col_type == "passthrough" and not cleaned:
             continue
 
         rows.append({
@@ -84,7 +104,7 @@ def _process_view(view_path: Path, dialect: str = "tsql") -> list[dict]:
             "resolved_expression": col.get("resolved_expression", ""),
             "base_tables": ", ".join(col.get("base_tables", []) or []),
             "base_columns": ", ".join(col.get("base_columns", []) or []),
-            "filters": "; ".join(filter(None, (_filter_text(f) for f in col_filters))),
+            "filters": "; ".join(cleaned),
         })
     return rows
 

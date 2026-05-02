@@ -16,16 +16,21 @@
 -- ============================================================
 -- 1. Open this file in SSMS.
 -- 2. Edit the @Tables list near the top.
--- 3. Connect to your Clarity database. Run (F5).
--- 4. Right-click results -> "Save Results As..." -> CSV.
+-- 3. (OPTIONAL but recommended) Edit the @Columns list to narrow to
+--    just the columns your views actually use. Source the (table,
+--    column) pairs from Tool 1's column_lineage_extractor.csv manifest
+--    (referenced_table + referenced_column columns). Skipping this
+--    step pulls EVERY column for each table -- works, just bigger.
+-- 4. Connect to your Clarity database. Run (F5).
+-- 5. Right-click results -> "Save Results As..." -> CSV.
 --    Rename to clarity_metadata.csv (or whatever).
--- 5. If your views also reference objects in OTHER databases (e.g. a
+-- 6. If your views also reference objects in OTHER databases (e.g. a
 --    separate Cook Clarity / Reporting DB), run this same query
 --    connected to THAT database too -- with the relevant table list.
 --    Save as a second CSV. Concatenate both CSVs (drop the duplicate
 --    header row) before running csv_to_schema.py.
--- 6. Upload the CSV to Fabric. Convert via csv_to_schema.py to JSON.
--- 7. Point Tool 3's `schema_path` at the resulting JSON.
+-- 7. Upload the CSV to Fabric. Convert via csv_to_schema.py to JSON.
+-- 8. Point Tool 3's `schema_path` at the resulting JSON.
 --
 -- ============================================================
 -- NOTES
@@ -81,6 +86,36 @@ INSERT INTO @Tables (TABLE_NAME) VALUES
 -- Add more rows as your view set grows. One per line.
 
 -- ============================================================
+-- OPTIONAL: narrow to ONLY the columns your views actually use
+-- ============================================================
+-- By default this script returns EVERY column on each table in @Tables.
+-- That's fine for small tables, but Clarity tables like PATIENT have
+-- 1000+ columns -- most of which your views don't touch. To keep the
+-- CSV (and Tool 3's schema) lean, populate @Columns below with the
+-- (TABLE_NAME, COLUMN_NAME) pairs from Tool 1's manifest.
+--
+-- Source the pairs from the column_lineage_extractor.csv manifest:
+--   SELECT DISTINCT referenced_table, referenced_column
+--   FROM column_lineage_extractor.csv
+--   WHERE referenced_table IS NOT NULL
+--     AND referenced_column IS NOT NULL;
+-- Then paste the pairs into the VALUES list below.
+--
+-- Leave @Columns empty (don't INSERT any rows) to get ALL columns --
+-- the @UseColumnFilter switch below auto-detects an empty list.
+
+DECLARE @Columns TABLE (TABLE_NAME VARCHAR(100), COLUMN_NAME VARCHAR(100));
+INSERT INTO @Columns (TABLE_NAME, COLUMN_NAME) VALUES
+    -- Paste (table, column) pairs here, one per line. Example:
+    -- ('PATIENT', 'PAT_ID'),
+    -- ('PATIENT', 'PAT_NAME'),
+    -- ('COVERAGE', 'COVERAGE_ID'),
+    ('', '');  -- placeholder so the INSERT is valid; filtered out below
+
+DECLARE @UseColumnFilter BIT =
+    CASE WHEN EXISTS (SELECT 1 FROM @Columns WHERE TABLE_NAME <> '') THEN 1 ELSE 0 END;
+
+-- ============================================================
 -- LAYER A: Epic-documented Clarity tables
 -- ============================================================
 -- Output columns (must match csv_to_schema.py's expected headers):
@@ -108,6 +143,14 @@ WITH clarity_documented AS (
         ON COL.COLUMN_ID = INI.COLUMN_ID
     WHERE TBL.TABLE_NAME IN (SELECT TABLE_NAME FROM @Tables)
       AND TBL.TBL_DESCRIPTOR_OVR IS NOT NULL
+      AND (
+          @UseColumnFilter = 0
+          OR EXISTS (
+              SELECT 1 FROM @Columns C
+              WHERE C.TABLE_NAME = TBL.TABLE_NAME
+                AND C.COLUMN_NAME = COL.COLUMN_NAME
+          )
+      )
 )
 SELECT
     TABLE_NAME, TABLE_ID, TABLE_INTRODUCTION,
@@ -141,6 +184,14 @@ WHERE o.type IN ('U', 'V')      -- user table or view
       FROM CLARITY.dbo.CLARITY_TBL TBL
       WHERE TBL.TABLE_NAME = o.name
         AND TBL.TBL_DESCRIPTOR_OVR IS NOT NULL
+  )
+  AND (
+      @UseColumnFilter = 0
+      OR EXISTS (
+          SELECT 1 FROM @Columns C
+          WHERE C.TABLE_NAME = o.name
+            AND C.COLUMN_NAME = c.name
+      )
   )
 
 ORDER BY TABLE_NAME, COLUMN_NAME;

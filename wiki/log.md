@@ -8,6 +8,8 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
+2026-05-02  commit  0c0194e Layer 3: auto-propose parsing rules for unknown_failure views  [affected: none — code; closes the parsing-strategy redesign with hypothesis sweep + token isolation -> markdown proposals]
+2026-05-02  commit  f7818cd Layer 2: preflight check -- triage parse health before running tools  [affected: none — code; new tool emits clean / needs_rule / unknown_failure CSV]
 2026-05-02  commit  f51ad59 Layer 1: parsing-rule registry replaces inline regex strips  [affected: none — code; declarative Rule dataclasses + fixture-driven tests; 188 tests pass]
 2026-05-02  commit  cbf8339 Add Tool 5 (similar_logic_grouper) + full-corpus metadata helper  [affected: none — code; AST fingerprinting for cross-view definition dedup; SSMS @Tables/@Columns generator]
 2026-05-02  commit  c209065 Tool 4: format technical and business descriptions as paragraphs  [affected: none — code; newline-separated bullets so cells render as readable text]

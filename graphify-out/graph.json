@@ -162,7 +162,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/batch.py",
       "source_location": "L426",
       "id": "batch_main",
-      "community": 3,
+      "community": 6,
       "norm_label": "main()"
     },
     {
@@ -216,7 +216,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/report_description_generator/api.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_tools_report_description_generator_api_py",
-      "community": 23,
+      "community": 21,
       "norm_label": "api.py"
     },
     {
@@ -224,7 +224,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/business_logic_extractor/api.py",
       "source_location": "L1",
-      "community": 23,
+      "community": 21,
       "norm_label": "http entry point for tool 3 -- business logic extractor (online saas).  implemen",
       "id": "api_rationale_1"
     },
@@ -450,7 +450,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/report_description_generator/tests/__init__.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_tools_report_description_generator_tests_init_py",
-      "community": 27,
+      "community": 25,
       "norm_label": "__init__.py"
     },
     {
@@ -576,7 +576,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/tests/__init__.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_tools_tests_init_py",
-      "community": 28,
+      "community": 26,
       "norm_label": "__init__.py"
     },
     {
@@ -611,27 +611,27 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/fingerprint.py",
       "source_location": "L1",
-      "id": "fingerprint_rationale_1",
       "community": 16,
-      "norm_label": "ast fingerprinting for cross-view business-logic deduplication.  the fingerprint"
+      "norm_label": "ast fingerprinting for cross-view business-logic deduplication.  the fingerprint",
+      "id": "fingerprint_rationale_1"
     },
     {
       "label": "Walk a sqlglot AST and produce a hashable canonical tree.      Rules:     - Colu",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/fingerprint.py",
       "source_location": "L28",
-      "id": "fingerprint_rationale_28",
       "community": 16,
-      "norm_label": "walk a sqlglot ast and produce a hashable canonical tree.      rules:     - colu"
+      "norm_label": "walk a sqlglot ast and produce a hashable canonical tree.      rules:     - colu",
+      "id": "fingerprint_rationale_28"
     },
     {
       "label": "Return a stable hex fingerprint for a SQL expression. Returns None     if the ex",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/fingerprint.py",
       "source_location": "L78",
-      "id": "fingerprint_rationale_78",
       "community": 16,
-      "norm_label": "return a stable hex fingerprint for a sql expression. returns none     if the ex"
+      "norm_label": "return a stable hex fingerprint for a sql expression. returns none     if the ex",
+      "id": "fingerprint_rationale_78"
     },
     {
       "label": "batch.py",
@@ -737,63 +737,63 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L1",
-      "id": "test_fingerprint_rationale_1",
       "community": 16,
-      "norm_label": "tests for the ast fingerprinting in tools/similar_logic_grouper.  asserts the pu"
+      "norm_label": "tests for the ast fingerprinting in tools/similar_logic_grouper.  asserts the pu",
+      "id": "test_fingerprint_rationale_1"
     },
     {
       "label": "`CVG.STATUS_C = 5` and `C.STATUS_C = 5` are the same business term.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L14",
-      "id": "test_fingerprint_rationale_14",
       "community": 16,
-      "norm_label": "`cvg.status_c = 5` and `c.status_c = 5` are the same business term."
+      "norm_label": "`cvg.status_c = 5` and `c.status_c = 5` are the same business term.",
+      "id": "test_fingerprint_rationale_14"
     },
     {
       "label": "`A AND B` and `B AND A` are semantically identical.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L22",
-      "id": "test_fingerprint_rationale_22",
       "community": 16,
-      "norm_label": "`a and b` and `b and a` are semantically identical."
+      "norm_label": "`a and b` and `b and a` are semantically identical.",
+      "id": "test_fingerprint_rationale_22"
     },
     {
       "label": "Status = 5 (Denied) vs Status = 1 (Active) is NOT the same definition.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L29",
-      "id": "test_fingerprint_rationale_29",
       "community": 16,
-      "norm_label": "status = 5 (denied) vs status = 1 (active) is not the same definition."
+      "norm_label": "status = 5 (denied) vs status = 1 (active) is not the same definition.",
+      "id": "test_fingerprint_rationale_29"
     },
     {
       "label": "COVERAGE_TYPE_C = 2 vs COVERAGE_ID = 2 are different definitions.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L36",
-      "id": "test_fingerprint_rationale_36",
       "community": 16,
-      "norm_label": "coverage_type_c = 2 vs coverage_id = 2 are different definitions."
+      "norm_label": "coverage_type_c = 2 vs coverage_id = 2 are different definitions.",
+      "id": "test_fingerprint_rationale_36"
     },
     {
       "label": "COALESCE(a, b) and a are different shapes.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L43",
-      "id": "test_fingerprint_rationale_43",
       "community": 16,
-      "norm_label": "coalesce(a, b) and a are different shapes."
+      "norm_label": "coalesce(a, b) and a are different shapes.",
+      "id": "test_fingerprint_rationale_43"
     },
     {
       "label": "Malformed SQL doesn't crash the grouper.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L50",
-      "id": "test_fingerprint_rationale_50",
       "community": 16,
-      "norm_label": "malformed sql doesn't crash the grouper."
+      "norm_label": "malformed sql doesn't crash the grouper.",
+      "id": "test_fingerprint_rationale_50"
     },
     {
       "label": "__init__.py",
@@ -801,7 +801,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/__init__.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_tools_similar_logic_grouper_tests_init_py",
-      "community": 29,
+      "community": 27,
       "norm_label": "__init__.py"
     },
     {
@@ -882,7 +882,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/api.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_tools_technical_logic_extractor_api_py",
-      "community": 23,
+      "community": 21,
       "norm_label": "api.py"
     },
     {
@@ -900,7 +900,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/tests/__init__.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_tools_technical_logic_extractor_tests_init_py",
-      "community": 30,
+      "community": 28,
       "norm_label": "__init__.py"
     },
     {
@@ -1296,7 +1296,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/business_logic_extractor/api.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_tools_business_logic_extractor_api_py",
-      "community": 23,
+      "community": 21,
       "norm_label": "api.py"
     },
     {
@@ -1476,7 +1476,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/business_logic_extractor/tests/__init__.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_tools_business_logic_extractor_tests_init_py",
-      "community": 31,
+      "community": 29,
       "norm_label": "__init__.py"
     },
     {
@@ -1566,7 +1566,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/column_lineage_extractor/api.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_tools_column_lineage_extractor_api_py",
-      "community": 23,
+      "community": 21,
       "norm_label": "api.py"
     },
     {
@@ -1602,7 +1602,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/column_lineage_extractor/tests/__init__.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_tools_column_lineage_extractor_tests_init_py",
-      "community": 32,
+      "community": 30,
       "norm_label": "__init__.py"
     },
     {
@@ -2322,7 +2322,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_sql_logic_extractor_resolve_py",
-      "community": 3,
+      "community": 5,
       "norm_label": "resolve.py"
     },
     {
@@ -2331,7 +2331,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L27",
       "id": "resolve_resolvedfilter",
-      "community": 3,
+      "community": 5,
       "norm_label": "resolvedfilter"
     },
     {
@@ -2358,7 +2358,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L60",
       "id": "resolve_dedupe_resolved_filters",
-      "community": 3,
+      "community": 5,
       "norm_label": "_dedupe_resolved_filters()"
     },
     {
@@ -2367,7 +2367,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L74",
       "id": "resolve_scoperegistry",
-      "community": 3,
+      "community": 5,
       "norm_label": "scoperegistry"
     },
     {
@@ -2376,7 +2376,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L80",
       "id": "resolve_scoperegistry_init",
-      "community": 3,
+      "community": 5,
       "norm_label": ".__init__()"
     },
     {
@@ -2385,7 +2385,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L89",
       "id": "resolve_scoperegistry_register_query",
-      "community": 3,
+      "community": 5,
       "norm_label": ".register_query()"
     },
     {
@@ -2394,7 +2394,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L124",
       "id": "resolve_scoperegistry_register_nested",
-      "community": 3,
+      "community": 5,
       "norm_label": "._register_nested()"
     },
     {
@@ -2403,7 +2403,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L148",
       "id": "resolve_scoperegistry_register_scope",
-      "community": 3,
+      "community": 5,
       "norm_label": "._register_scope()"
     },
     {
@@ -2412,7 +2412,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L158",
       "id": "resolve_scoperegistry_lookup",
-      "community": 3,
+      "community": 5,
       "norm_label": ".lookup()"
     },
     {
@@ -2421,7 +2421,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L163",
       "id": "resolve_scoperegistry_get_filters",
-      "community": 3,
+      "community": 5,
       "norm_label": ".get_filters()"
     },
     {
@@ -2430,7 +2430,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L201",
       "id": "resolve_scoperegistry_is_base_table",
-      "community": 3,
+      "community": 5,
       "norm_label": ".is_base_table()"
     },
     {
@@ -2439,7 +2439,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L205",
       "id": "resolve_scoperegistry_is_derived",
-      "community": 3,
+      "community": 5,
       "norm_label": ".is_derived()"
     },
     {
@@ -2448,7 +2448,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L209",
       "id": "resolve_scoperegistry_get_alias_to_table",
-      "community": 3,
+      "community": 5,
       "norm_label": ".get_alias_to_table()"
     },
     {
@@ -2457,7 +2457,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L238",
       "id": "resolve_lineageresolver",
-      "community": 3,
+      "community": 5,
       "norm_label": "lineageresolver"
     },
     {
@@ -2466,7 +2466,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L241",
       "id": "resolve_lineageresolver_init",
-      "community": 3,
+      "community": 5,
       "norm_label": ".__init__()"
     },
     {
@@ -2475,7 +2475,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L251",
       "id": "resolve_lineageresolver_scope_contribs",
-      "community": 3,
+      "community": 5,
       "norm_label": "._scope_contribs()"
     },
     {
@@ -2484,7 +2484,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L354",
       "id": "resolve_lineageresolver_resolve_ref",
-      "community": 3,
+      "community": 5,
       "norm_label": "._resolve_ref()"
     },
     {
@@ -2493,7 +2493,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L384",
       "id": "resolve_lineageresolver_apply_scope_contribs",
-      "community": 3,
+      "community": 5,
       "norm_label": "._apply_scope_contribs()"
     },
     {
@@ -2502,7 +2502,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L393",
       "id": "resolve_lineageresolver_get_scope_filters",
-      "community": 3,
+      "community": 5,
       "norm_label": "._get_scope_filters()"
     },
     {
@@ -2511,7 +2511,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L410",
       "id": "resolve_lineageresolver_resolve_all",
-      "community": 3,
+      "community": 5,
       "norm_label": ".resolve_all()"
     },
     {
@@ -2520,7 +2520,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L442",
       "id": "resolve_lineageresolver_expand_star",
-      "community": 3,
+      "community": 5,
       "norm_label": "._expand_star()"
     },
     {
@@ -2529,7 +2529,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L485",
       "id": "resolve_lineageresolver_resolve_output",
-      "community": 3,
+      "community": 5,
       "norm_label": "._resolve_output()"
     },
     {
@@ -2538,7 +2538,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L630",
       "id": "resolve_lineageresolver_find_source_for_column",
-      "community": 3,
+      "community": 5,
       "norm_label": "._find_source_for_column()"
     },
     {
@@ -2547,7 +2547,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L658",
       "id": "resolve_lineageresolver_inline_expression",
-      "community": 3,
+      "community": 5,
       "norm_label": "._inline_expression()"
     },
     {
@@ -2556,7 +2556,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L720",
       "id": "resolve_normalize_meta_key",
-      "community": 3,
+      "community": 5,
       "norm_label": "_normalize_meta_key()"
     },
     {
@@ -2565,7 +2565,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L769",
       "id": "resolve_add_meta",
-      "community": 3,
+      "community": 5,
       "norm_label": "_add_meta()"
     },
     {
@@ -2574,7 +2574,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L781",
       "id": "resolve_parse_header_comments",
-      "community": 3,
+      "community": 5,
       "norm_label": "_parse_header_comments()"
     },
     {
@@ -2583,7 +2583,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L848",
       "id": "resolve_preprocess_ssms",
-      "community": 3,
+      "community": 5,
       "norm_label": "preprocess_ssms()"
     },
     {
@@ -2592,7 +2592,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1023",
       "id": "resolve_resolve_query",
-      "community": 3,
+      "community": 5,
       "norm_label": "resolve_query()"
     },
     {
@@ -2601,7 +2601,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1054",
       "id": "resolve_filter_to_dict",
-      "community": 3,
+      "community": 5,
       "norm_label": "_filter_to_dict()"
     },
     {
@@ -2610,7 +2610,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1062",
       "id": "resolve_resolved_to_dict",
-      "community": 3,
+      "community": 5,
       "norm_label": "resolved_to_dict()"
     },
     {
@@ -2619,7 +2619,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1104",
       "id": "resolve_format_text",
-      "community": 3,
+      "community": 5,
       "norm_label": "_format_text()"
     },
     {
@@ -2628,7 +2628,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1160",
       "id": "resolve_get_output_filename",
-      "community": 3,
+      "community": 5,
       "norm_label": "_get_output_filename()"
     },
     {
@@ -2637,7 +2637,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1173",
       "id": "resolve_process_one",
-      "community": 3,
+      "community": 5,
       "norm_label": "_process_one()"
     },
     {
@@ -2646,7 +2646,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1183",
       "id": "resolve_main",
-      "community": 3,
+      "community": 5,
       "norm_label": "main()"
     },
     {
@@ -2654,7 +2654,7 @@
       "file_type": "rationale",
       "source_file": "sql_logic_extractor/resolve.py",
       "source_location": "L28",
-      "community": 3,
+      "community": 5,
       "norm_label": "a fully resolved output column with its complete transformation chain.",
       "id": "resolve_rationale_28"
     },
@@ -2681,7 +2681,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L61",
-      "community": 3,
+      "community": 5,
       "norm_label": "deduplicate resolvedfilter objects by expression, keeping the first instance",
       "id": "resolve_rationale_61"
     },
@@ -2690,7 +2690,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L75",
-      "community": 3,
+      "community": 5,
       "norm_label": "builds a lookup of all named outputs across all scopes (ctes, subqueries, main q",
       "id": "resolve_rationale_75"
     },
@@ -2699,7 +2699,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L90",
-      "community": 3,
+      "community": 5,
       "norm_label": "register all scopes from a layer 1 extraction.",
       "id": "resolve_rationale_90"
     },
@@ -2708,7 +2708,7 @@
       "file_type": "rationale",
       "source_file": "sql_logic_extractor/resolve.py",
       "source_location": "L125",
-      "community": 3,
+      "community": 5,
       "norm_label": "register a scope's outputs.",
       "id": "resolve_rationale_125"
     },
@@ -2717,7 +2717,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L149",
-      "community": 3,
+      "community": 5,
       "norm_label": "register a scope's outputs.",
       "id": "resolve_rationale_149"
     },
@@ -2726,7 +2726,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L159",
-      "community": 3,
+      "community": 5,
       "norm_label": "look up an output definition in a scope.",
       "id": "resolve_rationale_159"
     },
@@ -2735,7 +2735,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L164",
-      "community": 3,
+      "community": 5,
       "norm_label": "get business-relevant filters for a scope as intermediate dicts.          each r",
       "id": "resolve_rationale_164"
     },
@@ -2744,7 +2744,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L202",
-      "community": 3,
+      "community": 5,
       "norm_label": "check if a name refers to a base table (not a cte/subquery).",
       "id": "resolve_rationale_202"
     },
@@ -2753,7 +2753,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L206",
-      "community": 3,
+      "community": 5,
       "norm_label": "check if a name refers to a cte or subquery.",
       "id": "resolve_rationale_206"
     },
@@ -2762,7 +2762,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L210",
-      "community": 3,
+      "community": 5,
       "norm_label": "get alias->table mapping for a scope.",
       "id": "resolve_rationale_210"
     },
@@ -2771,7 +2771,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L239",
-      "community": 3,
+      "community": 5,
       "norm_label": "resolves output columns through all scopes to base table.column references.",
       "id": "resolve_rationale_239"
     },
@@ -2780,7 +2780,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L252",
-      "community": 3,
+      "community": 5,
       "norm_label": "base (tables, columns) this scope's rows structurally depend on.          row-ex",
       "id": "resolve_rationale_252"
     },
@@ -2789,7 +2789,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L355",
-      "community": 3,
+      "community": 5,
       "norm_label": "resolve one column ref ``{table, column}`` to base (tables, columns).          i",
       "id": "resolve_rationale_355"
     },
@@ -2798,7 +2798,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L385",
-      "community": 3,
+      "community": 5,
       "norm_label": "union the scope's structural dependencies into a resolved column.",
       "id": "resolve_rationale_385"
     },
@@ -2807,7 +2807,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L394",
-      "community": 3,
+      "community": 5,
       "norm_label": "fetch filters for a scope and hydrate any matched subqueries into         fully",
       "id": "resolve_rationale_394"
     },
@@ -2816,7 +2816,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L411",
-      "community": 3,
+      "community": 5,
       "norm_label": "resolve every output column in the main query.",
       "id": "resolve_rationale_411"
     },
@@ -2825,7 +2825,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L443",
-      "community": 3,
+      "community": 5,
       "norm_label": "expand select * by resolving all columns from the direct source scope(s).",
       "id": "resolve_rationale_443"
     },
@@ -2834,7 +2834,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L486",
-      "community": 3,
+      "community": 5,
       "norm_label": "resolve a single output column, following references through scopes.",
       "id": "resolve_rationale_486"
     },
@@ -2843,7 +2843,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L631",
-      "community": 3,
+      "community": 5,
       "norm_label": "when a column has no table qualifier, find which source scope defines it.",
       "id": "resolve_rationale_631"
     },
@@ -2852,7 +2852,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L659",
-      "community": 3,
+      "community": 5,
       "norm_label": "try to inline cte/subquery column references in an expression.          for exam",
       "id": "resolve_rationale_659"
     },
@@ -2861,7 +2861,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L721",
-      "community": 3,
+      "community": 5,
       "norm_label": "normalize header comment keys to consistent names.",
       "id": "resolve_rationale_721"
     },
@@ -2870,7 +2870,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L770",
-      "community": 3,
+      "community": 5,
       "norm_label": "add a metadata value, appending to list if key already exists.",
       "id": "resolve_rationale_770"
     },
@@ -2879,7 +2879,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L782",
-      "community": 3,
+      "community": 5,
       "norm_label": "parse collected header comment lines for metadata key-value pairs and revision h",
       "id": "resolve_rationale_782"
     },
@@ -2888,7 +2888,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L849",
-      "community": 3,
+      "community": 5,
       "norm_label": "strip ssms boilerplate from scripted views/procedures/functions.      returns (c",
       "id": "resolve_rationale_849"
     },
@@ -2897,7 +2897,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1024",
-      "community": 3,
+      "community": 5,
       "norm_label": "parse, extract, and resolve lineage for a sql query.      raises valueerror for",
       "id": "resolve_rationale_1024"
     },
@@ -2906,7 +2906,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1055",
-      "community": 3,
+      "community": 5,
       "norm_label": "convert resolved query to plain dict.",
       "id": "resolve_rationale_1055"
     },
@@ -2915,7 +2915,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1063",
-      "community": 3,
+      "community": 5,
       "norm_label": "convert resolved query to plain dict.",
       "id": "resolve_rationale_1063"
     },
@@ -2924,7 +2924,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1105",
-      "community": 3,
+      "community": 5,
       "norm_label": "format resolved query as human-readable text.",
       "id": "resolve_rationale_1105"
     },
@@ -2933,7 +2933,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1161",
-      "community": 3,
+      "community": 5,
       "norm_label": "derive output filename from view name or input file.",
       "id": "resolve_rationale_1161"
     },
@@ -2942,7 +2942,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1174",
-      "community": 3,
+      "community": 5,
       "norm_label": "process a single sql string. returns (resolved, output_text).",
       "id": "resolve_rationale_1174"
     },
@@ -2961,7 +2961,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/normalize.py",
       "source_location": "L35",
       "id": "normalize_businessdefinition",
-      "community": 5,
+      "community": 3,
       "norm_label": "businessdefinition"
     },
     {
@@ -6156,7 +6156,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tests/test_bi_complex_lineage.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_tests_test_bi_complex_lineage_py",
-      "community": 21,
+      "community": 5,
       "norm_label": "test_bi_complex_lineage.py"
     },
     {
@@ -6165,7 +6165,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tests/test_bi_complex_lineage.py",
       "source_location": "L86",
       "id": "test_bi_complex_lineage_resolved",
-      "community": 21,
+      "community": 5,
       "norm_label": "resolved()"
     },
     {
@@ -6174,7 +6174,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tests/test_bi_complex_lineage.py",
       "source_location": "L92",
       "id": "test_bi_complex_lineage_test_column_base_tables",
-      "community": 21,
+      "community": 5,
       "norm_label": "test_column_base_tables()"
     },
     {
@@ -6183,7 +6183,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/tests/test_bi_complex_lineage.py",
       "source_location": "L104",
       "id": "test_bi_complex_lineage_test_column_count",
-      "community": 21,
+      "community": 5,
       "norm_label": "test_column_count()"
     },
     {
@@ -6191,7 +6191,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tests/test_bi_complex_lineage.py",
       "source_location": "L1",
-      "community": 21,
+      "community": 5,
       "norm_label": "per-column ground-truth lineage tests for queries/bi_complex/input.sql.  rule ap",
       "id": "test_bi_complex_lineage_rationale_1"
     },
@@ -6200,7 +6200,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tests/test_bi_complex_lineage.py",
       "source_location": "L93",
-      "community": 21,
+      "community": 5,
       "norm_label": "every bi_complex output column resolves to its exact set of base tables.",
       "id": "test_bi_complex_lineage_rationale_93"
     },
@@ -6209,7 +6209,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tests/test_bi_complex_lineage.py",
       "source_location": "L105",
-      "community": 21,
+      "community": 5,
       "norm_label": "the query produces exactly 19 output columns.",
       "id": "test_bi_complex_lineage_rationale_105"
     },
@@ -7515,7 +7515,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/build_manifest.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_docs_archive_build_manifest_py",
-      "community": 19,
+      "community": 5,
       "norm_label": "build_manifest.py"
     },
     {
@@ -7524,7 +7524,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/build_manifest.py",
       "source_location": "L45",
       "id": "build_manifest_qualify_table",
-      "community": 19,
+      "community": 5,
       "norm_label": "_qualify_table()"
     },
     {
@@ -7533,7 +7533,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/build_manifest.py",
       "source_location": "L59",
       "id": "build_manifest_build_table_qualifier_map",
-      "community": 19,
+      "community": 5,
       "norm_label": "_build_table_qualifier_map()"
     },
     {
@@ -7542,7 +7542,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/build_manifest.py",
       "source_location": "L80",
       "id": "build_manifest_split_base_column",
-      "community": 19,
+      "community": 5,
       "norm_label": "_split_base_column()"
     },
     {
@@ -7551,7 +7551,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/build_manifest.py",
       "source_location": "L93",
       "id": "build_manifest_extract_view_refs",
-      "community": 19,
+      "community": 5,
       "norm_label": "_extract_view_refs()"
     },
     {
@@ -7560,7 +7560,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/build_manifest.py",
       "source_location": "L176",
       "id": "build_manifest_error_row",
-      "community": 19,
+      "community": 5,
       "norm_label": "_error_row()"
     },
     {
@@ -7569,7 +7569,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/build_manifest.py",
       "source_location": "L189",
       "id": "build_manifest_main",
-      "community": 19,
+      "community": 5,
       "norm_label": "main()"
     },
     {
@@ -7577,7 +7577,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest.py",
       "source_location": "L46",
-      "community": 19,
+      "community": 5,
       "norm_label": "(database, schema, table) for a sqlglot table node.      sqlglot's naming follow",
       "id": "build_manifest_rationale_46"
     },
@@ -7586,7 +7586,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest.py",
       "source_location": "L60",
-      "community": 19,
+      "community": 5,
       "norm_label": "walk every table node, return {alias_or_name: (db, schema, table)}.      used to",
       "id": "build_manifest_rationale_60"
     },
@@ -7595,7 +7595,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest.py",
       "source_location": "L81",
-      "community": 19,
+      "community": 5,
       "norm_label": "table.column' \u2192 ('table', 'column'). 'column' \u2192 (none, 'column').      for 3-par",
       "id": "build_manifest_rationale_81"
     },
@@ -7604,7 +7604,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest.py",
       "source_location": "L94",
-      "community": 19,
+      "community": 5,
       "norm_label": "parse one view file, return a list of manifest rows.",
       "id": "build_manifest_rationale_94"
     },
@@ -8190,7 +8190,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/compare.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_docs_archive_compare_py",
-      "community": 5,
+      "community": 3,
       "norm_label": "compare.py"
     },
     {
@@ -8199,7 +8199,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L25",
       "id": "compare_matchgroup",
-      "community": 5,
+      "community": 3,
       "norm_label": "matchgroup"
     },
     {
@@ -8208,7 +8208,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L36",
       "id": "compare_comparisonreport",
-      "community": 5,
+      "community": 3,
       "norm_label": "comparisonreport"
     },
     {
@@ -8217,7 +8217,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L51",
       "id": "compare_businesslogiccomparator",
-      "community": 5,
+      "community": 3,
       "norm_label": "businesslogiccomparator"
     },
     {
@@ -8226,7 +8226,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L54",
       "id": "compare_businesslogiccomparator_init",
-      "community": 5,
+      "community": 3,
       "norm_label": ".__init__()"
     },
     {
@@ -8235,7 +8235,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L58",
       "id": "compare_businesslogiccomparator_add_query",
-      "community": 5,
+      "community": 3,
       "norm_label": ".add_query()"
     },
     {
@@ -8244,7 +8244,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L67",
       "id": "compare_businesslogiccomparator_add_definitions",
-      "community": 5,
+      "community": 3,
       "norm_label": ".add_definitions()"
     },
     {
@@ -8253,7 +8253,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L75",
       "id": "compare_businesslogiccomparator_compare",
-      "community": 5,
+      "community": 3,
       "norm_label": ".compare()"
     },
     {
@@ -8262,7 +8262,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L115",
       "id": "compare_businesslogiccomparator_find_exact_duplicates",
-      "community": 5,
+      "community": 3,
       "norm_label": "._find_exact_duplicates()"
     },
     {
@@ -8271,7 +8271,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L139",
       "id": "compare_businesslogiccomparator_find_structural_matches",
-      "community": 5,
+      "community": 3,
       "norm_label": "._find_structural_matches()"
     },
     {
@@ -8280,7 +8280,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L177",
       "id": "compare_businesslogiccomparator_find_semantic_matches",
-      "community": 5,
+      "community": 3,
       "norm_label": "._find_semantic_matches()"
     },
     {
@@ -8289,7 +8289,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L220",
       "id": "compare_businesslogiccomparator_cluster_by_table_overlap",
-      "community": 5,
+      "community": 3,
       "norm_label": "._cluster_by_table_overlap()"
     },
     {
@@ -8298,7 +8298,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L251",
       "id": "compare_def_summary",
-      "community": 5,
+      "community": 3,
       "norm_label": "_def_summary()"
     },
     {
@@ -8307,7 +8307,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L271",
       "id": "compare_describe_group",
-      "community": 5,
+      "community": 3,
       "norm_label": "_describe_group()"
     },
     {
@@ -8316,7 +8316,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L290",
       "id": "compare_describe_differences",
-      "community": 5,
+      "community": 3,
       "norm_label": "_describe_differences()"
     },
     {
@@ -8325,7 +8325,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L320",
       "id": "compare_compute_group_similarity",
-      "community": 5,
+      "community": 3,
       "norm_label": "_compute_group_similarity()"
     },
     {
@@ -8334,7 +8334,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L335",
       "id": "compare_pairwise_similarity",
-      "community": 5,
+      "community": 3,
       "norm_label": "_pairwise_similarity()"
     },
     {
@@ -8343,7 +8343,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L378",
       "id": "compare_report_to_dict",
-      "community": 5,
+      "community": 3,
       "norm_label": "report_to_dict()"
     },
     {
@@ -8352,7 +8352,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L412",
       "id": "compare_main",
-      "community": 5,
+      "community": 3,
       "norm_label": "main()"
     },
     {
@@ -8360,7 +8360,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L26",
-      "community": 5,
+      "community": 3,
       "norm_label": "a group of definitions that match each other.",
       "id": "compare_rationale_26"
     },
@@ -8369,7 +8369,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L37",
-      "community": 5,
+      "community": 3,
       "norm_label": "full comparison report across multiple queries.",
       "id": "compare_rationale_37"
     },
@@ -8378,7 +8378,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L52",
-      "community": 5,
+      "community": 3,
       "norm_label": "compares business definitions across sql queries.",
       "id": "compare_rationale_52"
     },
@@ -8387,7 +8387,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L60",
-      "community": 5,
+      "community": 3,
       "norm_label": "extract definitions from a sql query and add to comparison pool.",
       "id": "compare_rationale_60"
     },
@@ -8396,7 +8396,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L68",
-      "community": 5,
+      "community": 3,
       "norm_label": "add pre-extracted definitions.",
       "id": "compare_rationale_68"
     },
@@ -8405,7 +8405,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L76",
-      "community": 5,
+      "community": 3,
       "norm_label": "run all comparisons and produce a report.",
       "id": "compare_rationale_76"
     },
@@ -8414,7 +8414,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L116",
-      "community": 5,
+      "community": 3,
       "norm_label": "group definitions with identical normalized expressions (same signature).",
       "id": "compare_rationale_116"
     },
@@ -8423,7 +8423,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L140",
-      "community": 5,
+      "community": 3,
       "norm_label": "group definitions with same structural pattern but different columns.",
       "id": "compare_rationale_140"
     },
@@ -8432,7 +8432,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L179",
-      "community": 5,
+      "community": 3,
       "norm_label": "find definitions with same category and overlapping source tables.",
       "id": "compare_rationale_179"
     },
@@ -8441,7 +8441,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L221",
-      "community": 5,
+      "community": 3,
       "norm_label": "cluster definitions that share at least one source table.",
       "id": "compare_rationale_221"
     },
@@ -8450,7 +8450,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L252",
-      "community": 5,
+      "community": 3,
       "norm_label": "summarize a definition for inclusion in match groups.",
       "id": "compare_rationale_252"
     },
@@ -8459,7 +8459,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L272",
-      "community": 5,
+      "community": 3,
       "norm_label": "generate a human-readable description of what a group shares.",
       "id": "compare_rationale_272"
     },
@@ -8468,7 +8468,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L291",
-      "community": 5,
+      "community": 3,
       "norm_label": "describe what differs between definitions in a group.",
       "id": "compare_rationale_291"
     },
@@ -8477,7 +8477,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L321",
-      "community": 5,
+      "community": 3,
       "norm_label": "compute average pairwise similarity within a group.",
       "id": "compare_rationale_321"
     },
@@ -8486,7 +8486,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L336",
-      "community": 5,
+      "community": 3,
       "norm_label": "compute similarity between two definitions (0.0 to 1.0).",
       "id": "compare_rationale_336"
     },
@@ -8495,7 +8495,7 @@
       "file_type": "rationale",
       "source_file": "archive/compare.py",
       "source_location": "L379",
-      "community": 5,
+      "community": 3,
       "norm_label": "convert report to plain dict.",
       "id": "compare_rationale_379"
     },
@@ -8883,7 +8883,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_docs_archive_tests_test_compare_py",
-      "community": 5,
+      "community": 3,
       "norm_label": "test_compare.py"
     },
     {
@@ -8892,7 +8892,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L11",
       "id": "test_compare_make_report",
-      "community": 5,
+      "community": 3,
       "norm_label": "make_report()"
     },
     {
@@ -8901,7 +8901,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L23",
       "id": "test_compare_testexactduplicates",
-      "community": 5,
+      "community": 3,
       "norm_label": "testexactduplicates"
     },
     {
@@ -8910,7 +8910,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L25",
       "id": "test_compare_testexactduplicates_test_01_same_los_different_aliases",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_01_same_los_different_aliases()"
     },
     {
@@ -8919,7 +8919,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L50",
       "id": "test_compare_testexactduplicates_test_02_same_filter_different_queries",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_02_same_filter_different_queries()"
     },
     {
@@ -8928,7 +8928,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L66",
       "id": "test_compare_testexactduplicates_test_03_same_case_expression",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_03_same_case_expression()"
     },
     {
@@ -8937,7 +8937,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L81",
       "id": "test_compare_testexactduplicates_test_04_no_false_positives",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_04_no_false_positives()"
     },
     {
@@ -8946,7 +8946,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L98",
       "id": "test_compare_teststructuralmatches",
-      "community": 5,
+      "community": 3,
       "norm_label": "teststructuralmatches"
     },
     {
@@ -8955,7 +8955,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L100",
       "id": "test_compare_teststructuralmatches_test_05_same_pattern_different_columns",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_05_same_pattern_different_columns()"
     },
     {
@@ -8964,7 +8964,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L119",
       "id": "test_compare_teststructuralmatches_test_06_same_case_structure_different_values",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_06_same_case_structure_different_values()"
     },
     {
@@ -8973,7 +8973,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L143",
       "id": "test_compare_teststructuralmatches_test_07_row_number_patterns",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_07_row_number_patterns()"
     },
     {
@@ -8982,7 +8982,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L164",
       "id": "test_compare_testsemanticmatches",
-      "community": 5,
+      "community": 3,
       "norm_label": "testsemanticmatches"
     },
     {
@@ -8991,7 +8991,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L166",
       "id": "test_compare_testsemanticmatches_test_08_same_table_different_aggregations",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_08_same_table_different_aggregations()"
     },
     {
@@ -9000,7 +9000,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L188",
       "id": "test_compare_testsemanticmatches_test_09_cte_definitions_compared",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_09_cte_definitions_compared()"
     },
     {
@@ -9009,7 +9009,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L214",
       "id": "test_compare_testcomplexcomparison",
-      "community": 5,
+      "community": 3,
       "norm_label": "testcomplexcomparison"
     },
     {
@@ -9018,7 +9018,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L216",
       "id": "test_compare_testcomplexcomparison_test_10_three_query_comparison",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_10_three_query_comparison()"
     },
     {
@@ -9027,7 +9027,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L253",
       "id": "test_compare_testcomplexcomparison_test_11_no_self_comparison",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_11_no_self_comparison()"
     },
     {
@@ -9036,7 +9036,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L267",
       "id": "test_compare_testcomplexcomparison_test_12_report_has_summary",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_12_report_has_summary()"
     },
     {
@@ -9045,7 +9045,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/tests/test_compare.py",
       "source_location": "L279",
       "id": "test_compare_testcomplexcomparison_test_13_complex_readmission_vs_quality",
-      "community": 5,
+      "community": 3,
       "norm_label": ".test_13_complex_readmission_vs_quality()"
     },
     {
@@ -9053,7 +9053,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L1",
-      "community": 5,
+      "community": 3,
       "norm_label": "test cases for layer 3: comparison -- finding duplicate/similar business logic.",
       "id": "test_compare_rationale_1"
     },
@@ -9062,7 +9062,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L12",
-      "community": 5,
+      "community": 3,
       "norm_label": "helper: feed multiple (label, sql) tuples into comparator and return report.",
       "id": "test_compare_rationale_12"
     },
@@ -9071,7 +9071,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L26",
-      "community": 5,
+      "community": 3,
       "norm_label": "same datediff with different aliases -> exact duplicate.",
       "id": "test_compare_rationale_26"
     },
@@ -9080,7 +9080,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L51",
-      "community": 5,
+      "community": 3,
       "norm_label": "same where clause in multiple queries -> exact duplicate filter.",
       "id": "test_compare_rationale_51"
     },
@@ -9089,7 +9089,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L67",
-      "community": 5,
+      "community": 3,
       "norm_label": "identical case logic across queries -> exact duplicate.",
       "id": "test_compare_rationale_67"
     },
@@ -9098,7 +9098,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L82",
-      "community": 5,
+      "community": 3,
       "norm_label": "completely different queries -> no exact duplicates.",
       "id": "test_compare_rationale_82"
     },
@@ -9107,7 +9107,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L101",
-      "community": 5,
+      "community": 3,
       "norm_label": "same datediff pattern on different columns -> structural match.",
       "id": "test_compare_rationale_101"
     },
@@ -9116,7 +9116,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L120",
-      "community": 5,
+      "community": 3,
       "norm_label": "same case branching structure, different thresholds -> structural match.",
       "id": "test_compare_rationale_120"
     },
@@ -9125,7 +9125,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L144",
-      "community": 5,
+      "community": 3,
       "norm_label": "two row_number() with different partition by -> structural match.",
       "id": "test_compare_rationale_144"
     },
@@ -9134,7 +9134,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L167",
-      "community": 5,
+      "community": 3,
       "norm_label": "count and sum on same table -> semantic match (both aggregations on pat_enc_hsp)",
       "id": "test_compare_rationale_167"
     },
@@ -9143,7 +9143,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L189",
-      "community": 5,
+      "community": 3,
       "norm_label": "definitions inside ctes are compared across queries.",
       "id": "test_compare_rationale_189"
     },
@@ -9152,7 +9152,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L217",
-      "community": 5,
+      "community": 3,
       "norm_label": "three queries sharing some business logic.",
       "id": "test_compare_rationale_217"
     },
@@ -9161,7 +9161,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L254",
-      "community": 5,
+      "community": 3,
       "norm_label": "a query should not match against itself in exact duplicates.",
       "id": "test_compare_rationale_254"
     },
@@ -9170,7 +9170,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L268",
-      "community": 5,
+      "community": 3,
       "norm_label": "report includes a summary with counts.",
       "id": "test_compare_rationale_268"
     },
@@ -9179,7 +9179,7 @@
       "file_type": "rationale",
       "source_file": "tests/test_compare.py",
       "source_location": "L280",
-      "community": 5,
+      "community": 3,
       "norm_label": "two real-world style reports with overlapping logic.",
       "id": "test_compare_rationale_280"
     },
@@ -9513,7 +9513,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/sql_logic_extractor_extras/compare.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_docs_archive_sql_logic_extractor_extras_compare_py",
-      "community": 5,
+      "community": 3,
       "norm_label": "compare.py"
     },
     {
@@ -10674,7 +10674,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/cli/run_query.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_docs_archive_cli_run_query_py",
-      "community": 22,
+      "community": 20,
       "norm_label": "run_query.py"
     },
     {
@@ -10683,7 +10683,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/cli/run_query.py",
       "source_location": "L30",
       "id": "run_query_child_env",
-      "community": 22,
+      "community": 20,
       "norm_label": "_child_env()"
     },
     {
@@ -10692,7 +10692,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/cli/run_query.py",
       "source_location": "L40",
       "id": "run_query_resolve_cmd",
-      "community": 22,
+      "community": 20,
       "norm_label": "_resolve_cmd()"
     },
     {
@@ -10701,7 +10701,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/cli/run_query.py",
       "source_location": "L46",
       "id": "run_query_list_queries",
-      "community": 22,
+      "community": 20,
       "norm_label": "list_queries()"
     },
     {
@@ -10710,7 +10710,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/docs/archive/cli/run_query.py",
       "source_location": "L60",
       "id": "run_query_main",
-      "community": 22,
+      "community": 20,
       "norm_label": "main()"
     },
     {
@@ -10718,7 +10718,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/cli/run_query.py",
       "source_location": "L31",
-      "community": 22,
+      "community": 20,
       "norm_label": "inject project root onto pythonpath so subprocesses can import     `sql_logic_ex",
       "id": "run_query_rationale_31"
     },
@@ -10727,7 +10727,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/cli/run_query.py",
       "source_location": "L41",
-      "community": 22,
+      "community": 20,
       "norm_label": "always launch the resolver as the installed package \u2014 _child_env() puts the",
       "id": "run_query_rationale_41"
     },
@@ -10737,79 +10737,97 @@
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_data_schemas_build_metadata_extract_sql_py",
-      "community": 20,
+      "community": 19,
       "norm_label": "build_metadata_extract_sql.py"
     },
     {
       "label": "_read_sql_file()",
       "file_type": "code",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L47",
+      "source_location": "L48",
       "id": "build_metadata_extract_sql_read_sql_file",
-      "community": 20,
+      "community": 19,
       "norm_label": "_read_sql_file()"
+    },
+    {
+      "label": "_regex_fallback_pairs()",
+      "file_type": "code",
+      "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
+      "source_location": "L89",
+      "id": "build_metadata_extract_sql_regex_fallback_pairs",
+      "community": 19,
+      "norm_label": "_regex_fallback_pairs()"
     },
     {
       "label": "collect_pairs()",
       "file_type": "code",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L62",
+      "source_location": "L103",
       "id": "build_metadata_extract_sql_collect_pairs",
-      "community": 20,
+      "community": 19,
       "norm_label": "collect_pairs()"
     },
     {
       "label": "emit_sql()",
       "file_type": "code",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L94",
+      "source_location": "L153",
       "id": "build_metadata_extract_sql_emit_sql",
-      "community": 20,
+      "community": 19,
       "norm_label": "emit_sql()"
     },
     {
       "label": "build()",
       "file_type": "code",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L113",
+      "source_location": "L172",
       "id": "build_metadata_extract_sql_build",
-      "community": 20,
+      "community": 19,
       "norm_label": "build()"
     },
     {
       "label": "main()",
       "file_type": "code",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L120",
+      "source_location": "L179",
       "id": "build_metadata_extract_sql_main",
-      "community": 20,
+      "community": 19,
       "norm_label": "main()"
     },
     {
       "label": "SSMS exports often UTF-16 LE w/ BOM; handle that and other variants.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L48",
-      "id": "build_metadata_extract_sql_rationale_48",
-      "community": 20,
+      "source_location": "L49",
+      "id": "build_metadata_extract_sql_rationale_49",
+      "community": 19,
       "norm_label": "ssms exports often utf-16 le w/ bom; handle that and other variants."
     },
     {
-      "label": "Return (sorted unique table list, sorted unique (table, column) pairs).",
+      "label": "Extract (table, column) pairs from raw SQL when sqlglot can't parse.     Filters",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L63",
-      "id": "build_metadata_extract_sql_rationale_63",
-      "community": 20,
-      "norm_label": "return (sorted unique table list, sorted unique (table, column) pairs)."
+      "source_location": "L90",
+      "id": "build_metadata_extract_sql_rationale_90",
+      "community": 19,
+      "norm_label": "extract (table, column) pairs from raw sql when sqlglot can't parse.     filters"
+    },
+    {
+      "label": "Return (sorted unique table list, sorted unique (table, column) pairs).      For",
+      "file_type": "rationale",
+      "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
+      "source_location": "L104",
+      "id": "build_metadata_extract_sql_rationale_104",
+      "community": 19,
+      "norm_label": "return (sorted unique table list, sorted unique (table, column) pairs).      for"
     },
     {
       "label": "Format as SSMS-pasteable INSERT blocks.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L95",
-      "id": "build_metadata_extract_sql_rationale_95",
-      "community": 20,
+      "source_location": "L154",
+      "id": "build_metadata_extract_sql_rationale_154",
+      "community": 19,
       "norm_label": "format as ssms-pasteable insert blocks."
     },
     {
@@ -10818,7 +10836,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/extract_clarity_schema_from_db.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_data_schemas_extract_clarity_schema_from_db_py",
-      "community": 25,
+      "community": 23,
       "norm_label": "extract_clarity_schema_from_db.py"
     },
     {
@@ -10826,7 +10844,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/extract_clarity_schema_from_db.py",
       "source_location": "L1",
-      "community": 25,
+      "community": 23,
       "norm_label": "connect to epic clarity from a fabric notebook and extract a schema yaml in the",
       "id": "extract_clarity_schema_from_db_rationale_1"
     },
@@ -10836,7 +10854,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/csv_to_schema.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_data_schemas_csv_to_schema_py",
-      "community": 24,
+      "community": 22,
       "norm_label": "csv_to_schema.py"
     },
     {
@@ -10845,7 +10863,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/csv_to_schema.py",
       "source_location": "L52",
       "id": "csv_to_schema_detect_encoding",
-      "community": 24,
+      "community": 22,
       "norm_label": "_detect_encoding()"
     },
     {
@@ -10854,7 +10872,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/csv_to_schema.py",
       "source_location": "L71",
       "id": "csv_to_schema_csv_to_schema",
-      "community": 24,
+      "community": 22,
       "norm_label": "csv_to_schema()"
     },
     {
@@ -10863,7 +10881,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/csv_to_schema.py",
       "source_location": "L128",
       "id": "csv_to_schema_main",
-      "community": 24,
+      "community": 22,
       "norm_label": "main()"
     },
     {
@@ -10871,7 +10889,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/csv_to_schema.py",
       "source_location": "L53",
-      "community": 24,
+      "community": 22,
       "norm_label": "ssms exports csvs as utf-16 le w/ bom by default. excel saves as     cp1252. cel",
       "id": "csv_to_schema_rationale_53"
     },
@@ -10935,7 +10953,7 @@
       "source_file": "/Users/admin/sql-logic-extractor/notebooks/run_all_tools_fabric.py",
       "source_location": "L1",
       "id": "users_admin_sql_logic_extractor_notebooks_run_all_tools_fabric_py",
-      "community": 26,
+      "community": 24,
       "norm_label": "run_all_tools_fabric.py"
     },
     {
@@ -10943,16 +10961,43 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/notebooks/run_all_tools_fabric.py",
       "source_location": "L1",
-      "community": 26,
+      "community": 24,
       "norm_label": "fabric notebook script -- run all 4 sql logic extractor tools on a folder of vie",
       "id": "run_all_tools_fabric_rationale_1"
+    },
+    {
+      "label": "SSMS exports often UTF-16 LE w/ BOM; handle that and other variants.",
+      "file_type": "rationale",
+      "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
+      "source_location": "L48",
+      "community": 31,
+      "norm_label": "ssms exports often utf-16 le w/ bom; handle that and other variants.",
+      "id": "build_metadata_extract_sql_rationale_48"
+    },
+    {
+      "label": "Return (sorted unique table list, sorted unique (table, column) pairs).",
+      "file_type": "rationale",
+      "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
+      "source_location": "L63",
+      "community": 32,
+      "norm_label": "return (sorted unique table list, sorted unique (table, column) pairs).",
+      "id": "build_metadata_extract_sql_rationale_63"
+    },
+    {
+      "label": "Format as SSMS-pasteable INSERT blocks.",
+      "file_type": "rationale",
+      "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
+      "source_location": "L95",
+      "community": 33,
+      "norm_label": "format as ssms-pasteable insert blocks.",
+      "id": "build_metadata_extract_sql_rationale_95"
     },
     {
       "label": "LLM-backed query-level summary. Lazy-imports the client library.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L651",
-      "community": 33,
+      "community": 34,
       "norm_label": "llm-backed query-level summary. lazy-imports the client library.",
       "id": "business_logic_rationale_651"
     },
@@ -10961,7 +11006,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L379",
-      "community": 34,
+      "community": 35,
       "norm_label": "deterministic query-level summary built from structured signals.     healthcare-",
       "id": "business_logic_rationale_379"
     },
@@ -10970,7 +11015,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L513",
-      "community": 35,
+      "community": 36,
       "norm_label": "llm-backed query-level summary. lazy-imports the client library.",
       "id": "business_logic_rationale_513"
     },
@@ -10979,7 +11024,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/batch_all.py",
       "source_location": "L76",
-      "community": 36,
+      "community": 37,
       "norm_label": "when a view fails to parse / resolve, emit a single error row in     each tool's",
       "id": "batch_all_rationale_76"
     },
@@ -10988,7 +11033,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/batch_all.py",
       "source_location": "L100",
-      "community": 37,
+      "community": 38,
       "norm_label": "run the engine once per view, shape rows for all four tools.      returns a dict",
       "id": "batch_all_rationale_100"
     },
@@ -10997,7 +11042,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/report_description_generator/batch.py",
       "source_location": "L66",
-      "community": 38,
+      "community": 39,
       "norm_label": "run tool 4 on one view; return one csv row.",
       "id": "batch_rationale_66"
     },
@@ -11006,7 +11051,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L116",
-      "community": 39,
+      "community": 40,
       "norm_label": "sqlglot's `catalog` is the sql server database; `db` is the schema.",
       "id": "products_rationale_116"
     },
@@ -11015,7 +11060,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L125",
-      "community": 40,
+      "community": 41,
       "norm_label": "ungated core for tool 1. tool 2's core calls this directly.",
       "id": "products_rationale_125"
     },
@@ -11024,7 +11069,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L192",
-      "community": 41,
+      "community": 42,
       "norm_label": "tool 1 -- enumerate every (database, schema, table, column) the sql     referenc",
       "id": "products_rationale_192"
     },
@@ -11033,7 +11078,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L204",
-      "community": 42,
+      "community": 43,
       "norm_label": "ungated core for tool 2. tool 3's core calls this directly.",
       "id": "products_rationale_204"
     },
@@ -11042,7 +11087,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L227",
-      "community": 43,
+      "community": 44,
       "norm_label": "tool 2 -- per-output-column lineage with where/join/exists filter     propagatio",
       "id": "products_rationale_227"
     },
@@ -11051,7 +11096,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L239",
-      "community": 44,
+      "community": 45,
       "norm_label": "pattern-library translator -- pure deterministic logic, no llm.      todo (may w",
       "id": "products_rationale_239"
     },
@@ -11060,7 +11105,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L253",
-      "community": 45,
+      "community": 46,
       "norm_label": "llm-backed translator. lazy-imports the client lib inside the call     so a no-l",
       "id": "products_rationale_253"
     },
@@ -11069,7 +11114,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L271",
-      "community": 46,
+      "community": 47,
       "norm_label": "ungated core for tool 3. tool 4's core calls this directly.",
       "id": "products_rationale_271"
     },
@@ -11078,7 +11123,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L285",
-      "community": 47,
+      "community": 48,
       "norm_label": "tool 3 -- english business definition for each transformed column.     `use_llm=",
       "id": "products_rationale_285"
     },
@@ -11087,7 +11132,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L301",
-      "community": 48,
+      "community": 49,
       "norm_label": "deterministic report summary built from the structured signals.      todo (may w",
       "id": "products_rationale_301"
     },
@@ -11096,7 +11141,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L308",
-      "community": 49,
+      "community": 50,
       "norm_label": "llm-backed report summary. lazy-imports google.genai inside the call     so a no",
       "id": "products_rationale_308"
     },
@@ -11105,7 +11150,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L321",
-      "community": 50,
+      "community": 51,
       "norm_label": "ungated core for tool 4.",
       "id": "products_rationale_321"
     },
@@ -11114,7 +11159,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L337",
-      "community": 51,
+      "community": 52,
       "norm_label": "tool 4 -- natural-language description of what the sql report does.     `use_llm",
       "id": "products_rationale_337"
     },
@@ -11123,7 +11168,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L472",
-      "community": 52,
+      "community": 53,
       "norm_label": "llm-backed query-level summary. lazy-imports the client library.",
       "id": "business_logic_rationale_472"
     },
@@ -11132,7 +11177,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L474",
-      "community": 53,
+      "community": 54,
       "norm_label": "llm-backed query-level summary. lazy-imports the client library.",
       "id": "business_logic_rationale_474"
     },
@@ -11141,7 +11186,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/batch.py",
       "source_location": "L101",
-      "community": 54,
+      "community": 55,
       "norm_label": "run tool 2 on one file, shape into transformation rows. skip     truly-trivial p",
       "id": "batch_rationale_101"
     },
@@ -11150,7 +11195,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/column_lineage_extractor/batch.py",
       "source_location": "L94",
-      "community": 55,
+      "community": 56,
       "norm_label": "run tool 1 on one file, shape the output for the manifest csv.",
       "id": "batch_rationale_94"
     },
@@ -11159,7 +11204,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/column_lineage_extractor/batch.py",
       "source_location": "L119",
-      "community": 56,
+      "community": 57,
       "norm_label": "run tool 1 on one file, shape the output for the manifest csv.",
       "id": "batch_rationale_119"
     },
@@ -11168,7 +11213,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/batch.py",
       "source_location": "L36",
-      "community": 57,
+      "community": 58,
       "norm_label": "read sql handling ssms's default utf-16 le bom and other encodings.",
       "id": "batch_rationale_36"
     },
@@ -11177,7 +11222,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/business_logic_extractor/batch.py",
       "source_location": "L52",
-      "community": 58,
+      "community": 59,
       "norm_label": "shape a businesslogic into business-logic rows. used by     _process_view and to",
       "id": "batch_rationale_52"
     },
@@ -11186,7 +11231,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/business_logic_extractor/batch.py",
       "source_location": "L102",
-      "community": 59,
+      "community": 60,
       "norm_label": "folder mode entry point. returns 0 on success, 1 on usage error.",
       "id": "batch_rationale_102"
     },
@@ -11195,7 +11240,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/csv_to_schema.py",
       "source_location": "L49",
-      "community": 60,
+      "community": 61,
       "norm_label": "ssms exports csvs as utf-16 le w/ bom by default. excel saves as     cp1252. cel",
       "id": "csv_to_schema_rationale_49"
     },
@@ -11240,7 +11285,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/batch.py",
       "source_location": "L58",
-      "community": 61,
+      "community": 62,
       "norm_label": "run tool 2 on one file, shape into transformation rows. skip     truly-trivial p",
       "id": "batch_rationale_58"
     },
@@ -11249,7 +11294,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/business_logic_extractor/batch.py",
       "source_location": "L96",
-      "community": 62,
+      "community": 63,
       "norm_label": "folder mode entry point. returns 0 on success, 1 on usage error.",
       "id": "batch_rationale_96"
     },
@@ -11258,7 +11303,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/batch.py",
       "source_location": "L57",
-      "community": 63,
+      "community": 64,
       "norm_label": "run tool 2 on one file, shape into transformation rows. skip     truly-trivial p",
       "id": "batch_rationale_57"
     },
@@ -11267,7 +11312,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L322",
-      "community": 64,
+      "community": 65,
       "norm_label": "deterministic query-level summary built from structured signals.     healthcare-",
       "id": "business_logic_rationale_322"
     },
@@ -11276,7 +11321,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L417",
-      "community": 65,
+      "community": 66,
       "norm_label": "llm-backed query-level summary. lazy-imports the client library.",
       "id": "business_logic_rationale_417"
     },
@@ -11285,7 +11330,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L322",
-      "community": 66,
+      "community": 67,
       "norm_label": "llm-backed summary. lazy-imports the client lib.      todo (may week 4): port do",
       "id": "products_rationale_322"
     },
@@ -11294,7 +11339,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L335",
-      "community": 67,
+      "community": 68,
       "norm_label": "ungated core for tool 4.",
       "id": "products_rationale_335"
     },
@@ -11303,7 +11348,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L351",
-      "community": 68,
+      "community": 69,
       "norm_label": "tool 4 -- natural-language description of what the sql report does.     `use_llm",
       "id": "products_rationale_351"
     },
@@ -11312,7 +11357,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L258",
-      "community": 69,
+      "community": 70,
       "norm_label": "llm-backed translator. lazy-imports the client lib so a no-llm     install doesn",
       "id": "products_rationale_258"
     },
@@ -11321,7 +11366,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L275",
-      "community": 70,
+      "community": 71,
       "norm_label": "ungated core for tool 3. tool 4's core calls this directly.",
       "id": "products_rationale_275"
     },
@@ -11330,7 +11375,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L289",
-      "community": 71,
+      "community": 72,
       "norm_label": "tool 3 -- english business definition for each transformed column.     `use_llm=",
       "id": "products_rationale_289"
     },
@@ -11339,7 +11384,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L305",
-      "community": 72,
+      "community": 73,
       "norm_label": "deterministic report summary built from the structured signals.      todo (may w",
       "id": "products_rationale_305"
     },
@@ -11348,7 +11393,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L326",
-      "community": 73,
+      "community": 74,
       "norm_label": "llm-backed summary. lazy-imports the client lib.      todo (may week 4): port cl",
       "id": "products_rationale_326"
     },
@@ -11357,7 +11402,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L339",
-      "community": 74,
+      "community": 75,
       "norm_label": "ungated core for tool 4.",
       "id": "products_rationale_339"
     },
@@ -11366,7 +11411,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L355",
-      "community": 75,
+      "community": 76,
       "norm_label": "tool 4 -- natural-language description of what the sql report does.     `use_llm",
       "id": "products_rationale_355"
     },
@@ -11375,7 +11420,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/tests/run_tests.py",
       "source_location": "L41",
-      "community": 76,
+      "community": 77,
       "norm_label": "re-encode the ssms marker sql as utf-16 le with a bom in /tmp so the     runner",
       "id": "run_tests_rationale_41"
     },
@@ -11384,7 +11429,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L168",
-      "community": 77,
+      "community": 78,
       "norm_label": "tool 1 -- enumerate every (database, schema, table, column) the sql     referenc",
       "id": "products_rationale_168"
     },
@@ -11393,7 +11438,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L180",
-      "community": 78,
+      "community": 79,
       "norm_label": "ungated core for tool 2. tool 3's core calls this directly.",
       "id": "products_rationale_180"
     },
@@ -11402,7 +11447,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L203",
-      "community": 79,
+      "community": 80,
       "norm_label": "tool 2 -- per-output-column lineage with where/join/exists filter     propagatio",
       "id": "products_rationale_203"
     },
@@ -11411,7 +11456,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L215",
-      "community": 80,
+      "community": 81,
       "norm_label": "pattern-library translator -- pure deterministic logic, no llm.      todo (may w",
       "id": "products_rationale_215"
     },
@@ -11420,7 +11465,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L234",
-      "community": 81,
+      "community": 82,
       "norm_label": "llm-backed translator. lazy-imports the client lib so a no-llm     install doesn",
       "id": "products_rationale_234"
     },
@@ -11429,7 +11474,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L251",
-      "community": 82,
+      "community": 83,
       "norm_label": "ungated core for tool 3. tool 4's core calls this directly.",
       "id": "products_rationale_251"
     },
@@ -11438,7 +11483,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L265",
-      "community": 83,
+      "community": 84,
       "norm_label": "tool 3 -- english business definition for each transformed column.     `use_llm=",
       "id": "products_rationale_265"
     },
@@ -11447,7 +11492,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L281",
-      "community": 84,
+      "community": 85,
       "norm_label": "deterministic report summary built from the structured signals.      todo (may w",
       "id": "products_rationale_281"
     },
@@ -11456,7 +11501,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L315",
-      "community": 85,
+      "community": 86,
       "norm_label": "ungated core for tool 4.",
       "id": "products_rationale_315"
     },
@@ -11465,7 +11510,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L331",
-      "community": 86,
+      "community": 87,
       "norm_label": "tool 4 -- natural-language description of what the sql report does.     `use_llm",
       "id": "products_rationale_331"
     },
@@ -11519,7 +11564,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L1",
-      "community": 87,
+      "community": 88,
       "norm_label": "extract transformed (non-passthrough) columns from a folder of sql views.  singl",
       "id": "extract_transformations_standalone_rationale_1"
     },
@@ -11528,7 +11573,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L63",
-      "community": 88,
+      "community": 89,
       "norm_label": "read a sql file, handling ssms's default utf-16 le bom.",
       "id": "extract_transformations_standalone_rationale_63"
     },
@@ -11537,7 +11582,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L105",
-      "community": 89,
+      "community": 90,
       "norm_label": "return a short label describing the transformation in this expression.     retur",
       "id": "extract_transformations_standalone_rationale_105"
     },
@@ -11546,7 +11591,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L138",
-      "community": 90,
+      "community": 91,
       "norm_label": "find the top-level select inside a parsed create view (or bare select).",
       "id": "extract_transformations_standalone_rationale_138"
     },
@@ -11555,7 +11600,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L149",
-      "community": 91,
+      "community": 92,
       "norm_label": "render a node's sql for the csv, collapsing whitespace and truncating     if abs",
       "id": "extract_transformations_standalone_rationale_149"
     },
@@ -11564,7 +11609,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L159",
-      "community": 92,
+      "community": 93,
       "norm_label": "parse one view; return a list of csv rows, one per transformed column.",
       "id": "extract_transformations_standalone_rationale_159"
     },
@@ -11573,7 +11618,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L41",
-      "community": 93,
+      "community": 94,
       "norm_label": "remove use / go / set-option statements and header block comments that     ssms",
       "id": "build_manifest_standalone_rationale_41"
     },
@@ -11582,7 +11627,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L54",
-      "community": 94,
+      "community": 95,
       "norm_label": "(database, schema, table) for a sqlglot table node. in sqlglot's mysql-     root",
       "id": "build_manifest_standalone_rationale_54"
     },
@@ -11591,7 +11636,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L64",
-      "community": 95,
+      "community": 96,
       "norm_label": "{alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia",
       "id": "build_manifest_standalone_rationale_64"
     },
@@ -11600,7 +11645,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L82",
-      "community": 96,
+      "community": 97,
       "norm_label": "for each cte, qualify its body separately and emit:         {(cte_alias_lower, c",
       "id": "build_manifest_standalone_rationale_82"
     },
@@ -11609,7 +11654,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L159",
-      "community": 97,
+      "community": 98,
       "norm_label": "parse one view file \u2192 list of manifest rows. importable for per-file     use in",
       "id": "build_manifest_standalone_rationale_159"
     },
@@ -11618,7 +11663,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L337",
-      "community": 98,
+      "community": 99,
       "norm_label": "notebook-callable entry point. walks input_dir for *.sql files, parses     each,",
       "id": "build_manifest_standalone_rationale_337"
     },
@@ -11627,7 +11672,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L287",
-      "community": 99,
+      "community": 100,
       "norm_label": "notebook-callable entry point. walks input_dir for *.sql files, parses     each,",
       "id": "build_manifest_standalone_rationale_287"
     },
@@ -11636,7 +11681,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L12",
-      "community": 100,
+      "community": 101,
       "norm_label": "(database, schema, table) for a sqlglot table node. in sqlglot's mysql-     root",
       "id": "build_manifest_standalone_rationale_12"
     },
@@ -11645,7 +11690,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L22",
-      "community": 101,
+      "community": 102,
       "norm_label": "{alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia",
       "id": "build_manifest_standalone_rationale_22"
     },
@@ -11654,7 +11699,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L40",
-      "community": 102,
+      "community": 103,
       "norm_label": "for each cte, qualify its body separately and emit:         {(cte_alias_lower, c",
       "id": "build_manifest_standalone_rationale_40"
     },
@@ -11663,7 +11708,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L117",
-      "community": 103,
+      "community": 104,
       "norm_label": "parse one view file \u2192 list of manifest rows. importable for per-file     use in",
       "id": "build_manifest_standalone_rationale_117"
     },
@@ -11672,7 +11717,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L242",
-      "community": 104,
+      "community": 105,
       "norm_label": "notebook-callable entry point. walks input_dir for *.sql files, parses     each,",
       "id": "build_manifest_standalone_rationale_242"
     },
@@ -11681,7 +11726,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L237",
-      "community": 105,
+      "community": 106,
       "norm_label": "true if the filter is a bare `column = column` relational key, not a row-restric",
       "id": "offline_translate_rationale_237"
     },
@@ -11690,7 +11735,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L248",
-      "community": 106,
+      "community": 107,
       "norm_label": "parse and re-emit with table qualifiers stripped, for dedup purposes.",
       "id": "offline_translate_rationale_248"
     },
@@ -11699,7 +11744,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L259",
-      "community": 107,
+      "community": 108,
       "norm_label": "drop correlation keys and collapse filters that differ only in alias qualifiers.",
       "id": "offline_translate_rationale_259"
     },
@@ -11708,7 +11753,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L21",
-      "community": 108,
+      "community": 109,
       "norm_label": "load and index the clarity_schema.yaml for fast lookup.      returns:         {",
       "id": "llm_translate_rationale_21"
     },
@@ -11717,7 +11762,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L63",
-      "community": 109,
+      "community": 110,
       "norm_label": "get description for a table.",
       "id": "llm_translate_rationale_63"
     },
@@ -11726,7 +11771,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L71",
-      "community": 110,
+      "community": 111,
       "norm_label": "get description for a column.",
       "id": "llm_translate_rationale_71"
     },
@@ -11735,7 +11780,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L80",
-      "community": 111,
+      "community": 112,
       "norm_label": "get enum value mappings for a zc_ table.",
       "id": "llm_translate_rationale_80"
     },
@@ -11744,7 +11789,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L86",
-      "community": 112,
+      "community": 113,
       "norm_label": "build context string for a single resolved column.      args:         resolved_c",
       "id": "llm_translate_rationale_86"
     },
@@ -11753,7 +11798,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L162",
-      "community": 113,
+      "community": 114,
       "norm_label": "translate a single resolved column to english using llm.      args:         reso",
       "id": "llm_translate_rationale_162"
     },
@@ -11762,7 +11807,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L242",
-      "community": 114,
+      "community": 115,
       "norm_label": "generate a summary of the entire sql query based on column definitions.      arg",
       "id": "llm_translate_rationale_242"
     },
@@ -11771,7 +11816,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L331",
-      "community": 115,
+      "community": 116,
       "norm_label": "translate all columns in an l5 output file to english and generate query summary",
       "id": "llm_translate_rationale_331"
     },
@@ -11780,7 +11825,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L380",
-      "community": 116,
+      "community": 117,
       "norm_label": "format translation results for output.      args:         results: dict with 'su",
       "id": "llm_translate_rationale_380"
     },
@@ -11789,7 +11834,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/run_query.py",
       "source_location": "L28",
-      "community": 117,
+      "community": 118,
       "norm_label": "use the package form when available (repo dev); otherwise the flat form (work la",
       "id": "run_query_rationale_28"
     },
@@ -11798,7 +11843,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L164",
-      "community": 118,
+      "community": 119,
       "norm_label": "parse a bare sql fragment (not wrapped in select) and translate.",
       "id": "offline_translate_rationale_164"
     },
@@ -12014,7 +12059,7 @@
       "file_type": "rationale",
       "source_file": "sql_logic_extractor/extract.py",
       "source_location": "L642",
-      "community": 119,
+      "community": 120,
       "norm_label": "convert dataclass tree to plain dict, filtering empty fields.",
       "id": "extract_rationale_642"
     },
@@ -12023,7 +12068,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L37",
-      "community": 120,
+      "community": 121,
       "norm_label": "load clarity_schema.yaml as the raw dict. the pattern library builds     its own",
       "id": "offline_translate_rationale_37"
     },
@@ -12032,7 +12077,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L57",
-      "community": 121,
+      "community": 122,
       "norm_label": "classify the business domain based on column name, expression, and base tables.",
       "id": "offline_translate_rationale_57"
     },
@@ -12041,7 +12086,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L107",
-      "community": 122,
+      "community": 123,
       "norm_label": "parse a resolved sql expression and walk it with the pattern registry.      fall",
       "id": "offline_translate_rationale_107"
     },
@@ -12050,7 +12095,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L133",
-      "community": 123,
+      "community": 124,
       "norm_label": "translate l3 filter predicates by walking each with the registry.      distingui",
       "id": "offline_translate_rationale_133"
     },
@@ -12059,7 +12104,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L161",
-      "community": 124,
+      "community": 125,
       "norm_label": "parse a bare sql fragment (not wrapped in select) and translate.",
       "id": "offline_translate_rationale_161"
     },
@@ -12068,7 +12113,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L48",
-      "community": 125,
+      "community": 126,
       "norm_label": "classify the business domain based on column name, expression, and base tables.",
       "id": "offline_translate_rationale_48"
     },
@@ -12077,7 +12122,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L98",
-      "community": 126,
+      "community": 127,
       "norm_label": "parse a resolved sql expression and walk it with the pattern registry.      fall",
       "id": "offline_translate_rationale_98"
     },
@@ -12086,7 +12131,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L124",
-      "community": 127,
+      "community": 128,
       "norm_label": "translate l3 filter predicates by walking each with the registry.      distingui",
       "id": "offline_translate_rationale_124"
     },
@@ -12095,7 +12140,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L152",
-      "community": 128,
+      "community": 129,
       "norm_label": "parse a bare sql fragment (not wrapped in select) and translate.",
       "id": "offline_translate_rationale_152"
     },
@@ -12113,7 +12158,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L29",
-      "community": 129,
+      "community": 130,
       "norm_label": "load and index the clarity_schema.yaml for fast lookup.",
       "id": "offline_translate_rationale_29"
     },
@@ -12122,7 +12167,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L137",
-      "community": 130,
+      "community": 131,
       "norm_label": "expand common abbreviations in column/table names.",
       "id": "offline_translate_rationale_137"
     },
@@ -12131,7 +12176,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L153",
-      "community": 131,
+      "community": 132,
       "norm_label": "get description for a column, fall back to abbreviation expansion.",
       "id": "offline_translate_rationale_153"
     },
@@ -12140,7 +12185,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L169",
-      "community": 132,
+      "community": 133,
       "norm_label": "get enum value name from zc_ table.",
       "id": "offline_translate_rationale_169"
     },
@@ -12149,7 +12194,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L181",
-      "community": 133,
+      "community": 134,
       "norm_label": "translate datediff expressions.",
       "id": "offline_translate_rationale_181"
     },
@@ -12158,7 +12203,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L217",
-      "community": 134,
+      "community": 135,
       "norm_label": "translate case expressions.",
       "id": "offline_translate_rationale_217"
     },
@@ -12167,7 +12212,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L229",
-      "community": 135,
+      "community": 136,
       "norm_label": "translate aggregate functions (sum, avg, count, etc.).",
       "id": "offline_translate_rationale_229"
     },
@@ -12176,7 +12221,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L258",
-      "community": 136,
+      "community": 137,
       "norm_label": "translate window functions (row_number, rank, lag, etc.).",
       "id": "offline_translate_rationale_258"
     },
@@ -12185,7 +12230,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L285",
-      "community": 137,
+      "community": 138,
       "norm_label": "get a human-readable description for a column reference.",
       "id": "offline_translate_rationale_285"
     },
@@ -12194,7 +12239,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L311",
-      "community": 138,
+      "community": 139,
       "norm_label": "classify the business domain based on column name and context.",
       "id": "offline_translate_rationale_311"
     },
@@ -12203,7 +12248,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L352",
-      "community": 139,
+      "community": 140,
       "norm_label": "translate a sql expression to plain english.",
       "id": "offline_translate_rationale_352"
     },
@@ -12212,7 +12257,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L413",
-      "community": 140,
+      "community": 141,
       "norm_label": "translate filter conditions to plain english.",
       "id": "offline_translate_rationale_413"
     },
@@ -12221,7 +12266,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L449",
-      "community": 141,
+      "community": 142,
       "norm_label": "translate a single resolved column to english using templates.",
       "id": "offline_translate_rationale_449"
     },
@@ -12230,7 +12275,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L487",
-      "community": 142,
+      "community": 143,
       "norm_label": "generate a summary of the entire sql query.",
       "id": "offline_translate_rationale_487"
     },
@@ -12239,7 +12284,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L544",
-      "community": 143,
+      "community": 144,
       "norm_label": "translate all columns in an l3 output file to english.      this is the main ent",
       "id": "offline_translate_rationale_544"
     },
@@ -12248,7 +12293,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L577",
-      "community": 144,
+      "community": 145,
       "norm_label": "format translation results for output.",
       "id": "offline_translate_rationale_577"
     }
@@ -15309,8 +15354,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/batch.py",
       "source_location": "L76",
       "weight": 1.0,
-      "_src": "batch_collect_fingerprints",
-      "_tgt": "fingerprint_fingerprint",
+      "_src": "fingerprint_fingerprint",
+      "_tgt": "batch_collect_fingerprints",
       "source": "fingerprint_fingerprint",
       "target": "batch_collect_fingerprints"
     },
@@ -15321,8 +15366,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L15",
       "weight": 1.0,
-      "_src": "test_fingerprint_test_alias_normalization_same_fingerprint",
-      "_tgt": "fingerprint_fingerprint",
+      "_src": "fingerprint_fingerprint",
+      "_tgt": "test_fingerprint_test_alias_normalization_same_fingerprint",
       "source": "fingerprint_fingerprint",
       "target": "test_fingerprint_test_alias_normalization_same_fingerprint"
     },
@@ -15333,8 +15378,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L23",
       "weight": 1.0,
-      "_src": "test_fingerprint_test_commutative_and_same_fingerprint",
-      "_tgt": "fingerprint_fingerprint",
+      "_src": "fingerprint_fingerprint",
+      "_tgt": "test_fingerprint_test_commutative_and_same_fingerprint",
       "source": "fingerprint_fingerprint",
       "target": "test_fingerprint_test_commutative_and_same_fingerprint"
     },
@@ -15345,8 +15390,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L30",
       "weight": 1.0,
-      "_src": "test_fingerprint_test_different_literals_different_fingerprint",
-      "_tgt": "fingerprint_fingerprint",
+      "_src": "fingerprint_fingerprint",
+      "_tgt": "test_fingerprint_test_different_literals_different_fingerprint",
       "source": "fingerprint_fingerprint",
       "target": "test_fingerprint_test_different_literals_different_fingerprint"
     },
@@ -15357,8 +15402,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L37",
       "weight": 1.0,
-      "_src": "test_fingerprint_test_different_columns_different_fingerprint",
-      "_tgt": "fingerprint_fingerprint",
+      "_src": "fingerprint_fingerprint",
+      "_tgt": "test_fingerprint_test_different_columns_different_fingerprint",
       "source": "fingerprint_fingerprint",
       "target": "test_fingerprint_test_different_columns_different_fingerprint"
     },
@@ -15369,8 +15414,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L44",
       "weight": 1.0,
-      "_src": "test_fingerprint_test_function_preserved_in_fingerprint",
-      "_tgt": "fingerprint_fingerprint",
+      "_src": "fingerprint_fingerprint",
+      "_tgt": "test_fingerprint_test_function_preserved_in_fingerprint",
       "source": "fingerprint_fingerprint",
       "target": "test_fingerprint_test_function_preserved_in_fingerprint"
     },
@@ -15381,8 +15426,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/tools/similar_logic_grouper/tests/test_fingerprint.py",
       "source_location": "L51",
       "weight": 1.0,
-      "_src": "test_fingerprint_test_invalid_sql_returns_none",
-      "_tgt": "fingerprint_fingerprint",
+      "_src": "fingerprint_fingerprint",
+      "_tgt": "test_fingerprint_test_invalid_sql_returns_none",
       "source": "fingerprint_fingerprint",
       "target": "test_fingerprint_test_invalid_sql_returns_none"
     },
@@ -28965,8 +29010,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
       "source_location": "L76",
       "weight": 1.0,
-      "_src": "build_metadata_extract_sql_collect_pairs",
-      "_tgt": "products_extract_columns",
+      "_src": "products_extract_columns",
+      "_tgt": "build_metadata_extract_sql_collect_pairs",
       "source": "products_extract_columns",
       "target": "build_metadata_extract_sql_collect_pairs"
     },
@@ -35467,10 +35512,22 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
+      "source_location": "L99",
+      "weight": 1.0,
+      "_src": "build_metadata_extract_sql_regex_fallback_pairs",
+      "_tgt": "registry_patternregistry_add",
+      "source": "registry_patternregistry_add",
+      "target": "build_metadata_extract_sql_regex_fallback_pairs"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
       "source_location": "L83",
       "weight": 1.0,
-      "_src": "build_metadata_extract_sql_collect_pairs",
-      "_tgt": "registry_patternregistry_add",
+      "_src": "registry_patternregistry_add",
+      "_tgt": "build_metadata_extract_sql_collect_pairs",
       "source": "registry_patternregistry_add",
       "target": "build_metadata_extract_sql_collect_pairs"
     },
@@ -48222,7 +48279,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L47",
+      "source_location": "L48",
       "weight": 1.0,
       "_src": "users_admin_sql_logic_extractor_data_schemas_build_metadata_extract_sql_py",
       "_tgt": "build_metadata_extract_sql_read_sql_file",
@@ -48234,7 +48291,19 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L62",
+      "source_location": "L89",
+      "weight": 1.0,
+      "_src": "users_admin_sql_logic_extractor_data_schemas_build_metadata_extract_sql_py",
+      "_tgt": "build_metadata_extract_sql_regex_fallback_pairs",
+      "source": "users_admin_sql_logic_extractor_data_schemas_build_metadata_extract_sql_py",
+      "target": "build_metadata_extract_sql_regex_fallback_pairs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
+      "source_location": "L103",
       "weight": 1.0,
       "_src": "users_admin_sql_logic_extractor_data_schemas_build_metadata_extract_sql_py",
       "_tgt": "build_metadata_extract_sql_collect_pairs",
@@ -48246,7 +48315,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L94",
+      "source_location": "L153",
       "weight": 1.0,
       "_src": "users_admin_sql_logic_extractor_data_schemas_build_metadata_extract_sql_py",
       "_tgt": "build_metadata_extract_sql_emit_sql",
@@ -48258,7 +48327,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L113",
+      "source_location": "L172",
       "weight": 1.0,
       "_src": "users_admin_sql_logic_extractor_data_schemas_build_metadata_extract_sql_py",
       "_tgt": "build_metadata_extract_sql_build",
@@ -48270,7 +48339,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L120",
+      "source_location": "L179",
       "weight": 1.0,
       "_src": "users_admin_sql_logic_extractor_data_schemas_build_metadata_extract_sql_py",
       "_tgt": "build_metadata_extract_sql_main",
@@ -48282,7 +48351,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L76",
+      "source_location": "L122",
       "weight": 1.0,
       "_src": "build_metadata_extract_sql_collect_pairs",
       "_tgt": "build_metadata_extract_sql_read_sql_file",
@@ -48294,19 +48363,43 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L48",
+      "source_location": "L49",
       "weight": 1.0,
-      "_src": "build_metadata_extract_sql_rationale_48",
+      "_src": "build_metadata_extract_sql_rationale_49",
       "_tgt": "build_metadata_extract_sql_read_sql_file",
       "source": "build_metadata_extract_sql_read_sql_file",
-      "target": "build_metadata_extract_sql_rationale_48",
+      "target": "build_metadata_extract_sql_rationale_49",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L114",
+      "source_location": "L133",
+      "weight": 1.0,
+      "_src": "build_metadata_extract_sql_collect_pairs",
+      "_tgt": "build_metadata_extract_sql_regex_fallback_pairs",
+      "source": "build_metadata_extract_sql_regex_fallback_pairs",
+      "target": "build_metadata_extract_sql_collect_pairs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
+      "source_location": "L90",
+      "weight": 1.0,
+      "_src": "build_metadata_extract_sql_rationale_90",
+      "_tgt": "build_metadata_extract_sql_regex_fallback_pairs",
+      "source": "build_metadata_extract_sql_regex_fallback_pairs",
+      "target": "build_metadata_extract_sql_rationale_90",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
+      "source_location": "L173",
       "weight": 1.0,
       "_src": "build_metadata_extract_sql_build",
       "_tgt": "build_metadata_extract_sql_collect_pairs",
@@ -48318,19 +48411,19 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L63",
+      "source_location": "L104",
       "weight": 1.0,
-      "_src": "build_metadata_extract_sql_rationale_63",
+      "_src": "build_metadata_extract_sql_rationale_104",
       "_tgt": "build_metadata_extract_sql_collect_pairs",
       "source": "build_metadata_extract_sql_collect_pairs",
-      "target": "build_metadata_extract_sql_rationale_63",
+      "target": "build_metadata_extract_sql_rationale_104",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L115",
+      "source_location": "L174",
       "weight": 1.0,
       "_src": "build_metadata_extract_sql_build",
       "_tgt": "build_metadata_extract_sql_emit_sql",
@@ -48342,19 +48435,19 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L95",
+      "source_location": "L154",
       "weight": 1.0,
-      "_src": "build_metadata_extract_sql_rationale_95",
+      "_src": "build_metadata_extract_sql_rationale_154",
       "_tgt": "build_metadata_extract_sql_emit_sql",
       "source": "build_metadata_extract_sql_emit_sql",
-      "target": "build_metadata_extract_sql_rationale_95",
+      "target": "build_metadata_extract_sql_rationale_154",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/build_metadata_extract_sql.py",
-      "source_location": "L124",
+      "source_location": "L183",
       "weight": 1.0,
       "_src": "build_metadata_extract_sql_main",
       "_tgt": "build_metadata_extract_sql_build",

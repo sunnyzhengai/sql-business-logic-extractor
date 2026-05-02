@@ -19,9 +19,13 @@ Source query (run at work against Clarity):
     WHERE TABLE_NAME IN (...)
       AND TBL.TBL_DESCRIPTOR_OVR IS NOT NULL;
 
-The trailing `TBL_DESCRIPTOR_OVR IS NOT NULL` clause is intentional — it
+The trailing `TBL_DESCRIPTOR_OVR IS NOT NULL` clause is intentional -- it
 deduplicates CLARITY_TBL entries that appear twice. Do not remove it
 without confirming the dedup is handled another way.
+
+Output JSON is always written as plain ASCII (ensure_ascii=True) so that
+re-uploading via Windows browsers (which silently re-encode in cp1252)
+does NOT corrupt the file.
 
 The column-to-(ini, item) relationship is 1:1 for Clarity tables, so
 we emit flat `ini` and `item` fields per column rather than a list.
@@ -113,7 +117,7 @@ def csv_to_schema(csv_path: str, out_path: str) -> None:
     }
 
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(schema, f, indent=2, ensure_ascii=False)
+        json.dump(schema, f, indent=2, ensure_ascii=True)
 
     print(
         f"Wrote {out_path}: {len(schema['tables'])} table(s), "

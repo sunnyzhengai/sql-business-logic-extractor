@@ -1,12 +1,12 @@
 # Graph Report - /Users/admin/sql-logic-extractor  (2026-05-02)
 
 ## Corpus Check
-- 101 files · ~144,324 words
+- 107 files · ~146,899 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1480 nodes · 3191 edges · 162 communities detected
-- Extraction: 63% EXTRACTED · 37% INFERRED · 0% AMBIGUOUS · INFERRED: 1180 edges (avg confidence: 0.6)
+- 1518 nodes · 3258 edges · 162 communities detected
+- Extraction: 63% EXTRACTED · 37% INFERRED · 0% AMBIGUOUS · INFERRED: 1204 edges (avg confidence: 0.6)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -183,97 +183,97 @@
 7. `BusinessLogicComparator` - 33 edges
 8. `ColumnInventory` - 31 edges
 9. `TechnicalLineage` - 31 edges
-10. `Filter` - 30 edges
+10. `SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translat` - 30 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `A fully resolved output column with its complete transformation chain.` --uses--> `SQLBusinessLogicExtractor`  [INFERRED]
+- `A query with fully resolved lineage for every output column.` --uses--> `SQLBusinessLogicExtractor`  [INFERRED]
   sql_logic_extractor/resolve.py → /Users/admin/sql-logic-extractor/sql_logic_extractor/extract.py
-- `Register a scope's outputs.` --uses--> `SQLBusinessLogicExtractor`  [INFERRED]
-  sql_logic_extractor/resolve.py → /Users/admin/sql-logic-extractor/sql_logic_extractor/extract.py
-- `BusinessDefinition` --uses--> `A group of definitions that match each other.`  [INFERRED]
-  /Users/admin/sql-logic-extractor/sql_logic_extractor/normalize.py → archive/compare.py
-- `BusinessDefinition` --uses--> `Full comparison report across multiple queries.`  [INFERRED]
-  /Users/admin/sql-logic-extractor/sql_logic_extractor/normalize.py → archive/compare.py
-- `BusinessDefinition` --uses--> `Compares business definitions across SQL queries.`  [INFERRED]
-  /Users/admin/sql-logic-extractor/sql_logic_extractor/normalize.py → archive/compare.py
+- `SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translat` --uses--> `SQLBusinessLogicExtractor`  [INFERRED]
+  sql_logic_extractor/__init__.py → /Users/admin/sql-logic-extractor/sql_logic_extractor/extract.py
+- `SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translat` --uses--> `BusinessLogicNormalizer`  [INFERRED]
+  sql_logic_extractor/__init__.py → /Users/admin/sql-logic-extractor/sql_logic_extractor/normalize.py
+- `SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translat` --uses--> `BusinessDefinition`  [INFERRED]
+  sql_logic_extractor/__init__.py → /Users/admin/sql-logic-extractor/sql_logic_extractor/normalize.py
+- `SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translat` --uses--> `ResolvedQuery`  [INFERRED]
+  sql_logic_extractor/__init__.py → /Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py
 
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.04
-Nodes (143): fmt_sql(), Pretty-print SQL using sqlglot., Aggregation, CaseLogic, ColumnRef, Filter, OutputColumn, QueryLogic (+135 more)
+Cohesion: 0.02
+Nodes (161): fmt_sql(), Pretty-print SQL using sqlglot., Record any _QUERY_CONTAINERS node in ``tree`` we never descended into., SQLBusinessLogicExtractor, _extract_columns_core(), _extract_technical_lineage_core(), Ungated core for Tool 1. Tool 2's core calls this directly.      Walks every Col, Ungated core for Tool 2. Tool 3's core calls this directly. (+153 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.03
-Nodes (149): make_llm_client(), Build a Gemini client. Lazy-imports `google.genai`. Customers using     LLM mode, _is_notebook(), _load_schema(), main(), CLI entry point for Tool 3 -- Business logic extractor., Read a SQL file, handling SSMS's default UTF-16 LE BOM and other     common enco, _read_sql_file() (+141 more)
+Nodes (94): BusinessLogicComparator, ComparisonReport, _compute_group_similarity(), _def_summary(), _describe_differences(), _describe_group(), ComparisonReport, ConflictGroup (+86 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.05
-Nodes (80): avg(), count(), max_agg(), min_agg(), Aggregate function patterns: COUNT, SUM, AVG, MIN, MAX., sum_agg(), Context, Pattern (+72 more)
+Cohesion: 0.04
+Nodes (96): describe_column(), describe_qualified(), get_column_description(), get_table_description(), get_value_description(), load_csv(), Return 'Description (TABLE.COLUMN)' or just 'TABLE.COLUMN' if no description., Describe a 'TABLE.COLUMN' string. (+88 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.04
-Nodes (82): _error_rows_all_tools(), main(), _process_view_all_tools(), Run the engine ONCE per view, shape rows for all four tools.      Returns a dict, When a view fails to parse / resolve, emit a single error row in     each tool's, run_all(), _write_csv(), build_business_logic() (+74 more)
+Nodes (106): make_llm_client(), Build a Gemini client. Lazy-imports `google.genai`. Customers using     LLM mode, SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translat, current_license(), License, LicenseError, Soft license / feature-gate module.  Each of the 4 tools (and their LLM-enhanced, Raised when the active license doesn't include the requested feature. (+98 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.04
-Nodes (74): batch_process(), BatchResult, _classify_error(), _progress(), Process all SQL files matching pattern under path.      Args:         path: Dire, Write combined Collibra import files., Write a summary report., Write a human-readable action items report for failures that need review. (+66 more)
+Nodes (80): _error_rows_all_tools(), main(), _process_view_all_tools(), Run the engine ONCE per view, shape rows for all four tools.      Returns a dict, When a view fails to parse / resolve, emit a single error row in     each tool's, run_all(), _write_csv(), audit_comments() (+72 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.04
-Nodes (79): ComparisonReport, ConflictGroup, _def_to_dict(), _describe_group(), format_report(), LineageComparator, main(), MatchGroup (+71 more)
+Cohesion: 0.08
+Nodes (58): Aggregation, CaseLogic, ColumnRef, CTEDef, _extract_columns(), Filter, _get_alias(), _is_aggregate() (+50 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.04
-Nodes (48): extract(), filter_exprs(), names(), Test cases for SQL Business Logic Extractor Healthcare analytics focus -- Epic C, Literal/constant value in SELECT., Standard inner join -- encounter to patient., Left join -- encounters with optional diagnosis., Multiple joins with calculated LOS (length of stay). (+40 more)
+Cohesion: 0.05
+Nodes (77): avg(), max_agg(), min_agg(), Aggregate function patterns: COUNT, SUM, AVG, MIN, MAX., sum_agg(), Context, Pattern, Core data model for the pattern library.  Three concepts:  - ``Translation``: re (+69 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.05
-Nodes (39): CTEDef, _extract_columns(), _get_alias(), _is_aggregate(), _is_case(), _is_literal(), _is_simple_column(), _is_star() (+31 more)
+Cohesion: 0.06
+Nodes (51): build(), _collapse_bracket_identifiers(), collect_pairs(), emit_sql(), main(), Extract (table, column) pairs from raw SQL when sqlglot can't parse.     Filters, Return (sorted unique table list, sorted unique (table, column) pairs).      For, Format as SSMS-pasteable INSERT blocks. (+43 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.06
-Nodes (46): BusinessLogicComparator, ComparisonReport, _compute_group_similarity(), _def_summary(), _describe_differences(), _describe_group(), main(), MatchGroup (+38 more)
+Nodes (49): count(), classify_intent(), classify_intent_raw(), Comment, extract_comments(), SQL comment extraction + intent classification.  Comments in source SQL carry th, Assign a CommentIntent based on shape + keyword heuristics.      Order of checks, Convenience wrapper for the dataclass form. (+41 more)
 
 ### Community 9 - "Community 9"
 Cohesion: 0.07
 Nodes (42): build_manifest(), _build_qualifier_map(), _error_row(), extract_view_refs(), _flatten_cte_columns(), _is_notebook(), main(), _qualify_table() (+34 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.15
-Nodes (36): describe_column(), describe_qualified(), get_column_description(), get_table_description(), get_value_description(), load_csv(), Return 'Description (TABLE.COLUMN)' or just 'TABLE.COLUMN' if no description., Describe a 'TABLE.COLUMN' string. (+28 more)
-
-### Community 11 - "Community 11"
 Cohesion: 0.07
 Nodes (22): Test cases for Lineage Resolution -- tracing every output to base table.column., Column passes through 2 CTEs to base table., DATEDIFF in CTE A, passthrough in CTE B, selected in main., CASE in CTE B references calculated column from CTE A., Filters from multiple CTEs accumulate., Column from derived table resolves to base table., Outer WHERE on derived table + inner WHERE both captured., CTE joined with base table -- both resolve correctly. (+14 more)
 
+### Community 11 - "Community 11"
+Cohesion: 0.12
+Nodes (35): batch_process(), BatchResult, _classify_error(), _progress(), Process all SQL files matching pattern under path.      Args:         path: Dire, Write combined Collibra import files., Write a summary report., Write a human-readable action items report for failures that need review. (+27 more)
+
 ### Community 12 - "Community 12"
-Cohesion: 0.11
-Nodes (21): export_neo4j_direct(), export_to_neo4j(), GraphData, import_to_neo4j_direct(), main(), parse_l3_file(), Write graph data to Neo4j CSV format., Main export function.      Args:         input_path: Path to folder containing L (+13 more)
+Cohesion: 0.09
+Nodes (33): classify_business_domain(), describe_column_ref(), expand_abbreviations(), format_output(), get_column_description(), get_enum_value(), load_schema(), main() (+25 more)
 
 ### Community 13 - "Community 13"
 Cohesion: 0.1
 Nodes (28): _build_llm_context(), classify_business_domain(), _extract_leading_adjective(), _filter_text(), load_schema(), _naturalize_english(), _promote_inline_comments(), Translate L3 filter predicates by walking each with the registry.     Distinguis (+20 more)
 
 ### Community 14 - "Community 14"
+Cohesion: 0.11
+Nodes (21): export_neo4j_direct(), export_to_neo4j(), GraphData, import_to_neo4j_direct(), main(), parse_l3_file(), Write graph data to Neo4j CSV format., Main export function.      Args:         input_path: Path to folder containing L (+13 more)
+
+### Community 15 - "Community 15"
 Cohesion: 0.14
 Nodes (24): _canonical_filter(), classify_business_domain(), _dedupe_filters(), _filter_text(), format_output(), _is_correlation_key(), load_schema(), main() (+16 more)
 
-### Community 15 - "Community 15"
+### Community 16 - "Community 16"
 Cohesion: 0.11
 Nodes (18): apply_all(), Rule dataclass + ordered-application helper.  A Rule is a declarative regex tran, One regex-based preprocessing rule.      Attributes:         id: stable, lowerca, Run the substitution. Returns (new_sql, n_substitutions).          n_substitutio, Apply rules in order. Returns (clean_sql, fired_rule_ids).      `fired_rule_ids`, Rule, The ordered parsing-rule registry.  Each entry is one T-SQL construct sqlglot ca, Fixture-driven tests for the parsing-rule registry.  Contract: every Rule in PAR (+10 more)
 
-### Community 16 - "Community 16"
-Cohesion: 0.12
-Nodes (20): _collapse_multiline_brackets(), diagnose(), _extract_line_col(), main(), _print_context(), Print [line-window..line+window] in redacted form, marking the column., Internal whitespace inside [bracket-quoted] identifiers -> single space., Strip T-SQL `WITH (NOLOCK)` / `WITH (INDEX(...))` / `WITH (HOLDLOCK)`     style (+12 more)
-
 ### Community 17 - "Community 17"
-Cohesion: 0.13
-Nodes (18): fingerprint(), _normalize_node(), AST fingerprinting for cross-view business-logic deduplication.  The fingerprint, Walk a sqlglot AST and produce a hashable canonical tree.      Rules:     - Colu, Return a stable hex fingerprint for a SQL expression. Returns None     if the ex, Tests for the AST fingerprinting in tools/similar_logic_grouper.  Asserts the pu, `CVG.STATUS_C = 5` and `C.STATUS_C = 5` are the same business term., `A AND B` and `B AND A` are semantically identical. (+10 more)
-
-### Community 18 - "Community 18"
 Cohesion: 0.15
 Nodes (19): build_column_context(), format_output(), get_column_description(), get_enum_values(), get_table_description(), load_schema(), main(), Translate a single resolved column to English using LLM.      Args:         reso (+11 more)
+
+### Community 18 - "Community 18"
+Cohesion: 0.13
+Nodes (18): fingerprint(), _normalize_node(), AST fingerprinting for cross-view business-logic deduplication.  The fingerprint, Walk a sqlglot AST and produce a hashable canonical tree.      Rules:     - Colu, Return a stable hex fingerprint for a SQL expression. Returns None     if the ex, Tests for the AST fingerprinting in tools/similar_logic_grouper.  Asserts the pu, `CVG.STATUS_C = 5` and `C.STATUS_C = 5` are the same business term., `A AND B` and `B AND A` are semantically identical. (+10 more)
 
 ### Community 19 - "Community 19"
 Cohesion: 0.41
@@ -284,40 +284,40 @@ Cohesion: 0.17
 Nodes (12): execute_cypher(), format_results_for_display(), get_graph_stats(), get_neo4j_driver(), nl_to_cypher(), Get cached Neo4j driver., Convert natural language question to Cypher query., Convert Neo4j types to clean, readable Python types. (+4 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.23
-Nodes (12): build(), _collapse_bracket_identifiers(), collect_pairs(), emit_sql(), main(), Extract (table, column) pairs from raw SQL when sqlglot can't parse.     Filters, Return (sorted unique table list, sorted unique (table, column) pairs).      For, Format as SSMS-pasteable INSERT blocks. (+4 more)
-
-### Community 22 - "Community 22"
 Cohesion: 0.29
 Nodes (10): _build_table_qualifier_map(), _error_row(), _extract_view_refs(), main(), _qualify_table(), (database, schema, table) for a sqlglot Table node.      sqlglot's naming follow, Walk every Table node, return {alias_or_name: (db, schema, table)}.      Used to, Table.Column' → ('Table', 'Column'). 'Column' → (None, 'Column').      For 3-par (+2 more)
 
-### Community 23 - "Community 23"
+### Community 22 - "Community 22"
 Cohesion: 0.29
 Nodes (6): Per-column ground-truth lineage tests for queries/bi_complex/input.sql.  Rule ap, The query produces exactly 19 output columns., Every bi_complex output column resolves to its exact set of base tables., resolved(), test_column_base_tables(), test_column_count()
 
-### Community 24 - "Community 24"
+### Community 23 - "Community 23"
 Cohesion: 0.43
 Nodes (6): _child_env(), list_queries(), main(), Inject project root onto PYTHONPATH so subprocesses can import     `sql_logic_ex, Always launch the resolver as the installed package — _child_env() puts the, _resolve_cmd()
 
-### Community 25 - "Community 25"
+### Community 24 - "Community 24"
 Cohesion: 0.4
 Nodes (1): HTTP entry point for Tool 3 -- Business logic extractor (online SaaS).  Implemen
 
-### Community 26 - "Community 26"
+### Community 25 - "Community 25"
 Cohesion: 0.6
 Nodes (4): csv_to_schema(), _detect_encoding(), main(), SSMS exports CSVs as UTF-16 LE w/ BOM by default. Excel saves as     cp1252. Cel
 
-### Community 27 - "Community 27"
+### Community 26 - "Community 26"
 Cohesion: 1.0
 Nodes (1): Connect to Epic Clarity from a Fabric notebook and extract a schema YAML in the
 
-### Community 28 - "Community 28"
+### Community 27 - "Community 27"
 Cohesion: 1.0
 Nodes (1): Fabric notebook script -- run all 4 SQL Logic Extractor tools on a folder of vie
 
-### Community 29 - "Community 29"
+### Community 28 - "Community 28"
 Cohesion: 1.0
 Nodes (1): Fabric notebook helper -- review and group rule proposals.  Run this AFTER `tool
+
+### Community 29 - "Community 29"
+Cohesion: 1.0
+Nodes (0): 
 
 ### Community 30 - "Community 30"
 Cohesion: 1.0
@@ -848,13 +848,15 @@ Cohesion: 1.0
 Nodes (1): Format translation results for output.
 
 ## Knowledge Gaps
-- **394 isolated node(s):** `Replace string-literal contents and bare numbers. Keeps SQL     structure intact`, `Returns None on success; the exception message on failure.`, `Print [line-window..line+window] in redacted form, marking the column.`, `Internal whitespace inside [bracket-quoted] identifiers -> single space.`, `Strip T-SQL `WITH (NOLOCK)` / `WITH (INDEX(...))` / `WITH (HOLDLOCK)`     style` (+389 more)
+- **401 isolated node(s):** `Replace string-literal contents and bare numbers. Keeps SQL     structure intact`, `Returns None on success; the exception message on failure.`, `Print [line-window..line+window] in redacted form, marking the column.`, `Internal whitespace inside [bracket-quoted] identifiers -> single space.`, `Strip T-SQL `WITH (NOLOCK)` / `WITH (INDEX(...))` / `WITH (HOLDLOCK)`     style` (+396 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 27`** (2 nodes): `Connect to Epic Clarity from a Fabric notebook and extract a schema YAML in the`, `extract_clarity_schema_from_db.py`
+- **Thin community `Community 26`** (2 nodes): `Connect to Epic Clarity from a Fabric notebook and extract a schema YAML in the`, `extract_clarity_schema_from_db.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 28`** (2 nodes): `Fabric notebook script -- run all 4 SQL Logic Extractor tools on a folder of vie`, `run_all_tools_fabric.py`
+- **Thin community `Community 27`** (2 nodes): `Fabric notebook script -- run all 4 SQL Logic Extractor tools on a folder of vie`, `run_all_tools_fabric.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 29`** (2 nodes): `Fabric notebook helper -- review and group rule proposals.  Run this AFTER `tool`, `review_proposals.py`
+- **Thin community `Community 28`** (2 nodes): `Fabric notebook helper -- review and group rule proposals.  Run this AFTER `tool`, `review_proposals.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 29`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 30`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
@@ -1124,12 +1126,12 @@ Nodes (1): Format translation results for output.
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SQLBusinessLogicExtractor` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 4`, `Community 6`, `Community 7`?**
-  _High betweenness centrality (0.300) - this node is a cross-community bridge._
-- **Why does `SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translat` connect `Community 2` to `Community 0`, `Community 1`, `Community 4`, `Community 8`, `Community 15`?**
-  _High betweenness centrality (0.156) - this node is a cross-community bridge._
-- **Why does `resolve_query()` connect `Community 4` to `Community 0`, `Community 1`, `Community 3`, `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 10`, `Community 11`, `Community 22`, `Community 23`?**
-  _High betweenness centrality (0.113) - this node is a cross-community bridge._
+- **Why does `SQLBusinessLogicExtractor` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 5`, `Community 8`, `Community 11`?**
+  _High betweenness centrality (0.257) - this node is a cross-community bridge._
+- **Why does `SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translat` connect `Community 3` to `Community 0`, `Community 1`, `Community 2`, `Community 6`, `Community 7`, `Community 11`, `Community 16`?**
+  _High betweenness centrality (0.151) - this node is a cross-community bridge._
+- **Why does `_process_view()` connect `Community 4` to `Community 3`, `Community 5`, `Community 6`, `Community 7`, `Community 19`?**
+  _High betweenness centrality (0.099) - this node is a cross-community bridge._
 - **Are the 231 inferred relationships involving `SQLBusinessLogicExtractor` (e.g. with `ResolvedFilter` and `ResolvedColumn`) actually correct?**
   _`SQLBusinessLogicExtractor` has 231 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 65 inferred relationships involving `AliasResolver` (e.g. with `SQLBusinessLogicExtractor` and `QueryLogic`) actually correct?**

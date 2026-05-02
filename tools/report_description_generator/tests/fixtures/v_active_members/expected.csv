@@ -14,7 +14,16 @@ Constrained by:
   - EPTV.PAT_ID = CVGEPT.PAT_ID AND EPTV.IS_VALID_PAT_YN = 'Y'
   - CVGLOCSER.COVERAGE_ID = CVG.COVERAGE_ID AND CVGLOCSER.MEMBER_ID = CVGEPT.PAT_ID AND CVGLOCSER.EFF_DATE <= GETDATE() AND (CVGLOCSER.TERM_DATE >= GETDATE() OR CVGLOCSER.TERM_DATE IS NULL) AND (CVGLOCSER.DELETED_FLAG_YN = 'N' OR CVGLOCSER.DELETED_FLAG_YN IS NULL)
   - CSA.CVG_ID = CVG.COVERAGE_ID AND CSA.LINE = 1
-  - CSA2.CVG_ID = CVG.COVERAGE_ID AND CSA2.LINE = 2","Identifies the most recent valid patient demographics.
+  - CSA2.CVG_ID = CVG.COVERAGE_ID AND CSA2.LINE = 2","Author notes:
+  - Cleaned from OCR'd source: V_ACTIVE_MEMBERS.sql
+  - See sibling file for the raw OCR output and the cleanup notes in the
+  - conversation log. Inferred structural fix: the top SELECT was wrapped
+  - in a CTE called `ActiveMembers` (the closing `)` on the original line
+  - 77 plus the trailing `SELECT * FROM ActiveMembers WHERE [ROW] = 1`
+  - imply the original had `WITH ActiveMembers AS (...)` -- OCR dropped
+  - that opening line.
+
+Identifies the most recent valid patient demographics.
 
 Limited to:
   - Coverage Type = 'Managed Care' and is mem covered and currently a covered member

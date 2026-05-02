@@ -14,7 +14,13 @@ Constrained by:
   - RFLHA.REFERRAL_ID = RFLH.REFERRAL_ID AND RFLHA.GROUP_LINE = RFLH.LINE
   - RFLHIC.REFERRAL_ID = RFLHA.REFERRAL_ID AND RFLHIC.GROUP_LINE = RFLHA.GROUP_LINE AND RFLHIC.VALUE_LINE = RFLHA.VALUE_LINE AND RFLHIC.ITEM_CHANGE IN (50 /* Referral Status */, 18007 /* Denial Reason */, 18003 /* Pending Reason */, 2081 /* Bed Day Status */, 2080 /* Bed Day Denied Reason */)
   - RFLHNV.REFERRAL_ID = RFLHA.REFERRAL_ID AND RFLHNV.GROUP_LINE = RFLHA.GROUP_LINE AND RFLHNV.VALUE_LINE = RFLHA.VALUE_LINE AND ((RFLHIC.ITEM_CHANGE = 18007 AND NOT RFLHNV.NEW_VAL IS NULL) OR (RFLHIC.ITEM_CHANGE = 18003 AND RFLHNV.NEW_VAL = 1640000010 /* Request for Information */) OR (RFLHIC.ITEM_CHANGE = 50 AND RFLHNV.NEW_VAL = '5' /* Denied */) OR (RFLHIC.ITEM_CHANGE = 2081 AND RFLHNV.NEW_VAL = '2' /* Denied */) OR (RFLHIC.ITEM_CHANGE = 2080 AND NOT RFLHNV.NEW_VAL IS NULL))
-  - authx.UM_STATUS = 'Denied' OR (authx.UM_STATUS = 'Pending Review' AND authx.UM_PENDING_RSN = 'HP Request for Information')","Identifies the most recent denied or pending referrals.
+  - authx.UM_STATUS = 'Denied' OR (authx.UM_STATUS = 'Pending Review' AND authx.UM_PENDING_RSN = 'HP Request for Information')","Author notes:
+  - OCR-cleaned version of test_bi_complex.sql.
+  - Changes are strictly typographic: dot/colon/dash fixes, alias corrections,
+  - stray-space removal, and added WITH + minimal main SELECT so it parses.
+  - No column names, table names, filters, or logic were changed.
+
+Identifies the most recent denied or pending referrals.
 
 Limited to:
   - there exists a row where either (where New Rfl Status = 'Denied') or (where Bed Day Status = 'Denied')

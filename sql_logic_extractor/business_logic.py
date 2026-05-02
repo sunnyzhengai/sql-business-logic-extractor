@@ -504,7 +504,8 @@ def _extract_leading_adjective(business_filters: list[str]) -> str:
     return f"{found[0]} or {found[1]}"
 
 
-def summarize_engineered(business_logic, schema: dict | None = None) -> dict:
+def summarize_engineered(business_logic, schema: dict | None = None,
+                          view_level_notes: list[str] | None = None) -> dict:
     """Deterministic query-level summary built from structured signals.
     Healthcare-safe: no LLM, no data exfiltration. Reads as a structured
     paragraph rather than fluent prose -- the LLM mode is where polish
@@ -621,6 +622,14 @@ def summarize_engineered(business_logic, schema: dict | None = None) -> dict:
         )
     else:
         business_description = f"{grain_verb} {business_subject}."
+
+    # Author voice goes FIRST -- the engineered prose backs it up.
+    # View-level comments (top-of-file headers, doc blocks) capture the
+    # author's stated intent in their own words. Higher fidelity than
+    # any template we synthesize.
+    if view_level_notes:
+        author_block = "Author notes:\n  - " + "\n  - ".join(view_level_notes)
+        business_description = author_block + "\n\n" + business_description
 
     return {
         "technical_description": technical,

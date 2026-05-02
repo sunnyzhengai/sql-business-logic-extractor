@@ -298,11 +298,13 @@ def extract_business_logic(sql: str, schema: dict, *,
 # ---------------------------------------------------------------------------
 
 
-def _summarize_engineered(bl: BusinessLogic, schema: dict) -> tuple[str, str, str, list[str]]:
+def _summarize_engineered(bl: BusinessLogic, schema: dict,
+                            view_level_notes: list[str] | None = None) -> tuple[str, str, str, list[str]]:
     """Deterministic report summary built from structured signals -- no LLM.
     Returns (technical_description, business_description, primary_purpose, key_metrics)."""
     from .business_logic import summarize_engineered
-    result = summarize_engineered(bl, schema or {})
+    result = summarize_engineered(bl, schema or {},
+                                     view_level_notes=view_level_notes)
     return (result["technical_description"], result["business_description"],
             result["primary_purpose"], result["key_metrics"])
 
@@ -325,10 +327,15 @@ def _generate_report_description_core(sql: str, schema: dict, *,
     """Ungated core for Tool 4."""
     bl = _extract_business_logic_core(sql, schema, use_llm=use_llm,
                                         llm_client=llm_client, dialect=dialect)
+    # Pull view-level author comments from the source so the engineered
+    # business_description can lead with the author's own voice.
+    from .comment_attachment import extract_view_level_notes
+    view_notes = extract_view_level_notes(sql)
     if use_llm:
         technical, business, purpose, metrics = _summarize_with_llm(bl, llm_client)
     else:
-        technical, business, purpose, metrics = _summarize_engineered(bl, schema or {})
+        technical, business, purpose, metrics = _summarize_engineered(
+            bl, schema or {}, view_level_notes=view_notes)
     return ReportDescription(business_logic=bl,
                               technical_description=technical,
                               business_description=business,

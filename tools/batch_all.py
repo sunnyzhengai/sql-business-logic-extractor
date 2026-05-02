@@ -66,7 +66,8 @@ TOOL2_FIELDS = ["view_name", "column_name", "column_type",
 TOOL3_FIELDS = ["view_name", "column_name", "column_type",
                 "english_definition", "business_domain",
                 "resolved_expression",
-                "english_definition_with_filters", "use_llm"]
+                "english_definition_with_filters",
+                "author_notes", "use_llm"]
 
 TOOL4_FIELDS = ["view_name", "technical_description", "business_description",
                 "primary_purpose", "key_metrics", "source_tables",
@@ -89,6 +90,7 @@ def _error_rows_all_tools(view_path: Path, msg: str, use_llm: bool) -> dict:
                     "english_definition": msg, "business_domain": "",
                     "resolved_expression": "",
                     "english_definition_with_filters": "",
+                    "author_notes": "",
                     "use_llm": "true" if use_llm else "false"}],
         "tool4": [{**base, "technical_description": msg, "business_description": "",
                     "primary_purpose": "parse_error",
@@ -131,7 +133,8 @@ def _process_view_all_tools(view_path: Path, schema: dict, *,
     return {
         "tool1": t1_rows,
         "tool2": rows_from_lineage(view_path, view_name, lineage, alias_map, dialect),
-        "tool3": rows_from_business_logic(view_path, view_name, bl, use_llm),
+        "tool3": rows_from_business_logic(view_path, view_name, bl, use_llm,
+                                              sql=sql, dialect=dialect),
         "tool4": [row_from_report_description(view_path, view_name, desc, use_llm)],
     }
 

@@ -8,7 +8,8 @@ emits a single CSV with one row per output column's English definition.
 CSV columns:
     view_name, column_name, column_type,
     english_definition, business_domain,
-    resolved_expression, english_definition_with_filters, use_llm
+    resolved_expression, english_definition_with_filters,
+    author_notes, use_llm
 
 Notebook usage:
     from tools.business_logic_extractor.batch import build_business_logic
@@ -28,6 +29,7 @@ import sys
 from pathlib import Path
 
 from sql_logic_extractor.business_logic import load_schema
+from sql_logic_extractor.comment_attachment import attach_to_columns
 from sql_logic_extractor.products import extract_business_logic
 
 
@@ -47,9 +49,15 @@ def _read_sql_file(path: Path) -> str:
 
 
 def rows_from_business_logic(view_path: Path, view_name: str, bl,
-                                use_llm: bool) -> list[dict]:
+                                use_llm: bool, sql: str | None = None,
+                                dialect: str = "tsql") -> list[dict]:
     """Shape a BusinessLogic into business-logic rows. Used by
-    _process_view AND tools/batch_all.py."""
+    _process_view AND tools/batch_all.py.
+
+    If `sql` is provided, sqlglot's native comment-attachment is used to
+    populate each row's `author_notes` -- the inline `/* ... */` and
+    `-- ...` comments the author wrote next to each output column.
+    """
     rows: list[dict] = []
     for t in bl.column_translations:
         rows.append({
@@ -60,8 +68,13 @@ def rows_from_business_logic(view_path: Path, view_name: str, bl,
             "business_domain": t.get("business_domain", ""),
             "resolved_expression": t.get("resolved_expression", ""),
             "english_definition_with_filters": t.get("english_definition_with_filters", ""),
+            "author_notes": "",
             "use_llm": "true" if use_llm else "false",
         })
+    if sql:
+        attach_to_columns(sql, rows, dialect=dialect)
+        for r in rows:
+            r["author_notes"] = " | ".join(r.get("author_notes") or [])
     return rows
 
 
@@ -77,7 +90,8 @@ def _process_view(view_path: Path, schema: dict, *, use_llm: bool, llm_client,
     except Exception as e:
         return [_error_row(view_path, f"ERROR: {type(e).__name__}: {e}", use_llm)]
 
-    return rows_from_business_logic(view_path, view_path.stem, bl, use_llm)
+    return rows_from_business_logic(view_path, view_path.stem, bl, use_llm,
+                                       sql=sql, dialect=dialect)
 
 
 def _error_row(view_path: Path, msg: str, use_llm: bool) -> dict:
@@ -87,6 +101,7 @@ def _error_row(view_path: Path, msg: str, use_llm: bool) -> dict:
         "english_definition": msg, "business_domain": "",
         "resolved_expression": "",
         "english_definition_with_filters": "",
+        "author_notes": "",
         "use_llm": "true" if use_llm else "false",
     }
 
@@ -110,7 +125,8 @@ def build_business_logic(input_dir: str, schema_path: str | None = None,
     fieldnames = ["view_name", "column_name", "column_type",
                   "english_definition", "business_domain",
                   "resolved_expression",
-                  "english_definition_with_filters", "use_llm"]
+                  "english_definition_with_filters",
+                  "author_notes", "use_llm"]
 
     all_rows: list[dict] = []
     for path in sql_files:

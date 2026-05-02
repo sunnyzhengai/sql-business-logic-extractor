@@ -17,7 +17,14 @@ The registry is the SINGLE place new T-SQL idioms get added. No more
 hand-rolled `re.sub` lines in resolve.py.
 """
 
+from .ast_rule import AstRule, apply_all_ast
+from .ast_rules import AST_RULES
+from .parse import ParseResult, parse_with_rules
 from .rule import Rule, apply_all
 from .rules import PARSING_RULES
 
-__all__ = ["Rule", "PARSING_RULES", "apply_all"]
+__all__ = [
+    "Rule", "PARSING_RULES", "apply_all",
+    "AstRule", "AST_RULES", "apply_all_ast",
+    "ParseResult", "parse_with_rules",
+]

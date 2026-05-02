@@ -35,7 +35,7 @@ from pathlib import Path
 
 import sqlglot
 
-from sql_logic_extractor.parsing_rules import apply_all
+from sql_logic_extractor.parsing_rules import apply_all, apply_all_ast
 from sql_logic_extractor.resolve import preprocess_ssms
 
 
@@ -78,12 +78,14 @@ def _extract_line_col(error_msg: str) -> tuple[str, str]:
 # ---------- per-view classification ----------------------------------------
 
 def classify_view(path: Path, dialect: str = "tsql") -> dict:
-    """Run one view through the rule registry + parser. Return a dict
-    matching the CSV row schema."""
+    """Run one view through BOTH rule layers + parser. Return a dict
+    matching the CSV row schema. Reports text and AST rule audits
+    separately so callers can see which layer actually did the work."""
     base = {
         "view_name": path.stem,
         "status": "",
         "rules_fired": "",
+        "ast_rules_fired": "",
         "error_line": "",
         "error_col": "",
         "error_message": "",
@@ -95,9 +97,8 @@ def classify_view(path: Path, dialect: str = "tsql") -> dict:
                      error_message=f"{type(e).__name__}: {e}")
         return base
 
-    # preprocess_ssms internally calls apply_all + does the line-by-line
-    # SSMS-boilerplate strip. We want to know which rules fired, so call
-    # apply_all separately first.
+    # Text-level rules first (preprocess_ssms calls apply_all internally;
+    # we re-call to get the audit of which rules fired).
     _, fired = apply_all(sql)
     try:
         clean, _meta = preprocess_ssms(sql)
@@ -108,7 +109,7 @@ def classify_view(path: Path, dialect: str = "tsql") -> dict:
         return base
 
     try:
-        sqlglot.parse_one(clean, dialect=dialect)
+        tree = sqlglot.parse_one(clean, dialect=dialect)
     except Exception as e:
         msg = str(e)
         line, col = _extract_line_col(msg)
@@ -121,9 +122,14 @@ def classify_view(path: Path, dialect: str = "tsql") -> dict:
         )
         return base
 
+    # AST-level rules (only run when the parse succeeded).
+    _, ast_fired = apply_all_ast(tree)
+
+    any_fired = bool(fired) or bool(ast_fired)
     base.update(
-        status="needs_rule" if fired else "clean",
+        status="needs_rule" if any_fired else "clean",
         rules_fired=", ".join(fired),
+        ast_rules_fired=", ".join(ast_fired),
     )
     return base
 
@@ -148,7 +154,7 @@ def preflight(input_dir: str,
 
     out = Path(output_csv)
     out.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["view_name", "status", "rules_fired",
+    fieldnames = ["view_name", "status", "rules_fired", "ast_rules_fired",
                    "error_line", "error_col", "error_message"]
     with out.open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)

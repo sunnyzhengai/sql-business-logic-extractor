@@ -8,6 +8,7 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
+2026-05-02  commit  7d27955 Comment-as-data steps 2-4: bind comments to AST + surface in Tool 3/4  [affected: none — code; Tool 4 business_description leads with author voice; Tool 3 column rows expose author_notes]
 2026-05-02  commit  1b19d2e Comment-as-data step 1: extractor + Comment entity + corpus audit  [affected: none — code; lays groundwork for surfacing author comments in Tool 3/4 English output]
 2026-05-02  commit  0c0194e Layer 3: auto-propose parsing rules for unknown_failure views  [affected: none — code; closes the parsing-strategy redesign with hypothesis sweep + token isolation -> markdown proposals]
 2026-05-02  commit  f7818cd Layer 2: preflight check -- triage parse health before running tools  [affected: none — code; new tool emits clean / needs_rule / unknown_failure CSV]

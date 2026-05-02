@@ -27,9 +27,9 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 UPDATE_GOLDEN = os.environ.get("UPDATE_GOLDEN") == "1"
 
 FIELDNAMES = [
-    "view_file", "view_name", "column_name", "column_type",
+    "view_name", "column_name", "column_type",
     "english_definition", "business_domain",
-    "base_columns", "base_tables", "resolved_expression",
+    "resolved_expression",
     "english_definition_with_filters", "use_llm",
 ]
 
@@ -44,7 +44,7 @@ def _discover_fixtures() -> list[Path]:
 def _normalize(rows: list[dict]) -> list[dict]:
     keep = lambda r: {k: str(r.get(k, "")) for k in FIELDNAMES}
     return sorted([keep(r) for r in rows],
-                    key=lambda r: (r["view_file"], r["column_name"]))
+                    key=lambda r: (r["view_name"], r["column_name"]))
 
 
 def _run_tool(input_sql: Path) -> list[dict]:
@@ -88,14 +88,14 @@ def test_golden_fixture(fixture_dir: Path) -> None:
         return
 
     lines = [f"Fixture {fixture_dir.name} output diverged from golden:"]
-    actual_keys = {(r["view_file"], r["column_name"]) for r in actual}
-    expected_keys = {(r["view_file"], r["column_name"]) for r in expected}
+    actual_keys = {(r["view_name"], r["column_name"]) for r in actual}
+    expected_keys = {(r["view_name"], r["column_name"]) for r in expected}
     if expected_keys - actual_keys:
         lines.append(f"  MISSING from actual: {sorted(expected_keys - actual_keys)}")
     if actual_keys - expected_keys:
         lines.append(f"  EXTRA in actual:     {sorted(actual_keys - expected_keys)}")
-    a_idx = {(r["view_file"], r["column_name"]): r for r in actual}
-    e_idx = {(r["view_file"], r["column_name"]): r for r in expected}
+    a_idx = {(r["view_name"], r["column_name"]): r for r in actual}
+    e_idx = {(r["view_name"], r["column_name"]): r for r in expected}
     for k in sorted(actual_keys & expected_keys):
         if a_idx[k] != e_idx[k]:
             lines.append(f"  First diff on row {k}:")

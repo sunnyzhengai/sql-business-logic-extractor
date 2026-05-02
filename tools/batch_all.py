@@ -63,9 +63,9 @@ TOOL1_FIELDS = ["view_file", "view_name", "referenced_database",
 TOOL2_FIELDS = ["view_file", "view_name", "column_name", "column_type",
                 "resolved_expression", "base_tables", "base_columns", "filters"]
 
-TOOL3_FIELDS = ["view_file", "view_name", "column_name", "column_type",
+TOOL3_FIELDS = ["view_name", "column_name", "column_type",
                 "english_definition", "business_domain",
-                "base_columns", "base_tables", "resolved_expression",
+                "resolved_expression",
                 "english_definition_with_filters", "use_llm"]
 
 TOOL4_FIELDS = ["view_file", "view_name", "query_summary", "primary_purpose",
@@ -83,9 +83,9 @@ def _error_rows_all_tools(view_path: Path, msg: str, use_llm: bool) -> dict:
         "tool2": [{**base, "column_name": "", "column_type": "parse_error",
                     "resolved_expression": msg, "base_tables": "",
                     "base_columns": "", "filters": ""}],
-        "tool3": [{**base, "column_name": "", "column_type": "parse_error",
+        "tool3": [{"view_name": view_path.stem,
+                    "column_name": "", "column_type": "parse_error",
                     "english_definition": msg, "business_domain": "",
-                    "base_columns": "", "base_tables": "",
                     "resolved_expression": "",
                     "english_definition_with_filters": "",
                     "use_llm": "true" if use_llm else "false"}],

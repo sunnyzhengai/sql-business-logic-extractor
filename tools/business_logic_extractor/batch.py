@@ -6,10 +6,9 @@ view (engineered mode by default; LLM mode opt-in via --use-llm), and
 emits a single CSV with one row per output column's English definition.
 
 CSV columns:
-    view_file, view_name, column_name, column_type,
+    view_name, column_name, column_type,
     english_definition, business_domain,
-    base_columns, base_tables, resolved_expression,
-    english_definition_with_filters, use_llm
+    resolved_expression, english_definition_with_filters, use_llm
 
 Notebook usage:
     from tools.business_logic_extractor.batch import build_business_logic
@@ -54,14 +53,11 @@ def rows_from_business_logic(view_path: Path, view_name: str, bl,
     rows: list[dict] = []
     for t in bl.column_translations:
         rows.append({
-            "view_file": view_path.name,
             "view_name": view_name,
             "column_name": t.get("column_name", ""),
             "column_type": t.get("column_type", "unknown"),
             "english_definition": t.get("english_definition", ""),
             "business_domain": t.get("business_domain", ""),
-            "base_columns": ", ".join(t.get("base_columns", []) or []),
-            "base_tables": ", ".join(t.get("base_tables", []) or []),
             "resolved_expression": t.get("resolved_expression", ""),
             "english_definition_with_filters": t.get("english_definition_with_filters", ""),
             "use_llm": "true" if use_llm else "false",
@@ -86,10 +82,10 @@ def _process_view(view_path: Path, schema: dict, *, use_llm: bool, llm_client,
 
 def _error_row(view_path: Path, msg: str, use_llm: bool) -> dict:
     return {
-        "view_file": view_path.name, "view_name": view_path.stem,
+        "view_name": view_path.stem,
         "column_name": "", "column_type": "parse_error",
         "english_definition": msg, "business_domain": "",
-        "base_columns": "", "base_tables": "", "resolved_expression": "",
+        "resolved_expression": "",
         "english_definition_with_filters": "",
         "use_llm": "true" if use_llm else "false",
     }
@@ -111,9 +107,9 @@ def build_business_logic(input_dir: str, schema_path: str | None = None,
 
     schema = load_schema(schema_path) if schema_path else {}
 
-    fieldnames = ["view_file", "view_name", "column_name", "column_type",
+    fieldnames = ["view_name", "column_name", "column_type",
                   "english_definition", "business_domain",
-                  "base_columns", "base_tables", "resolved_expression",
+                  "resolved_expression",
                   "english_definition_with_filters", "use_llm"]
 
     all_rows: list[dict] = []

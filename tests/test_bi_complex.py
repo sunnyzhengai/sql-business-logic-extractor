@@ -82,11 +82,20 @@ class TestBasicLineage:
         assert "V_CCHP_UMAuthorizationRequest_Fact" in col.base_tables
 
     def test_calculated_iif_resolves(self, resolved):
-        """RFI_DATE's IIF inlines authx columns from history fact."""
+        """RFI_DATE's IIF inlines authx columns from history fact.
+
+        With the dialect-preservation fix in extract.py, T-SQL's IIF
+        survives the parse-and-emit cycle as IIF (not silently rewritten
+        to CASE WHEN ... ELSE ... END). Both forms are semantically
+        equivalent; we accept either so the test stays robust to future
+        sqlglot canonicalization changes.
+        """
         col = resolved["RFI_DATE"]
         assert col.type == "calculated"
         assert "V_CCHP_UMAuthorizationHistory_Fact" in col.base_tables
-        assert col.resolved_expression.startswith("CASE WHEN")
+        expr = col.resolved_expression
+        assert expr.startswith("CASE WHEN") or expr.startswith("IIF("), \
+            f"expected CASE WHEN or IIF, got: {expr[:60]}"
 
     def test_window_function_partition_order_survives(self, resolved):
         """DENIAL_ROW keeps its IIF sentinel ORDER BY when inlined."""

@@ -211,6 +211,28 @@ def test_clean_filter_sql_returns_empty_for_pure_correlation():
     assert out == ""
 
 
+def test_convert_preserved_not_rewritten_to_try_cast():
+    """T-SQL's CONVERT(target_type, expr) must NOT silently become
+    TRY_CAST(expr AS target_type) in the engine's emitted SQL.
+
+    The two are semantically DIFFERENT: CONVERT raises on bad input,
+    TRY_CAST returns NULL. For migration / governance use cases, the
+    user's original SQL must round-trip faithfully. Regression test for
+    a bug where extract.py was calling sqlglot's .sql() emitter without
+    a dialect, causing CONVERT to be canonicalized to TRY_CAST. Fix:
+    always pass dialect=self.dialect to the extractor's _sql() helper.
+    """
+    sql = """SELECT CONVERT(date, CVG.CVG_EFF_DT) AS [Eff]
+             FROM Clarity.dbo.COVERAGE CVG"""
+    cols = _columns_by_name(extract_technical_lineage(sql, dialect="tsql"))
+    assert "Eff" in cols
+    expr = cols["Eff"]["resolved_expression"]
+    assert "CONVERT" in expr.upper(), \
+        f"CONVERT must be preserved as CONVERT (not TRY_CAST). Got: {expr}"
+    assert "TRY_CAST" not in expr.upper(), \
+        f"TRY_CAST should NOT appear -- the bug rewrote CONVERT to TRY_CAST. Got: {expr}"
+
+
 def test_clean_filter_sql_combines_strip_and_alias_resolve():
     """Both transforms applied together to one expression."""
     from sql_logic_extractor.business_logic import clean_filter_sql

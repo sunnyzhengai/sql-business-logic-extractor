@@ -396,7 +396,7 @@ class SQLBusinessLogicExtractor:
 
         limit = select.find(exp.Limit)
         if limit:
-            logic.limit = _sql(limit.this) if limit.this else _sql(limit)
+            logic.limit = _sql(limit.this, dialect=self.dialect) if limit.this else _sql(limit, dialect=self.dialect)
 
         if select.find(exp.Distinct):
             logic.distinct = True
@@ -404,7 +404,7 @@ class SQLBusinessLogicExtractor:
         qualify = select.find(exp.Qualify)
         if qualify:
             logic.filters.append(Filter(
-                expression=_sql(qualify.this), scope="qualify",
+                expression=_sql(qualify.this, dialect=self.dialect), scope="qualify",
                 columns=_extract_columns(qualify),
             ))
 
@@ -478,7 +478,7 @@ class SQLBusinessLogicExtractor:
             if id(lat) in subquery_nodes or id(lat) in cte_body_ids:
                 continue
             logic.sources.append(SourceTable(
-                name=_sql(lat.this), alias=lat.alias or None, type="lateral",
+                name=_sql(lat.this, dialect=self.dialect), alias=lat.alias or None, type="lateral",
             ))
 
     def _cte_body_descendants(self, select) -> set[int]:
@@ -522,13 +522,13 @@ class SQLBusinessLogicExtractor:
                 right_name = right.name
                 right_alias = right.alias if right.alias != right.name else None
             elif isinstance(right, exp.Subquery):
-                right_name = _sql(right.this)
+                right_name = _sql(right.this, dialect=self.dialect)
                 right_alias = right.alias
             else:
-                right_name = _sql(right)
+                right_name = _sql(right, dialect=self.dialect)
 
             on_expr = join.args.get("on")
-            on_sql = _sql(on_expr) if on_expr else None
+            on_sql = _sql(on_expr, dialect=self.dialect) if on_expr else None
             cols = _extract_columns(on_expr) if on_expr else []
 
             logic.joins.append(JoinInfo(
@@ -541,7 +541,7 @@ class SQLBusinessLogicExtractor:
     def _extract_outputs(self, select, logic: QueryLogic):
         for expr in select.expressions:
             alias = _get_alias(expr)
-            sql_str = _sql(expr)
+            sql_str = _sql(expr, dialect=self.dialect)
             inner = expr.this if isinstance(expr, exp.Alias) else expr
             source_cols = _extract_columns(inner)
 
@@ -570,7 +570,7 @@ class SQLBusinessLogicExtractor:
                 for agg in inner.find_all(*_AGG_TYPES):
                     logic.aggregations.append(Aggregation(
                         function=type(agg).__name__.upper(),
-                        expression=_sql(agg),
+                        expression=_sql(agg, dialect=self.dialect),
                         source_columns=_extract_columns(agg),
                     ))
 
@@ -585,7 +585,7 @@ class SQLBusinessLogicExtractor:
             return
         for cond in self._split_conditions(where.this):
             logic.filters.append(Filter(
-                expression=_sql(cond), scope="where", columns=_extract_columns(cond),
+                expression=_sql(cond, dialect=self.dialect), scope="where", columns=_extract_columns(cond),
             ))
 
     def _extract_having(self, select, logic: QueryLogic):
@@ -598,14 +598,14 @@ class SQLBusinessLogicExtractor:
             return
         for cond in self._split_conditions(having.this):
             logic.filters.append(Filter(
-                expression=_sql(cond), scope="having", columns=_extract_columns(cond),
+                expression=_sql(cond, dialect=self.dialect), scope="having", columns=_extract_columns(cond),
             ))
 
     def _extract_group_by(self, select, logic: QueryLogic):
         group = select.find(exp.Group)
         if not group:
             return
-        group_keys = [_sql(g) for g in group.expressions]
+        group_keys = [_sql(g, dialect=self.dialect) for g in group.expressions]
         for agg in logic.aggregations:
             agg.group_by = group_keys
 
@@ -619,20 +619,20 @@ class SQLBusinessLogicExtractor:
                 partition = []
                 pb = win.args.get("partition_by")
                 if pb:
-                    partition = [_sql(p) for p in (pb if isinstance(pb, list) else [pb])]
+                    partition = [_sql(p, dialect=self.dialect) for p in (pb if isinstance(pb, list) else [pb])]
 
                 order = []
                 order_clause = win.find(exp.Order)
                 if order_clause:
-                    order = [_sql(o) for o in order_clause.expressions]
+                    order = [_sql(o, dialect=self.dialect) for o in order_clause.expressions]
 
                 frame_str = None
                 spec = win.find(exp.WindowSpec)
                 if spec:
-                    frame_str = _sql(spec)
+                    frame_str = _sql(spec, dialect=self.dialect)
 
                 logic.window_functions.append(WindowFunc(
-                    function=func_name, expression=_sql(win),
+                    function=func_name, expression=_sql(win, dialect=self.dialect),
                     partition_by=partition, order_by=order,
                     frame=frame_str, source_columns=_extract_columns(win),
                 ))
@@ -647,15 +647,15 @@ class SQLBusinessLogicExtractor:
                     cond = if_.this
                     result = if_.args.get("true")
                     branches.append({
-                        "condition": _sql(cond),
-                        "result": _sql(result) if result else None,
+                        "condition": _sql(cond, dialect=self.dialect),
+                        "result": _sql(result, dialect=self.dialect) if result else None,
                     })
                 else_result = None
                 default = case.args.get("default")
                 if default:
-                    else_result = _sql(default)
+                    else_result = _sql(default, dialect=self.dialect)
                 logic.case_expressions.append(CaseLogic(
-                    output_name=alias, expression=_sql(case),
+                    output_name=alias, expression=_sql(case, dialect=self.dialect),
                     branches=branches, else_result=else_result,
                     source_columns=_extract_columns(case),
                 ))

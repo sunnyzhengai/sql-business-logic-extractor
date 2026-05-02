@@ -435,12 +435,10 @@ def summarize_engineered(business_logic) -> dict:
             f"{f' and {len(metrics)-5} more' if len(metrics) > 5 else ''}."
         )
     if filter_narratives:
-        first = filter_narratives[0]
-        if len(first) > 240:
-            first = first[:240] + "..."
-        more = f" (+{len(filter_narratives)-1} more filter clause(s))" \
-                if len(filter_narratives) > 1 else ""
-        parts.append(f"Constrained by: {first}{more}.")
+        # Emit ALL filter predicates verbatim -- this is the most important
+        # signal for users reviewing the query's business slice. Joined
+        # with "; " so each predicate stays visually distinct.
+        parts.append("Constrained by: " + "; ".join(filter_narratives) + ".")
 
     summary = " ".join(parts)
     purpose = grain + domain_str if domain_str else grain

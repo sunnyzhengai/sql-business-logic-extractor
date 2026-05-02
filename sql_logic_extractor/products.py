@@ -101,7 +101,8 @@ class ReportDescription:
     key computed metrics.
     """
     business_logic: BusinessLogic                           # Tool 3's output reused
-    query_summary: str = ""
+    technical_description: str = ""
+    business_description: str = ""
     primary_purpose: str = ""
     key_metrics: list[str] = field(default_factory=list)
     use_llm: bool = False
@@ -297,21 +298,24 @@ def extract_business_logic(sql: str, schema: dict, *,
 # ---------------------------------------------------------------------------
 
 
-def _summarize_engineered(bl: BusinessLogic) -> tuple[str, str, list[str]]:
-    """Deterministic report summary built from structured signals -- no LLM."""
+def _summarize_engineered(bl: BusinessLogic, schema: dict) -> tuple[str, str, str, list[str]]:
+    """Deterministic report summary built from structured signals -- no LLM.
+    Returns (technical_description, business_description, primary_purpose, key_metrics)."""
     from .business_logic import summarize_engineered
-    result = summarize_engineered(bl)
-    return result["query_summary"], result["primary_purpose"], result["key_metrics"]
+    result = summarize_engineered(bl, schema or {})
+    return (result["technical_description"], result["business_description"],
+            result["primary_purpose"], result["key_metrics"])
 
 
-def _summarize_with_llm(bl: BusinessLogic, llm_client) -> tuple[str, str, list[str]]:
+def _summarize_with_llm(bl: BusinessLogic, llm_client) -> tuple[str, str, str, list[str]]:
     """LLM-backed report summary. Lazy-imports google.genai INSIDE the call
     so a no-LLM install doesn't pull the lib into sys.modules."""
     from .business_logic import summarize_llm, make_llm_client
     if llm_client is None:
         llm_client = make_llm_client()
     result = summarize_llm(bl, llm_client)
-    return result["query_summary"], result["primary_purpose"], result["key_metrics"]
+    return (result["technical_description"], result["business_description"],
+            result["primary_purpose"], result["key_metrics"])
 
 
 def _generate_report_description_core(sql: str, schema: dict, *,
@@ -322,10 +326,12 @@ def _generate_report_description_core(sql: str, schema: dict, *,
     bl = _extract_business_logic_core(sql, schema, use_llm=use_llm,
                                         llm_client=llm_client, dialect=dialect)
     if use_llm:
-        summary, purpose, metrics = _summarize_with_llm(bl, llm_client)
+        technical, business, purpose, metrics = _summarize_with_llm(bl, llm_client)
     else:
-        summary, purpose, metrics = _summarize_engineered(bl)
-    return ReportDescription(business_logic=bl, query_summary=summary,
+        technical, business, purpose, metrics = _summarize_engineered(bl, schema or {})
+    return ReportDescription(business_logic=bl,
+                              technical_description=technical,
+                              business_description=business,
                               primary_purpose=purpose, key_metrics=metrics,
                               use_llm=use_llm)
 

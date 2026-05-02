@@ -375,13 +375,15 @@ def make_llm_client(api_key: Optional[str] = None):
 # Tool 4: Query-level summarisation (engineered + LLM)
 # ---------------------------------------------------------------------------
 
-def summarize_engineered(business_logic) -> dict:
+def summarize_engineered(business_logic, schema: dict | None = None) -> dict:
     """Deterministic query-level summary built from structured signals.
     Healthcare-safe: no LLM, no data exfiltration. Reads as a structured
     paragraph rather than fluent prose -- the LLM mode is where polish
     lives. Truthful is more important than pretty here.
 
-    Returns dict with query_summary, primary_purpose, key_metrics.
+    Returns dict with technical_description, business_description,
+    primary_purpose, key_metrics. The `schema` is used to translate filter
+    predicates into English for business_description.
     """
     lineage = business_logic.lineage
     translations = business_logic.column_translations
@@ -440,10 +442,48 @@ def summarize_engineered(business_logic) -> dict:
         # with "; " so each predicate stays visually distinct.
         parts.append("Constrained by: " + "; ".join(filter_narratives) + ".")
 
-    summary = " ".join(parts)
+    technical = " ".join(parts)
     purpose = grain + domain_str if domain_str else grain
+
+    # ---- business_description: no technical terms, no table/column codes,
+    # no function names, no computed-column list. Verb + domain + filters
+    # translated through the same engine Tool 3 uses for column English.
+    grain_verb = {
+        "Ranked / windowed analysis": "Identifies the most recent",
+        "Aggregated reporting":       "Summarizes",
+        "Categorisation and classification": "Categorizes",
+        "Row-level extraction":       "Lists",
+    }.get(grain, "Lists")
+    business_subject = (
+        domain_str.replace(" for ", "").strip().lower() if domain_str else "records"
+    )
+    ctx = Context(schema=schema or {})
+    business_filters = []
+    for f in filter_narratives:
+        english = _walk_fragment(f, ctx).strip()
+        # User-facing rule: business_description must NOT include table names.
+        # _walk_fragment renders EXISTS subqueries as "from <TABLE>, where ..."
+        # -- strip the "from <TABLE>" clause so only the predicate remains.
+        # Strip "from <TABLE>," from EXISTS subquery rendering -- the comma
+        # is what makes it safe (rules out "Mem Eff From Date" false matches).
+        english = re.sub(r"\bfrom\s+[A-Za-z_][A-Za-z0-9_]*\s*,\s*", "", english,
+                          flags=re.IGNORECASE)
+        # Collapse "where where" left behind by the strip.
+        english = re.sub(r"\bwhere\s+where\b", "where", english,
+                          flags=re.IGNORECASE)
+        if english and english.lower() not in (s.lower() for s in business_filters):
+            business_filters.append(english)
+    if business_filters:
+        business_description = (
+            f"{grain_verb} {business_subject}, limited to "
+            + "; ".join(business_filters) + "."
+        )
+    else:
+        business_description = f"{grain_verb} {business_subject}."
+
     return {
-        "query_summary": summary,
+        "technical_description": technical,
+        "business_description": business_description,
         "primary_purpose": purpose,
         "key_metrics": metrics[:10],
     }
@@ -462,7 +502,8 @@ Rules:
 
 Output JSON:
 {
-  "query_summary": "succinct description that reflects the business slice the filters define",
+  "technical_description": "succinct technical description that reflects the business slice the filters define; OK to mention key tables/columns",
+  "business_description": "the same description but in plain business language; NO table names, column names, function names, or column codes",
   "primary_purpose": "the business question this query answers",
   "key_metrics": ["list", "of", "key", "computed", "columns"]
 }"""
@@ -513,13 +554,15 @@ def summarize_llm(business_logic, llm_client) -> dict:
         )
         result = json.loads(response.text)
         return {
-            "query_summary": result.get("query_summary", ""),
+            "technical_description": result.get("technical_description", result.get("query_summary", "")),
+            "business_description": result.get("business_description", ""),
             "primary_purpose": result.get("primary_purpose", ""),
             "key_metrics": result.get("key_metrics", []),
         }
     except Exception as e:
         return {
-            "query_summary": f"[LLM error: {type(e).__name__}: {str(e)[:80]}]",
+            "technical_description": f"[LLM error: {type(e).__name__}: {str(e)[:80]}]",
+            "business_description": "",
             "primary_purpose": "",
             "key_metrics": [],
         }

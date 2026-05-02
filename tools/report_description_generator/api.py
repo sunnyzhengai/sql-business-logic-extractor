@@ -25,7 +25,8 @@ Implementation deferred to June. Skeleton:
             raise HTTPException(status_code=403, detail=str(e))
         return {
             "use_llm": desc.use_llm,
-            "query_summary": desc.query_summary,
+            "technical_description": desc.technical_description,
+            "business_description": desc.business_description,
             "primary_purpose": desc.primary_purpose,
             "key_metrics": desc.key_metrics,
         }

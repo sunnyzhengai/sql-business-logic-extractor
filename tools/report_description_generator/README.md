@@ -28,7 +28,7 @@ from sql_logic_extractor.products import generate_report_description
 
 # Default: deterministic, no LLM
 desc = generate_report_description(sql, schema)
-print(desc.query_summary)
+print(desc.technical_description)
 print(desc.primary_purpose)
 print(desc.key_metrics)
 

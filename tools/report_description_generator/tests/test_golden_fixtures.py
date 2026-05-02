@@ -30,8 +30,9 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 UPDATE_GOLDEN = os.environ.get("UPDATE_GOLDEN") == "1"
 
 FIELDNAMES = [
-    "view_name", "query_summary", "primary_purpose",
-    "key_metrics", "source_tables", "column_count", "use_llm",
+    "view_name", "technical_description", "business_description",
+    "primary_purpose", "key_metrics", "source_tables",
+    "column_count", "use_llm",
 ]
 
 

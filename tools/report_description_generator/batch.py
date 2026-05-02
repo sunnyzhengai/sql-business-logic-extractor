@@ -6,7 +6,7 @@ each (engineered mode by default; LLM mode opt-in via --use-llm), and
 emits a single CSV with one row per view.
 
 CSV columns:
-    view_name, query_summary, primary_purpose,
+    view_name, technical_description, business_description, primary_purpose,
     key_metrics, source_tables, column_count, use_llm
 
 Notebook usage:
@@ -52,7 +52,8 @@ def row_from_report_description(view_path: Path, view_name: str, desc,
                             for t in (col.get("base_tables", []) or [])})
     return {
         "view_name": view_name,
-        "query_summary": desc.query_summary,
+        "technical_description": desc.technical_description,
+        "business_description": desc.business_description,
         "primary_purpose": desc.primary_purpose,
         "key_metrics": ", ".join(desc.key_metrics or []),
         "source_tables": ", ".join(base_tables),
@@ -80,7 +81,8 @@ def _process_view(view_path: Path, schema: dict, *, use_llm: bool, llm_client,
 def _error_row(view_path: Path, msg: str, use_llm: bool) -> dict:
     return {
         "view_name": view_path.stem,
-        "query_summary": msg, "primary_purpose": "parse_error",
+        "technical_description": msg, "business_description": "",
+        "primary_purpose": "parse_error",
         "key_metrics": "", "source_tables": "", "column_count": 0,
         "use_llm": "true" if use_llm else "false",
     }
@@ -101,8 +103,9 @@ def build_report_descriptions(input_dir: str, schema_path: str | None = None,
 
     schema = load_schema(schema_path) if schema_path else {}
 
-    fieldnames = ["view_name", "query_summary", "primary_purpose",
-                  "key_metrics", "source_tables", "column_count", "use_llm"]
+    fieldnames = ["view_name", "technical_description", "business_description",
+                  "primary_purpose", "key_metrics", "source_tables",
+                  "column_count", "use_llm"]
 
     all_rows: list[dict] = []
     for path in sql_files:

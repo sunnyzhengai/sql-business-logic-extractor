@@ -68,8 +68,9 @@ TOOL3_FIELDS = ["view_name", "column_name", "column_type",
                 "resolved_expression",
                 "english_definition_with_filters", "use_llm"]
 
-TOOL4_FIELDS = ["view_name", "query_summary", "primary_purpose",
-                "key_metrics", "source_tables", "column_count", "use_llm"]
+TOOL4_FIELDS = ["view_name", "technical_description", "business_description",
+                "primary_purpose", "key_metrics", "source_tables",
+                "column_count", "use_llm"]
 
 
 def _error_rows_all_tools(view_path: Path, msg: str, use_llm: bool) -> dict:
@@ -89,7 +90,8 @@ def _error_rows_all_tools(view_path: Path, msg: str, use_llm: bool) -> dict:
                     "resolved_expression": "",
                     "english_definition_with_filters": "",
                     "use_llm": "true" if use_llm else "false"}],
-        "tool4": [{**base, "query_summary": msg, "primary_purpose": "parse_error",
+        "tool4": [{**base, "technical_description": msg, "business_description": "",
+                    "primary_purpose": "parse_error",
                     "key_metrics": "", "source_tables": "", "column_count": 0,
                     "use_llm": "true" if use_llm else "false"}],
     }

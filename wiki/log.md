@@ -8,6 +8,15 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
+2026-05-02  commit  6bc4d1a Emit ALL filter predicates verbatim in query_summary  [affected: none — code; engineered Tool 4 summary now keeps the full business slice for no-LLM use]
+2026-05-02  commit  abd6e69 Drop view_file from Tools 1, 2, 4 outputs (parallel to Tool 3 trim)  [affected: none — code; goldens re-baselined]
+2026-05-02  commit  c188568 Slim Tool 3 CSV: drop view_file, base_columns, base_tables  [affected: none — code; goldens re-baselined]
+2026-05-02  commit  a9e43d6 ASCII-sanitize csv_to_schema.py for Windows-browser uploads  [affected: none — code; em-dash mangling crashed Python's UTF-8 source loader]
+2026-05-02  commit  e76d51d Auto-detect CSV encoding in csv_to_schema.py  [affected: none — code; SSMS exports as UTF-16 LE]
+2026-05-02  commit  5d30682 Add Fabric notebook script for the all-tools batch runner  [affected: none — code; six cells: deps, repo upload, sys.path, batch_all, peek, LLM]
+2026-05-02  commit  f14049b Hard-code @Columns list for V_ACTIVE_MEMBERS + bi_complex  [affected: none — code; pre-populated metadata extract for SSMS run]
+2026-05-01  commit  e7cfe62 Add optional @Columns filter to Clarity metadata extract  [affected: none — code; narrows to columns actually referenced per Tool 1 manifest]
+2026-05-01  commit  e7fa61e Add sys.* fallback layer to Clarity metadata extract  [affected: none — code; Layer B captures custom V_CCHP_* views that aren't in CLARITY_TBL]
 2026-04-29  decide  Pivot away from AIVIA platform; 4-tool product line is the commercialization vehicle, with the day-job SSIS-to-Fabric migration as Use Case #1  [affected: planning/monthly/2026-06,07,08.md, planning/weekly/2026-06-01,08-10,08-24.md, planning/daily/2026-04-28.md, view-migration/REQUIREMENTS.md, wiki/decisions/2026-04-19-*.md, wiki/concepts/article-template.md]
 2026-04-28  commit  d445008 Add view-migration tooling for SSIS-to-Fabric workstream  [affected: none — new isolated workstream under view-migration/; separate from extractor commercialization]
 2026-04-27  commit  94df49f Move CLI scripts to cli/, lift filters to query level, plumb LLM filter context  [affected: none — code; reorganization + L4 filter consolidation + LLM summary semantic upgrade]

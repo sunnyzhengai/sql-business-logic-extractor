@@ -41,8 +41,8 @@ def test_engineered_mode_produces_non_empty_summary():
     WHERE R.STATUS_C IN (1, 2, 5)
     """
     desc = generate_report_description(sql, {})
-    assert desc.query_summary
-    assert "REFERRAL" in desc.query_summary
+    assert desc.technical_description
+    assert "REFERRAL" in desc.technical_description
     # The CASE column should appear as a key metric
     assert "LABEL" in desc.key_metrics
 
@@ -54,8 +54,8 @@ def test_engineered_mode_reflects_filter_slice():
     SELECT P.PAT_ID FROM Clarity.dbo.PATIENT P WHERE P.STATUS_C = 1
     """
     desc = generate_report_description(sql, {})
-    assert "Constrained by" in desc.query_summary or "filter" in desc.query_summary.lower(), \
-        f"Engineered summary should mention the filter slice; got: {desc.query_summary}"
+    assert "Constrained by" in desc.technical_description or "filter" in desc.technical_description.lower(), \
+        f"Engineered summary should mention the filter slice; got: {desc.technical_description}"
 
 
 def test_default_use_llm_is_false():
@@ -63,7 +63,7 @@ def test_default_use_llm_is_false():
     sql = "SELECT P.PAT_ID FROM Clarity.dbo.PATIENT P"
     desc = generate_report_description(sql, {})
     assert desc.use_llm is False
-    assert "[LLM error" not in desc.query_summary
+    assert "[LLM error" not in desc.technical_description
 
 
 def test_engineered_mode_does_not_import_llm_libs():

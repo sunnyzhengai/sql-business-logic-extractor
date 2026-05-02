@@ -8,6 +8,8 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
+2026-05-02  commit  cbf8339 Add Tool 5 (similar_logic_grouper) + full-corpus metadata helper  [affected: none — code; AST fingerprinting for cross-view definition dedup; SSMS @Tables/@Columns generator]
+2026-05-02  commit  c209065 Tool 4: format technical and business descriptions as paragraphs  [affected: none — code; newline-separated bullets so cells render as readable text]
 2026-05-02  commit  95a877a Tool 4 Phase 2: naturalize engineered business_description prose  [affected: none — code; comment promotion + effective-date folding + _YN normalization + keyword-adjective promotion]
 2026-05-02  commit  95eb7a9 Tool 4: rename query_summary -> technical_description, add business_description  [affected: none — code; engineered business prose strips technical noise via pattern-library + post-processing]
 2026-05-02  commit  6bc4d1a Emit ALL filter predicates verbatim in query_summary  [affected: none — code; engineered Tool 4 summary now keeps the full business slice for no-LLM use]

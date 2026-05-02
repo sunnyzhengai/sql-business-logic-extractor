@@ -33,6 +33,7 @@ base table). Extra rows are harmless: SSMS just won't find a match
 in CLARITY_TBL/COL or sys.* and silently drops them.
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -59,8 +60,52 @@ def _read_sql_file(path: Path) -> str:
         return raw.decode("utf-16-le", errors="replace")
 
 
+# Regex fallback for views Tool 1 can't parse (e.g. heavy T-SQL hints,
+# unusual procedural syntax). Catches qualified column refs in three
+# common T-SQL forms:
+#   1. ALIAS.COLUMN          -- bare identifiers
+#   2. ALIAS.[COLUMN]        -- bracket-quoted column
+#   3. [ALIAS].[COLUMN]      -- both bracket-quoted
+# This OVER-collects (matches table aliases, not real names) but extras
+# are harmless: the SSMS metadata query just won't find a row for them.
+_QUAL_COL_RE = re.compile(
+    r"(?<!\w)"
+    r"(?:\[(?P<t1>\w+)\]|(?P<t2>\w+))"
+    r"\.(?:\[(?P<c1>\w+)\]|(?P<c2>\w+))"
+    r"(?!\w)"
+)
+
+# Keywords that look like identifiers but aren't table aliases.
+_NOT_AN_ALIAS = {
+    "DBO", "SYS", "INFORMATION_SCHEMA",
+    "SELECT", "FROM", "WHERE", "JOIN", "ON", "AND", "OR", "AS", "WHEN",
+    "THEN", "ELSE", "END", "CASE", "WITH", "ORDER", "BY", "GROUP", "HAVING",
+    "INNER", "OUTER", "LEFT", "RIGHT", "FULL", "CROSS", "ROW_NUMBER",
+    "OVER", "PARTITION", "BETWEEN", "IN", "EXISTS", "NOT", "NULL", "IS",
+    "ROW", "RANK", "DENSE_RANK",
+}
+
+
+def _regex_fallback_pairs(sql: str) -> set[tuple[str, str]]:
+    """Extract (table, column) pairs from raw SQL when sqlglot can't parse.
+    Filters out obvious non-table tokens but otherwise lets extras through;
+    the downstream SSMS query drops misses silently."""
+    pairs: set[tuple[str, str]] = set()
+    for m in _QUAL_COL_RE.finditer(sql):
+        t = (m.group("t1") or m.group("t2") or "").upper()
+        c = m.group("c1") or m.group("c2") or ""
+        if not t or not c or t in _NOT_AN_ALIAS:
+            continue
+        pairs.add((t, c))
+    return pairs
+
+
 def collect_pairs(views_dir: str, dialect: str = "tsql") -> tuple[list[str], list[tuple[str, str]]]:
-    """Return (sorted unique table list, sorted unique (table, column) pairs)."""
+    """Return (sorted unique table list, sorted unique (table, column) pairs).
+
+    For any view Tool 1 can't parse, falls back to a regex extraction so
+    those views still contribute identifiers to the metadata extract.
+    """
     in_dir = Path(views_dir)
     if not in_dir.is_dir():
         raise SystemExit(f"Not a directory: {in_dir}")
@@ -70,24 +115,38 @@ def collect_pairs(views_dir: str, dialect: str = "tsql") -> tuple[list[str], lis
 
     tables: set[str] = set()
     pairs: set[tuple[str, str]] = set()
-    skipped: list[tuple[str, str]] = []
+    parsed_ok = 0
+    fell_back: list[str] = []
+
     for path in sql_files:
+        sql = _read_sql_file(path)
         try:
-            inv = extract_columns(_read_sql_file(path), dialect=dialect)
-        except Exception as e:
-            skipped.append((path.name, f"{type(e).__name__}: {e}"))
-            continue
-        for c in inv.columns:
-            if not c.table or not c.column:
-                continue
-            tables.add(c.table)
-            pairs.add((c.table, c.column))
+            inv = extract_columns(sql, dialect=dialect)
+            for c in inv.columns:
+                if not c.table or not c.column:
+                    continue
+                tables.add(c.table)
+                pairs.add((c.table, c.column))
+            parsed_ok += 1
+        except Exception:
+            # Fallback: regex extraction. ALIAS.COLUMN qualified pairs only.
+            recovered = _regex_fallback_pairs(sql)
+            for t, c in recovered:
+                tables.add(t)
+                pairs.add((t, c))
+            fell_back.append(f"{path.name} ({len(recovered)} pairs via regex)")
 
-    if skipped:
-        print("-- WARNING: failed to parse:", file=sys.stderr)
-        for name, err in skipped:
-            print(f"--   {name}: {err}", file=sys.stderr)
+    if fell_back:
+        print(f"-- NOTE: {len(fell_back)} view(s) used regex fallback "
+              f"(sqlglot couldn't parse): ", file=sys.stderr)
+        for entry in fell_back:
+            print(f"--   {entry}", file=sys.stderr)
+        print("-- The fallback pairs may include aliases that are not real "
+              "table names; harmless -- they just won't match in CLARITY_TBL "
+              "or sys.* and get dropped.", file=sys.stderr)
 
+    print(f"-- Parsed cleanly: {parsed_ok} / {len(sql_files)} views",
+          file=sys.stderr)
     return sorted(tables), sorted(pairs)
 
 

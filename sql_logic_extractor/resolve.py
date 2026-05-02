@@ -862,10 +862,10 @@ def preprocess_ssms(sql: str) -> tuple[str, dict]:
     # the column list can span multiple lines.
     sql = re.sub(
         r"((?:CREATE\s+(?:OR\s+ALTER\s+)?|ALTER\s+)VIEW\s+"
-        r"(?:\[?[\w]+\]?\.)?\[?[\w]+\]?\s*)"
-        r"\([^)]*\)\s*"
-        r"(\bAS\b)",
-        r"\1\2 ",
+        r"(?:\[?[\w]+\]?\.)?\[?[\w]+\]?)"
+        r"\s*\([^)]*\)\s*"
+        r"\bAS\b",
+        r"\1 AS",
         sql,
         flags=re.IGNORECASE | re.DOTALL,
     )

@@ -56,11 +56,11 @@ from tools.report_description_generator.batch import row_from_report_description
 
 
 # Field schemas matched to each tool's existing batch.py output:
-TOOL1_FIELDS = ["view_file", "view_name", "referenced_database",
+TOOL1_FIELDS = ["view_name", "referenced_database",
                 "referenced_schema", "referenced_table", "referenced_column",
                 "reference_type", "confidence"]
 
-TOOL2_FIELDS = ["view_file", "view_name", "column_name", "column_type",
+TOOL2_FIELDS = ["view_name", "column_name", "column_type",
                 "resolved_expression", "base_tables", "base_columns", "filters"]
 
 TOOL3_FIELDS = ["view_name", "column_name", "column_type",
@@ -68,14 +68,14 @@ TOOL3_FIELDS = ["view_name", "column_name", "column_type",
                 "resolved_expression",
                 "english_definition_with_filters", "use_llm"]
 
-TOOL4_FIELDS = ["view_file", "view_name", "query_summary", "primary_purpose",
+TOOL4_FIELDS = ["view_name", "query_summary", "primary_purpose",
                 "key_metrics", "source_tables", "column_count", "use_llm"]
 
 
 def _error_rows_all_tools(view_path: Path, msg: str, use_llm: bool) -> dict:
     """When a view fails to parse / resolve, emit a single error row in
     each tool's CSV so the user can see which view broke and why."""
-    base = {"view_file": view_path.name, "view_name": view_path.stem}
+    base = {"view_name": view_path.stem}
     return {
         "tool1": [{**base, "referenced_database": "", "referenced_schema": "",
                     "referenced_table": "", "referenced_column": msg,
@@ -124,7 +124,7 @@ def _process_view_all_tools(view_path: Path, schema: dict, *,
     # Tool 1: inventory rows + table-walk rows (table-walk needs sql + dialect
     # but doesn't run the resolver -- it's a separate sqlglot AST walk).
     t1_rows, seen = rows_from_inventory(view_path, view_name, inventory)
-    t1_rows.extend(_table_level_rows(sql, dialect, view_path.name, view_name, seen))
+    t1_rows.extend(_table_level_rows(sql, dialect, view_name, seen))
 
     return {
         "tool1": t1_rows,

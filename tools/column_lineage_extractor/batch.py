@@ -7,7 +7,7 @@ replacement for the legacy `build_manifest_standalone.py` script that
 lived in view-migration/scripts/.
 
 CSV columns:
-    view_file, view_name,
+    view_name,
     referenced_database, referenced_schema, referenced_table, referenced_column,
     reference_type, confidence
 
@@ -49,7 +49,7 @@ def _read_sql_file(path: Path) -> str:
         return raw.decode("utf-16-le", errors="replace")
 
 
-def _table_level_rows(sql: str, dialect: str, view_file: str, view_name: str,
+def _table_level_rows(sql: str, dialect: str, view_name: str,
                       seen: set) -> list[dict]:
     """One row per Table node referenced (catches SELECT *, EXISTS, etc.)
     that the column-level extractor doesn't surface as a specific column."""
@@ -73,12 +73,11 @@ def _table_level_rows(sql: str, dialect: str, view_file: str, view_name: str,
             continue
         db = t.args["catalog"].name if t.args.get("catalog") else ""
         schema = t.args["db"].name if t.args.get("db") else ""
-        key = (view_file, db, schema, t.name, "*")
+        key = (view_name, db, schema, t.name, "*")
         if key in seen:
             continue
         seen.add(key)
         rows.append({
-            "view_file": view_file,
             "view_name": view_name,
             "referenced_database": db,
             "referenced_schema": schema,
@@ -98,12 +97,11 @@ def rows_from_inventory(view_path: Path, view_name: str, inventory) -> tuple[lis
     rows: list[dict] = []
     seen: set[tuple] = set()
     for c in inventory.columns:
-        key = (view_path.name, c.database or "", c.schema or "", c.table, c.column)
+        key = (view_name, c.database or "", c.schema or "", c.table, c.column)
         if key in seen:
             continue
         seen.add(key)
         rows.append({
-            "view_file": view_path.name,
             "view_name": view_name,
             "referenced_database": c.database or "",
             "referenced_schema": c.schema or "",
@@ -128,13 +126,13 @@ def _process_view(view_path: Path, dialect: str = "tsql") -> list[dict]:
 
     view_name = view_path.stem
     rows, seen = rows_from_inventory(view_path, view_name, inv)
-    rows.extend(_table_level_rows(sql, dialect, view_path.name, view_name, seen))
+    rows.extend(_table_level_rows(sql, dialect, view_name, seen))
     return rows
 
 
 def _error_row(view_path: Path, msg: str) -> dict:
     return {
-        "view_file": view_path.name, "view_name": view_path.stem,
+        "view_name": view_path.stem,
         "referenced_database": "", "referenced_schema": "",
         "referenced_table": "", "referenced_column": msg,
         "reference_type": "parse_error", "confidence": "low",
@@ -152,7 +150,7 @@ def build_manifest(input_dir: str, output_csv: str = "column_lineage_extractor.c
         print(f"Error: no .sql files in {in_dir}")
         return 1
 
-    fieldnames = ["view_file", "view_name", "referenced_database",
+    fieldnames = ["view_name", "referenced_database",
                   "referenced_schema", "referenced_table", "referenced_column",
                   "reference_type", "confidence"]
 

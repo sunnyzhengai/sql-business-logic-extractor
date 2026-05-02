@@ -30,7 +30,7 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 UPDATE_GOLDEN = os.environ.get("UPDATE_GOLDEN") == "1"
 
 FIELDNAMES = [
-    "view_file", "view_name", "query_summary", "primary_purpose",
+    "view_name", "query_summary", "primary_purpose",
     "key_metrics", "source_tables", "column_count", "use_llm",
 ]
 
@@ -44,7 +44,7 @@ def _discover_fixtures() -> list[Path]:
 
 def _normalize(rows: list[dict]) -> list[dict]:
     keep = lambda r: {k: str(r.get(k, "")) for k in FIELDNAMES}
-    return sorted([keep(r) for r in rows], key=lambda r: r["view_file"])
+    return sorted([keep(r) for r in rows], key=lambda r: r["view_name"])
 
 
 def _run_tool(input_sql: Path) -> list[dict]:

@@ -30,7 +30,7 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 UPDATE_GOLDEN = os.environ.get("UPDATE_GOLDEN") == "1"
 
 FIELDNAMES = [
-    "view_file", "view_name", "column_name", "column_type",
+    "view_name", "column_name", "column_type",
     "resolved_expression", "base_tables", "base_columns", "filters",
 ]
 
@@ -50,7 +50,7 @@ def _normalize(rows: list[dict]) -> list[dict]:
     """Sort rows for stable comparison; the dict iteration order in the
     underlying engine isn't strictly guaranteed."""
     keep = lambda r: {k: r.get(k, "") for k in FIELDNAMES}
-    return sorted([keep(r) for r in rows], key=lambda r: (r["view_file"], r["column_name"]))
+    return sorted([keep(r) for r in rows], key=lambda r: (r["view_name"], r["column_name"]))
 
 
 def _run_tool2(input_sql: Path) -> list[dict]:
@@ -95,8 +95,8 @@ def test_golden_fixture(fixture_dir: Path) -> None:
     if actual != expected:
         # Build a focused diff message for failures.
         lines = [f"Fixture {fixture_dir.name} output diverged from golden:"]
-        actual_keys = {(r["view_file"], r["column_name"]) for r in actual}
-        expected_keys = {(r["view_file"], r["column_name"]) for r in expected}
+        actual_keys = {(r["view_name"], r["column_name"]) for r in actual}
+        expected_keys = {(r["view_name"], r["column_name"]) for r in expected}
         missing = expected_keys - actual_keys
         extra = actual_keys - expected_keys
         if missing:
@@ -104,8 +104,8 @@ def test_golden_fixture(fixture_dir: Path) -> None:
         if extra:
             lines.append(f"  Rows EXTRA in actual:     {sorted(extra)}")
         # Show first row whose content differs
-        actual_idx = {(r["view_file"], r["column_name"]): r for r in actual}
-        expected_idx = {(r["view_file"], r["column_name"]): r for r in expected}
+        actual_idx = {(r["view_name"], r["column_name"]): r for r in actual}
+        expected_idx = {(r["view_name"], r["column_name"]): r for r in expected}
         for k in sorted(actual_keys & expected_keys):
             if actual_idx[k] != expected_idx[k]:
                 lines.append(f"  First diff on row {k}:")

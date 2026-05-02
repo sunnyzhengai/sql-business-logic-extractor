@@ -11,7 +11,7 @@ else is kept, including passthrough columns whose filters carry business
 logic (WHERE STATUS = 'Active' makes a passthrough column non-trivial).
 
 CSV columns:
-    view_file, view_name, column_name, column_type,
+    view_name, column_name, column_type,
     resolved_expression, base_tables, base_columns, filters
 
 Notebook usage:
@@ -85,7 +85,6 @@ def rows_from_lineage(view_path: Path, view_name: str, lineage,
             continue
 
         rows.append({
-            "view_file": view_path.name,
             "view_name": view_name,
             "column_name": col.get("name", ""),
             "column_type": col_type,
@@ -115,7 +114,7 @@ def _process_view(view_path: Path, dialect: str = "tsql") -> list[dict]:
 
 def _error_row(view_path: Path, msg: str) -> dict:
     return {
-        "view_file": view_path.name, "view_name": view_path.stem,
+        "view_name": view_path.stem,
         "column_name": "", "column_type": "parse_error",
         "resolved_expression": msg, "base_tables": "",
         "base_columns": "", "filters": "",
@@ -133,7 +132,7 @@ def build_transformations(input_dir: str, output_csv: str = "technical_logic_ext
         print(f"Error: no .sql files in {in_dir}")
         return 1
 
-    fieldnames = ["view_file", "view_name", "column_name", "column_type",
+    fieldnames = ["view_name", "column_name", "column_type",
                   "resolved_expression", "base_tables", "base_columns", "filters"]
 
     all_rows: list[dict] = []

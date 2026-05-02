@@ -114,13 +114,15 @@ def _print_context(sql: str, line: int, col: int, *, window: int = 5) -> None:
 
 # ---------- transforms (each tries to UNBLOCK the parse) ---------------
 
+_WS_RE = re.compile(r"\s+")
+
+
 def _collapse_multiline_brackets(sql: str) -> str:
     """Internal whitespace inside [bracket-quoted] identifiers -> single space."""
-    return re.sub(
-        r"\[([^\[\]]*)\]",
-        lambda m: f"[{re.sub(r'\\s+', ' ', m.group(1)).strip()}]",
-        sql, flags=re.DOTALL,
-    )
+    def repl(m: re.Match) -> str:
+        inner = _WS_RE.sub(" ", m.group(1)).strip()
+        return "[" + inner + "]"
+    return re.sub(r"\[([^\[\]]*)\]", repl, sql, flags=re.DOTALL)
 
 
 def _strip_table_hints(sql: str) -> str:

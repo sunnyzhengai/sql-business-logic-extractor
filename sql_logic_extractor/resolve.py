@@ -853,6 +853,23 @@ def preprocess_ssms(sql: str) -> tuple[str, dict]:
     description, report name, revision history, etc.).
     """
     metadata = {}
+
+    # Pre-pass: collapse `CREATE [OR ALTER] VIEW name (col1, col2, ...) AS`
+    # to just `CREATE VIEW name AS`. T-SQL allows an explicit output-column
+    # list in parens before AS, but sqlglot doesn't parse that form. The
+    # parenthesized list is just an alias rename of the SELECT's outputs;
+    # for our extraction needs (source columns) we can drop it. DOTALL so
+    # the column list can span multiple lines.
+    sql = re.sub(
+        r"((?:CREATE\s+(?:OR\s+ALTER\s+)?|ALTER\s+)VIEW\s+"
+        r"(?:\[?[\w]+\]?\.)?\[?[\w]+\]?\s*)"
+        r"\([^)]*\)\s*"
+        r"(\bAS\b)",
+        r"\1\2 ",
+        sql,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
     lines = sql.split("\n")
     clean_lines = []
     body_started = False

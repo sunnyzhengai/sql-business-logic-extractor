@@ -854,21 +854,12 @@ def preprocess_ssms(sql: str) -> tuple[str, dict]:
     """
     metadata = {}
 
-    # Pre-pass: collapse `CREATE [OR ALTER] VIEW name (col1, col2, ...) AS`
-    # to just `CREATE VIEW name AS`. T-SQL allows an explicit output-column
-    # list in parens before AS, but sqlglot doesn't parse that form. The
-    # parenthesized list is just an alias rename of the SELECT's outputs;
-    # for our extraction needs (source columns) we can drop it. DOTALL so
-    # the column list can span multiple lines.
-    sql = re.sub(
-        r"((?:CREATE\s+(?:OR\s+ALTER\s+)?|ALTER\s+)VIEW\s+"
-        r"(?:\[?[\w]+\]?\.)?\[?[\w]+\]?)"
-        r"\s*\([^)]*\)\s*"
-        r"\bAS\b",
-        r"\1 AS",
-        sql,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
+    # Pre-pass: apply the rule registry. Each rule is one T-SQL construct
+    # sqlglot can't parse natively, declared in parsing_rules/rules.py
+    # with a matching fixture. New rules go in the registry, never inline
+    # here -- see parsing_rules/__init__.py for the contract.
+    from .parsing_rules import apply_all
+    sql, _fired_rules = apply_all(sql)
 
     lines = sql.split("\n")
     clean_lines = []

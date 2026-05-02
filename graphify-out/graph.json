@@ -3086,54 +3086,54 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1041",
-      "id": "resolve_rationale_1041",
       "community": 3,
-      "norm_label": "parse, extract, and resolve lineage for a sql query.      raises valueerror for"
+      "norm_label": "parse, extract, and resolve lineage for a sql query.      raises valueerror for",
+      "id": "resolve_rationale_1041"
     },
     {
       "label": "Serialize a ResolvedFilter, nesting any resolved subquery lineage.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1072",
-      "id": "resolve_rationale_1072",
       "community": 3,
-      "norm_label": "serialize a resolvedfilter, nesting any resolved subquery lineage."
+      "norm_label": "serialize a resolvedfilter, nesting any resolved subquery lineage.",
+      "id": "resolve_rationale_1072"
     },
     {
       "label": "Convert resolved query to plain dict.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1080",
-      "id": "resolve_rationale_1080",
       "community": 3,
-      "norm_label": "convert resolved query to plain dict."
+      "norm_label": "convert resolved query to plain dict.",
+      "id": "resolve_rationale_1080"
     },
     {
       "label": "Format resolved query as human-readable text.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1122",
-      "id": "resolve_rationale_1122",
       "community": 3,
-      "norm_label": "format resolved query as human-readable text."
+      "norm_label": "format resolved query as human-readable text.",
+      "id": "resolve_rationale_1122"
     },
     {
       "label": "Derive output filename from view name or input file.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1178",
-      "id": "resolve_rationale_1178",
       "community": 3,
-      "norm_label": "derive output filename from view name or input file."
+      "norm_label": "derive output filename from view name or input file.",
+      "id": "resolve_rationale_1178"
     },
     {
       "label": "Process a single SQL string. Returns (resolved, output_text).",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L1191",
-      "id": "resolve_rationale_1191",
       "community": 3,
-      "norm_label": "process a single sql string. returns (resolved, output_text)."
+      "norm_label": "process a single sql string. returns (resolved, output_text).",
+      "id": "resolve_rationale_1191"
     },
     {
       "label": "normalize.py",
@@ -24568,9 +24568,9 @@
       "weight": 0.8,
       "_src": "resolve_rationale_1041",
       "_tgt": "extract_sqlbusinesslogicextractor",
+      "confidence_score": 0.5,
       "source": "resolve_rationale_1041",
-      "target": "extract_sqlbusinesslogicextractor",
-      "confidence_score": 0.5
+      "target": "extract_sqlbusinesslogicextractor"
     },
     {
       "relation": "uses",
@@ -24580,9 +24580,9 @@
       "weight": 0.8,
       "_src": "resolve_rationale_1072",
       "_tgt": "extract_sqlbusinesslogicextractor",
+      "confidence_score": 0.5,
       "source": "resolve_rationale_1072",
-      "target": "extract_sqlbusinesslogicextractor",
-      "confidence_score": 0.5
+      "target": "extract_sqlbusinesslogicextractor"
     },
     {
       "relation": "uses",
@@ -24592,9 +24592,9 @@
       "weight": 0.8,
       "_src": "resolve_rationale_1080",
       "_tgt": "extract_sqlbusinesslogicextractor",
+      "confidence_score": 0.5,
       "source": "resolve_rationale_1080",
-      "target": "extract_sqlbusinesslogicextractor",
-      "confidence_score": 0.5
+      "target": "extract_sqlbusinesslogicextractor"
     },
     {
       "relation": "uses",
@@ -24604,9 +24604,9 @@
       "weight": 0.8,
       "_src": "resolve_rationale_1122",
       "_tgt": "extract_sqlbusinesslogicextractor",
+      "confidence_score": 0.5,
       "source": "resolve_rationale_1122",
-      "target": "extract_sqlbusinesslogicextractor",
-      "confidence_score": 0.5
+      "target": "extract_sqlbusinesslogicextractor"
     },
     {
       "relation": "uses",
@@ -24616,9 +24616,9 @@
       "weight": 0.8,
       "_src": "resolve_rationale_1178",
       "_tgt": "extract_sqlbusinesslogicextractor",
+      "confidence_score": 0.5,
       "source": "resolve_rationale_1178",
-      "target": "extract_sqlbusinesslogicextractor",
-      "confidence_score": 0.5
+      "target": "extract_sqlbusinesslogicextractor"
     },
     {
       "relation": "uses",
@@ -24628,9 +24628,9 @@
       "weight": 0.8,
       "_src": "resolve_rationale_1191",
       "_tgt": "extract_sqlbusinesslogicextractor",
+      "confidence_score": 0.5,
       "source": "resolve_rationale_1191",
-      "target": "extract_sqlbusinesslogicextractor",
-      "confidence_score": 0.5
+      "target": "extract_sqlbusinesslogicextractor"
     },
     {
       "relation": "imports_from",
@@ -32498,8 +32498,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L19",
       "weight": 0.8,
-      "_src": "resolve_rationale_1024",
-      "_tgt": "extract_sqlbusinesslogicextractor",
+      "_src": "extract_sqlbusinesslogicextractor",
+      "_tgt": "resolve_rationale_1024",
       "confidence_score": 0.5,
       "source": "extract_sqlbusinesslogicextractor",
       "target": "resolve_rationale_1024"
@@ -32510,8 +32510,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L19",
       "weight": 0.8,
-      "_src": "resolve_rationale_1055",
-      "_tgt": "extract_sqlbusinesslogicextractor",
+      "_src": "extract_sqlbusinesslogicextractor",
+      "_tgt": "resolve_rationale_1055",
       "confidence_score": 0.5,
       "source": "extract_sqlbusinesslogicextractor",
       "target": "resolve_rationale_1055"
@@ -32522,8 +32522,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L19",
       "weight": 0.8,
-      "_src": "resolve_rationale_1063",
-      "_tgt": "extract_sqlbusinesslogicextractor",
+      "_src": "extract_sqlbusinesslogicextractor",
+      "_tgt": "resolve_rationale_1063",
       "confidence_score": 0.5,
       "source": "extract_sqlbusinesslogicextractor",
       "target": "resolve_rationale_1063"
@@ -32534,8 +32534,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L19",
       "weight": 0.8,
-      "_src": "resolve_rationale_1105",
-      "_tgt": "extract_sqlbusinesslogicextractor",
+      "_src": "extract_sqlbusinesslogicextractor",
+      "_tgt": "resolve_rationale_1105",
       "confidence_score": 0.5,
       "source": "extract_sqlbusinesslogicextractor",
       "target": "resolve_rationale_1105"
@@ -32546,8 +32546,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L19",
       "weight": 0.8,
-      "_src": "resolve_rationale_1161",
-      "_tgt": "extract_sqlbusinesslogicextractor",
+      "_src": "extract_sqlbusinesslogicextractor",
+      "_tgt": "resolve_rationale_1161",
       "confidence_score": 0.5,
       "source": "extract_sqlbusinesslogicextractor",
       "target": "resolve_rationale_1161"
@@ -32558,8 +32558,8 @@
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/resolve.py",
       "source_location": "L19",
       "weight": 0.8,
-      "_src": "resolve_rationale_1174",
-      "_tgt": "extract_sqlbusinesslogicextractor",
+      "_src": "extract_sqlbusinesslogicextractor",
+      "_tgt": "resolve_rationale_1174",
       "confidence_score": 0.5,
       "source": "extract_sqlbusinesslogicextractor",
       "target": "resolve_rationale_1174"

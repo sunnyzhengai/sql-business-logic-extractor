@@ -1,49 +1,57 @@
 -- Epic Clarity metadata extract for Tool 3 (business_logic_extractor).
 --
--- Pulls table + column descriptions + INI/Item codes for the tables
--- your views reference. Output is a flat result set you save to CSV;
--- the CSV is then converted to a schema YAML/JSON via the sibling
--- script data/schemas/csv_to_schema.py.
+-- Pulls table + column descriptions for the tables/views your views
+-- reference, with two layers:
+--   Layer A: Epic Clarity descriptions (rich -- TABLE_INTRODUCTION,
+--            column DESCRIPTION, INI/Item codes) for tables present in
+--            CLARITY_TBL.
+--   Layer B: SQL Server system catalog fallback (sys.objects, sys.columns)
+--            for tables/views NOT in CLARITY_TBL. This catches custom
+--            reporting views and anything else your org built on top of
+--            Clarity. No English descriptions in this layer -- but at
+--            least the table/column names round-trip into the schema.
 --
 -- ============================================================
 -- HOW TO USE (typical SSMS workflow)
 -- ============================================================
 -- 1. Open this file in SSMS.
--- 2. Edit the @TABLES list near the top (line ~30).
--- 3. Connect to your Clarity database.
--- 4. Run the query (F5).
--- 5. In the results pane, right-click any cell -> "Save Results As..."
--- 6. Save as CSV. SSMS default name is `Results.csv`; rename to
---    `clarity_metadata.csv` for clarity.
--- 7. Upload that CSV to Fabric (drag-and-drop into the Lakehouse Files
---    area, or wherever your data flows).
--- 8. On Fabric, run csv_to_schema.py to convert CSV -> JSON. Or do it
---    locally and upload the JSON.
+-- 2. Edit the @Tables list near the top.
+-- 3. Connect to your Clarity database. Run (F5).
+-- 4. Right-click results -> "Save Results As..." -> CSV.
+--    Rename to clarity_metadata.csv (or whatever).
+-- 5. If your views also reference objects in OTHER databases (e.g. a
+--    separate Cook Clarity / Reporting DB), run this same query
+--    connected to THAT database too -- with the relevant table list.
+--    Save as a second CSV. Concatenate both CSVs (drop the duplicate
+--    header row) before running csv_to_schema.py.
+-- 6. Upload the CSV to Fabric. Convert via csv_to_schema.py to JSON.
+-- 7. Point Tool 3's `schema_path` at the resulting JSON.
 --
 -- ============================================================
 -- NOTES
 -- ============================================================
--- 1. The TBL_DESCRIPTOR_OVR IS NOT NULL clause is intentional. It dedupes
---    CLARITY_TBL rows that appear twice (some Clarity installs have
---    historical duplicates). Don't remove without confirming the dedup
---    is handled another way.
--- 2. CLARITY_COL_INIITM holds the (INI, Item) coordination key per
---    column. This is the join Epic uses to match a column to its
---    Chronicles source -- valuable for Collibra ingestion later.
--- 3. Cook Clarity / Reporting views (V_CCHP_*) are NOT in CLARITY_TBL
---    -- they're Cook-curated views. Their metadata lives in different
---    tables (or might not exist at all). This query only documents
---    base Clarity tables.
+-- 1. The CLARITY_TBL.TBL_DESCRIPTOR_OVR IS NOT NULL clause is intentional.
+--    It dedupes rows where CLARITY_TBL has historical duplicates. Don't
+--    remove unless you've confirmed dedup is handled another way.
+-- 2. The sys.* fallback only sees the CURRENT database. If you have
+--    objects in multiple databases, run the query once per database
+--    (see step 5 above).
+-- 3. csv_to_schema.py can accept rows where DESCRIPTION / TABLE_INTRO
+--    are blank -- it will fall back to mechanical name expansion in
+--    Tool 3's English output. So including bare sys.* rows is a net
+--    improvement over the column not being in the schema at all (Tool 3
+--    flags missing columns as `unknown_columns`).
 
 -- ============================================================
--- EDIT THIS: which tables do you want metadata for?
+-- EDIT THIS: which tables/views do you want metadata for?
 -- ============================================================
--- For your first run on V_ACTIVE_MEMBERS, this list is pre-populated.
--- For the full set, run Tool 1 (column_lineage_extractor) first, take
--- the unique referenced_table values from manifest.csv, paste here.
+-- Pre-populated for V_ACTIVE_MEMBERS. Once you've run Tool 1 on the
+-- full view set, copy unique referenced_table values from the manifest
+-- CSV into this list.
 
-DECLARE @Tables TABLE (TABLE_NAME VARCHAR(50));
+DECLARE @Tables TABLE (TABLE_NAME VARCHAR(100));
 INSERT INTO @Tables (TABLE_NAME) VALUES
+    -- V_ACTIVE_MEMBERS base tables (Layer A: Epic-documented):
     ('COVERAGE'),
     ('COVERAGE_MEMBER_LIST'),
     ('PATIENT'),
@@ -56,57 +64,113 @@ INSERT INTO @Tables (TABLE_NAME) VALUES
     ('CLARITY_SER'),
     ('ZC_SUBSC_RACE'),
     ('CVG_SUBSCR_ADDR'),
-    ('ZC_TAX_STATE');
+    ('ZC_TAX_STATE'),
+    -- bi_complex referenced views (Layer B: system catalog fallback):
+    ('V_CCHP_AuthHeader_Fact'),
+    ('V_CCHP_UMAuthorizationRequest_Fact'),
+    ('V_CCHP_UMAuthorizationRequestStatusHistory_Fact'),
+    ('V_CCHP_UMAuthorization_Fact'),
+    ('V_CCHP_UMAuthorizationHistory_Fact'),
+    ('REFERRAL_HIST'),
+    ('REFERRAL_BED_DAY'),
+    ('REFERRAL'),
+    ('REFERRAL_HISTORY'),
+    ('RFL_HX_ACT'),
+    ('RFL_HX_ITEM_CHANGE'),
+    ('RFL_HX_NEW_VAL');
 -- Add more rows as your view set grows. One per line.
 
 -- ============================================================
--- THE QUERY
+-- LAYER A: Epic-documented Clarity tables
 -- ============================================================
--- Output columns (these are exactly what csv_to_schema.py expects):
---   TABLE_NAME           - Clarity table name (e.g. PATIENT)
---   TABLE_ID             - Clarity internal table ID
---   TABLE_INTRODUCTION   - Table-level description text
---   COLUMN_NAME          - Column name (e.g. PAT_ID)
---   DESCRIPTION          - Column-level description
---   COLUMN_INI           - INI code (e.g. EAF for PATIENT)
---   COLUMN_ITEM          - Item number (Chronicles coordination key)
+-- Output columns (must match csv_to_schema.py's expected headers):
+--   TABLE_NAME           - table name (e.g. PATIENT)
+--   TABLE_ID             - Clarity internal ID (NULL in Layer B)
+--   TABLE_INTRODUCTION   - table description (NULL in Layer B)
+--   COLUMN_NAME          - column name (e.g. PAT_ID)
+--   DESCRIPTION          - column description (NULL in Layer B)
+--   COLUMN_INI           - INI code (NULL in Layer B)
+--   COLUMN_ITEM          - Item number (NULL in Layer B)
 
+WITH clarity_documented AS (
+    SELECT
+        TBL.TABLE_NAME,
+        CAST(TBL.TABLE_ID AS VARCHAR(50)) AS TABLE_ID,
+        TBL.TABLE_INTRODUCTION,
+        COL.COLUMN_NAME,
+        COL.DESCRIPTION,
+        INI.COLUMN_INI,
+        INI.COLUMN_ITEM
+    FROM CLARITY.dbo.CLARITY_TBL TBL
+    JOIN CLARITY.dbo.CLARITY_COL COL
+        ON TBL.TABLE_ID = COL.TABLE_ID
+    LEFT JOIN CLARITY.dbo.CLARITY_COL_INIITM INI
+        ON COL.COLUMN_ID = INI.COLUMN_ID
+    WHERE TBL.TABLE_NAME IN (SELECT TABLE_NAME FROM @Tables)
+      AND TBL.TBL_DESCRIPTOR_OVR IS NOT NULL
+)
 SELECT
-    TBL.TABLE_NAME,
-    TBL.TABLE_ID,
-    TBL.TABLE_INTRODUCTION,
-    COL.COLUMN_NAME,
-    COL.DESCRIPTION,
-    INI.COLUMN_INI,
-    INI.COLUMN_ITEM
-FROM CLARITY.dbo.CLARITY_TBL TBL
-JOIN CLARITY.dbo.CLARITY_COL COL
-    ON TBL.TABLE_ID = COL.TABLE_ID
-LEFT JOIN CLARITY.dbo.CLARITY_COL_INIITM INI    -- LEFT so columns without INI/Item still appear
-    ON COL.COLUMN_ID = INI.COLUMN_ID
-WHERE TBL.TABLE_NAME IN (SELECT TABLE_NAME FROM @Tables)
-  AND TBL.TBL_DESCRIPTOR_OVR IS NOT NULL        -- dedup CLARITY_TBL duplicates
-ORDER BY TBL.TABLE_NAME, COL.COLUMN_ID;
+    TABLE_NAME, TABLE_ID, TABLE_INTRODUCTION,
+    COLUMN_NAME, DESCRIPTION, COLUMN_INI, COLUMN_ITEM
+FROM clarity_documented
+
+UNION ALL
+
+-- ============================================================
+-- LAYER B: System catalog fallback for objects not in CLARITY_TBL
+-- ============================================================
+-- Captures any tables/views the @Tables list mentions that Epic
+-- doesn't document in CLARITY_TBL. Common cases: custom Cook Clarity /
+-- Reporting views (V_CCHP_*), org-built reporting views, staging
+-- tables.
+SELECT
+    o.name                AS TABLE_NAME,
+    NULL                  AS TABLE_ID,
+    NULL                  AS TABLE_INTRODUCTION,
+    c.name                AS COLUMN_NAME,
+    NULL                  AS DESCRIPTION,
+    NULL                  AS COLUMN_INI,
+    NULL                  AS COLUMN_ITEM
+FROM sys.objects o
+JOIN sys.columns c
+    ON o.object_id = c.object_id
+WHERE o.type IN ('U', 'V')      -- user table or view
+  AND o.name IN (SELECT TABLE_NAME FROM @Tables)
+  AND NOT EXISTS (
+      SELECT 1
+      FROM CLARITY.dbo.CLARITY_TBL TBL
+      WHERE TBL.TABLE_NAME = o.name
+        AND TBL.TBL_DESCRIPTOR_OVR IS NOT NULL
+  )
+
+ORDER BY TABLE_NAME, COLUMN_NAME;
 
 -- ============================================================
 -- TROUBLESHOOTING
 -- ============================================================
 -- "Invalid object name 'CLARITY.dbo.CLARITY_TBL'":
---    Your Clarity DB might not be named CLARITY or the schema might
---    not be dbo. Try removing the prefix: just CLARITY_TBL etc.
---    Or check with: SELECT name FROM sys.databases;
+--    Your Clarity DB might not be named CLARITY. Try removing the
+--    prefix: just CLARITY_TBL etc. Or check available DBs:
+--    SELECT name FROM sys.databases;
 --
 -- "Invalid column name 'TBL_DESCRIPTOR_OVR'":
---    Clarity version variation. Drop that AND clause -- you may get
---    duplicate rows but csv_to_schema.py will dedupe.
+--    Older Clarity version. Drop that AND clause (you may get duplicate
+--    rows but csv_to_schema.py will dedupe by TABLE_NAME + COLUMN_NAME).
 --
 -- "Invalid column name 'COLUMN_INI'":
---    Some installs use different names (e.g. INI_NAME, ITEM_NUM).
---    Run: SELECT TOP 1 * FROM CLARITY.dbo.CLARITY_COL_INIITM;
---    to see the actual column names, then edit the SELECT list.
+--    Variable across Clarity versions. Run:
+--    SELECT TOP 1 * FROM CLARITY.dbo.CLARITY_COL_INIITM;
+--    to see the actual columns. Common alternatives: INI_NAME, ITEM_NUM.
 --
 -- Result set is empty:
---    Either your @Tables list doesn't match Clarity's TABLE_NAME
---    casing/spelling, OR your account doesn't have SELECT on
---    CLARITY_TBL/COL/COL_INIITM. Check with the simpler diagnostic:
+--    Either @Tables list mismatches Clarity's TABLE_NAME casing, OR
+--    your account lacks SELECT on CLARITY_TBL/COL/INIITM/sys.objects.
+--    Try a simpler diagnostic:
 --    SELECT TOP 5 TABLE_NAME FROM CLARITY.dbo.CLARITY_TBL;
+--    SELECT TOP 5 name FROM sys.objects WHERE type IN ('U','V');
+--
+-- Some views/tables come back in Layer B with NULL descriptions:
+--    Expected -- those aren't documented in CLARITY_TBL. csv_to_schema.py
+--    accepts the NULLs; Tool 3 falls back to mechanical abbreviation
+--    expansion for those, and flags them in `unknown_columns` so you
+--    can see the data-dictionary backlog.

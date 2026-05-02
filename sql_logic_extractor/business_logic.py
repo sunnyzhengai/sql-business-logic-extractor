@@ -375,6 +375,135 @@ def make_llm_client(api_key: Optional[str] = None):
 # Tool 4: Query-level summarisation (engineered + LLM)
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Phase 2 helpers: naturalize engineered business prose without an LLM
+# ---------------------------------------------------------------------------
+
+_INLINE_COMMENT_RE = re.compile(
+    r"(\b\d+\b|'[^']*')\s*/\*\s*([^*]+?)\s*\*/"
+)
+
+
+def _promote_inline_comments(filter_text: str) -> str:
+    """Replace `<literal> /* business label */` with `'<business label>'`.
+
+    Healthcare SQL frequently annotates status codes inline:
+        STATUS_C = 5 /* Denied */
+        COVERAGE_TYPE_C = 2 /* Managed Care */
+    The comments carry the business meaning that the literal codes hide.
+    Substituting the comment as a string literal makes the parsed SQL
+    render naturally ("Status C = 'Denied'" instead of "Status C = 5").
+
+    Falls through unchanged when no `<literal> /* ... */` pattern is found.
+    """
+    def repl(m: re.Match) -> str:
+        comment = m.group(2).strip()
+        # Escape single quotes inside the comment for safe SQL embedding.
+        return "'" + comment.replace("'", "''") + "'"
+    return _INLINE_COMMENT_RE.sub(repl, filter_text)
+
+
+# Currently-effective triplet:
+# `<COL_A> <= today AND <COL_B> >= today OR <COL_B> IS NULL`
+# Catches all Clarity variants: EFF_DATE/TERM_DATE, MEM_EFF_FROM/MEM_EFF_TO,
+# BEN_PLAN_EFF_DATE/BEN_PLAN_TERM_DT. The `\2` backreference enforces the
+# end-date column repeats (the IS NULL branch).
+_EFFECTIVE_TRIPLET_RE = re.compile(
+    r"\b(?!(?:and|or|where|is|not)\b)([A-Z][\w\s]*?)\s*<=\s*today\s+and\s+"
+    r"\b(?!(?:and|or|where|is|not)\b)([A-Z][\w\s]*?)\s*>=\s*today\s+or\s+"
+    r"\2\s+is\s+null"
+)
+
+# Member-coverage variant uses From/To Date wording -- prefer the clearer
+# "currently a covered member" phrasing over "currently effective".
+_MEMBER_COVERED_RE = re.compile(
+    r"\b(?!(?:and|or|where)\b)((?:[A-Z]\w*\s+)*Eff\s+From\s+Date)\s*<=\s*today\s+and\s+"
+    r"((?:[A-Z]\w*\s+)*Eff\s+To\s+Date)\s*>=\s*today\s+or\s+"
+    r"\2\s+is\s+null"
+)
+
+# `<COL> Yn = 'Y'` / `'N'` flag pattern. The negative lookahead prevents
+# the lazy column-name matcher from greedily sweeping in leading conjunctions
+# like "and Mem Covered Yn" -- without it, group 1 would capture "and Mem
+# Covered" and produce "is and mem covered" instead of "and is mem covered".
+_YN_FLAG_Y_RE = re.compile(
+    r"\b(?!(?:and|or|where|is|not)\b)([A-Z][A-Za-z\s]*?)\s*Yn\s*=\s*'Y'"
+)
+_YN_FLAG_N_RE = re.compile(
+    r"\b(?!(?:and|or|where|is|not)\b)([A-Z][A-Za-z\s]*?)\s*Yn\s*=\s*'N'"
+)
+_YN_FLAG_NULL_RE = re.compile(
+    r"\b(?!(?:and|or|where|is|not)\b)([A-Z][A-Za-z\s]*?)\s*Yn\s+is\s+null"
+)
+
+# Trailing "C =" code-column suffix: "Status C = 'Denied'" -> "Status = 'Denied'"
+_CODE_C_SUFFIX_RE = re.compile(r"\b([A-Za-z][A-Za-z\s]*?)\s+C\s*=\s*'", re.IGNORECASE)
+
+
+def _naturalize_english(english: str) -> str:
+    """Apply rule-based smoothing to engineered prose. Each rule targets
+    one common Clarity idiom that the bare pattern library doesn't fold."""
+    s = english
+
+    # Effective-date triplets -> idiomatic English. Member-coverage variant
+    # FIRST -- it's more specific than the generic Eff/Term shape.
+    s = _MEMBER_COVERED_RE.sub("currently a covered member", s)
+    s = _EFFECTIVE_TRIPLET_RE.sub("currently effective", s)
+
+    # _YN flag patterns -> "is <noun>" / "is not <noun>". Cleanups:
+    # - strip leading "Is " (the Translator already added it for IS_X_YN
+    #   columns; otherwise we get "is is valid patient")
+    # - strip trailing " Flag" (so DELETED_FLAG_YN renders as "deleted",
+    #   not "deleted flag")
+    def _yn_clean(col: str) -> str:
+        col = col.strip()
+        col = re.sub(r"^Is\s+", "", col, flags=re.IGNORECASE)
+        col = re.sub(r"\s+Flag$", "", col, flags=re.IGNORECASE)
+        return col.lower()
+    s = _YN_FLAG_Y_RE.sub(lambda m: f"is {_yn_clean(m.group(1))}", s)
+    s = _YN_FLAG_N_RE.sub(lambda m: f"is not {_yn_clean(m.group(1))}", s)
+    s = _YN_FLAG_NULL_RE.sub(lambda m: f"{_yn_clean(m.group(1))} flag is unspecified", s)
+    # Common Clarity idiom: `_YN = 'N' OR _YN IS NULL` -- both branches mean
+    # the same thing. Collapse "is not X or X flag is unspecified" -> "is not X".
+    s = re.sub(r"\bis not (\w[\w\s]*?)\s+or\s+\1\s+flag is unspecified",
+                r"is not \1", s, flags=re.IGNORECASE)
+
+    # Code-column suffix: drop the trailing " C" before "= 'value'".
+    s = _CODE_C_SUFFIX_RE.sub(lambda m: f"{m.group(1)} = '", s)
+
+    # Idiomatic cleanups
+    s = re.sub(r"\bIs Valid Patient\s*=\s*'Y'", "is a valid patient", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bIs\s+(\w+)\s*=\s*'Y'", lambda m: f"is {m.group(1).lower()}", s, flags=re.IGNORECASE)
+
+    # Collapse whitespace introduced by the substitutions.
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+_BUSINESS_KEYWORDS = (
+    "denied", "pending", "active", "valid", "completed", "cancelled",
+    "approved", "expired",
+)
+
+
+def _extract_leading_adjective(business_filters: list[str]) -> str:
+    """Scan the assembled filter prose for known business-slice keywords;
+    return them as a comma-separated leading adjective phrase. Caps at 2 to
+    keep the leading clause readable."""
+    found: list[str] = []
+    blob = " ".join(business_filters).lower()
+    for kw in _BUSINESS_KEYWORDS:
+        if re.search(rf"\b{kw}\b", blob) and kw not in found:
+            found.append(kw)
+        if len(found) >= 2:
+            break
+    if not found:
+        return ""
+    if len(found) == 1:
+        return found[0]
+    return f"{found[0]} or {found[1]}"
+
+
 def summarize_engineered(business_logic, schema: dict | None = None) -> dict:
     """Deterministic query-level summary built from structured signals.
     Healthcare-safe: no LLM, no data exfiltration. Reads as a structured
@@ -460,19 +589,28 @@ def summarize_engineered(business_logic, schema: dict | None = None) -> dict:
     ctx = Context(schema=schema or {})
     business_filters = []
     for f in filter_narratives:
-        english = _walk_fragment(f, ctx).strip()
-        # User-facing rule: business_description must NOT include table names.
-        # _walk_fragment renders EXISTS subqueries as "from <TABLE>, where ..."
-        # -- strip the "from <TABLE>" clause so only the predicate remains.
+        # PHASE 2: promote `/* business label */` comments BEFORE walking,
+        # so STATUS_C = 5 /* Denied */ becomes STATUS_C = 'Denied' which the
+        # pattern library renders cleanly.
+        f_promoted = _promote_inline_comments(f)
+        english = _walk_fragment(f_promoted, ctx).strip()
         # Strip "from <TABLE>," from EXISTS subquery rendering -- the comma
         # is what makes it safe (rules out "Mem Eff From Date" false matches).
         english = re.sub(r"\bfrom\s+[A-Za-z_][A-Za-z0-9_]*\s*,\s*", "", english,
                           flags=re.IGNORECASE)
-        # Collapse "where where" left behind by the strip.
-        english = re.sub(r"\bwhere\s+where\b", "where", english,
-                          flags=re.IGNORECASE)
+        english = re.sub(r"\bwhere\s+where\b", "where", english, flags=re.IGNORECASE)
+        # PHASE 2: naturalize common Clarity idioms (effective-date triplets,
+        # _YN flag patterns, leftover "C =" code-column suffixes).
+        english = _naturalize_english(english)
         if english and english.lower() not in (s.lower() for s in business_filters):
             business_filters.append(english)
+
+    # PHASE 2: promote business-slice keywords (denied/active/valid/pending/
+    # completed) detected in the filters as leading adjectives on the subject.
+    leading_adjective = _extract_leading_adjective(business_filters)
+    if leading_adjective:
+        business_subject = f"{leading_adjective} {business_subject}"
+
     if business_filters:
         business_description = (
             f"{grain_verb} {business_subject}, limited to "

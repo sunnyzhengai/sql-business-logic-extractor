@@ -8,6 +8,7 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
+2026-05-02  commit  95eb7a9 Tool 4: rename query_summary -> technical_description, add business_description  [affected: none — code; engineered business prose strips technical noise via pattern-library + post-processing]
 2026-05-02  commit  6bc4d1a Emit ALL filter predicates verbatim in query_summary  [affected: none — code; engineered Tool 4 summary now keeps the full business slice for no-LLM use]
 2026-05-02  commit  abd6e69 Drop view_file from Tools 1, 2, 4 outputs (parallel to Tool 3 trim)  [affected: none — code; goldens re-baselined]
 2026-05-02  commit  c188568 Slim Tool 3 CSV: drop view_file, base_columns, base_tables  [affected: none — code; goldens re-baselined]

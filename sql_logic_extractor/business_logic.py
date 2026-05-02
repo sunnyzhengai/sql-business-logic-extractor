@@ -554,7 +554,9 @@ def summarize_engineered(business_logic, schema: dict | None = None) -> dict:
             continue
         filter_narratives.append(f)
 
-    # Build the summary paragraph.
+    # Build the technical_description as MULTI-LINE paragraphs (newlines
+    # render as line breaks inside Excel/Sheets cells with text-wrap on,
+    # making the description readable when shared with stakeholders).
     parts = [
         f"{grain}{domain_str}: {n_cols} output column(s) "
         f"sourced from {len(base_tables)} base table(s) ({', '.join(base_tables[:5])}"
@@ -562,16 +564,13 @@ def summarize_engineered(business_logic, schema: dict | None = None) -> dict:
     ]
     if metrics:
         parts.append(
-            f"Computed columns: {', '.join(metrics[:5])}"
-            f"{f' and {len(metrics)-5} more' if len(metrics) > 5 else ''}."
+            f"Computed columns:\n  - " + "\n  - ".join(metrics[:5])
+            + (f"\n  - and {len(metrics)-5} more" if len(metrics) > 5 else "")
         )
     if filter_narratives:
-        # Emit ALL filter predicates verbatim -- this is the most important
-        # signal for users reviewing the query's business slice. Joined
-        # with "; " so each predicate stays visually distinct.
-        parts.append("Constrained by: " + "; ".join(filter_narratives) + ".")
+        parts.append("Constrained by:\n  - " + "\n  - ".join(filter_narratives))
 
-    technical = " ".join(parts)
+    technical = "\n\n".join(parts)
     purpose = grain + domain_str if domain_str else grain
 
     # ---- business_description: no technical terms, no table/column codes,
@@ -611,10 +610,14 @@ def summarize_engineered(business_logic, schema: dict | None = None) -> dict:
     if leading_adjective:
         business_subject = f"{leading_adjective} {business_subject}"
 
+    # business_description as multi-line paragraphs: a lead sentence
+    # followed by a bulleted list of constraints. Renders cleanly in
+    # Excel/Sheets and email clients with cell wrapping enabled.
     if business_filters:
         business_description = (
-            f"{grain_verb} {business_subject}, limited to "
-            + "; ".join(business_filters) + "."
+            f"{grain_verb} {business_subject}.\n\n"
+            "Limited to:\n  - "
+            + "\n  - ".join(business_filters)
         )
     else:
         business_description = f"{grain_verb} {business_subject}."

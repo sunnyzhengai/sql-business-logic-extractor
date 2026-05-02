@@ -45,10 +45,31 @@ REQUIRED_COLUMNS = {
 }
 
 
+def _detect_encoding(csv_path: str) -> str:
+    """SSMS exports CSVs as UTF-16 LE w/ BOM by default. Excel saves as
+    cp1252. Cell-script downloads sometimes are clean UTF-8. Sniff the
+    first few bytes and pick the right decoder."""
+    with open(csv_path, "rb") as f:
+        head = f.read(4)
+    if head.startswith(b"\xff\xfe") or head.startswith(b"\xfe\xff"):
+        return "utf-16"
+    if head.startswith(b"\xef\xbb\xbf"):
+        return "utf-8-sig"
+    # Try utf-8 first; fall through to cp1252 if it fails.
+    try:
+        with open(csv_path, "r", encoding="utf-8") as f:
+            f.read(4096)
+        return "utf-8"
+    except UnicodeDecodeError:
+        return "cp1252"
+
+
 def csv_to_schema(csv_path: str, out_path: str) -> None:
     tables: "OrderedDict[str, dict]" = OrderedDict()
 
-    with open(csv_path, newline="", encoding="utf-8-sig") as f:
+    encoding = _detect_encoding(csv_path)
+    print(f"Reading {csv_path} as {encoding}")
+    with open(csv_path, newline="", encoding=encoding) as f:
         reader = csv.DictReader(f)
         missing = REQUIRED_COLUMNS - set(reader.fieldnames or [])
         if missing:

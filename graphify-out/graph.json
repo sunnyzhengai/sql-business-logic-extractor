@@ -3643,7 +3643,7 @@
       "label": "summarize_llm()",
       "file_type": "code",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
-      "source_location": "L650",
+      "source_location": "L653",
       "id": "business_logic_summarize_llm",
       "community": 14,
       "norm_label": "summarize_llm()"
@@ -3752,43 +3752,43 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L388",
-      "id": "business_logic_rationale_388",
       "community": 14,
-      "norm_label": "replace `<literal> /* business label */` with `'<business label>'`.      healthc"
+      "norm_label": "replace `<literal> /* business label */` with `'<business label>'`.      healthc",
+      "id": "business_logic_rationale_388"
     },
     {
       "label": "Apply rule-based smoothing to engineered prose. Each rule targets     one common",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L444",
-      "id": "business_logic_rationale_444",
       "community": 14,
-      "norm_label": "apply rule-based smoothing to engineered prose. each rule targets     one common"
+      "norm_label": "apply rule-based smoothing to engineered prose. each rule targets     one common",
+      "id": "business_logic_rationale_444"
     },
     {
       "label": "Scan the assembled filter prose for known business-slice keywords;     return th",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L490",
-      "id": "business_logic_rationale_490",
       "community": 14,
-      "norm_label": "scan the assembled filter prose for known business-slice keywords;     return th"
+      "norm_label": "scan the assembled filter prose for known business-slice keywords;     return th",
+      "id": "business_logic_rationale_490"
     },
     {
       "label": "Deterministic query-level summary built from structured signals.     Healthcare-",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L508",
-      "id": "business_logic_rationale_508",
       "community": 14,
-      "norm_label": "deterministic query-level summary built from structured signals.     healthcare-"
+      "norm_label": "deterministic query-level summary built from structured signals.     healthcare-",
+      "id": "business_logic_rationale_508"
     },
     {
       "label": "LLM-backed query-level summary. Lazy-imports the client library.",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
-      "source_location": "L651",
-      "id": "business_logic_rationale_651",
+      "source_location": "L654",
+      "id": "business_logic_rationale_654",
       "community": 14,
       "norm_label": "llm-backed query-level summary. lazy-imports the client library."
     },
@@ -10642,11 +10642,20 @@
       "id": "run_all_tools_fabric_rationale_1"
     },
     {
+      "label": "LLM-backed query-level summary. Lazy-imports the client library.",
+      "file_type": "rationale",
+      "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
+      "source_location": "L651",
+      "community": 31,
+      "norm_label": "llm-backed query-level summary. lazy-imports the client library.",
+      "id": "business_logic_rationale_651"
+    },
+    {
       "label": "Deterministic query-level summary built from structured signals.     Healthcare-",
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L379",
-      "community": 31,
+      "community": 32,
       "norm_label": "deterministic query-level summary built from structured signals.     healthcare-",
       "id": "business_logic_rationale_379"
     },
@@ -10655,7 +10664,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L513",
-      "community": 32,
+      "community": 33,
       "norm_label": "llm-backed query-level summary. lazy-imports the client library.",
       "id": "business_logic_rationale_513"
     },
@@ -10664,7 +10673,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/batch_all.py",
       "source_location": "L76",
-      "community": 33,
+      "community": 34,
       "norm_label": "when a view fails to parse / resolve, emit a single error row in     each tool's",
       "id": "batch_all_rationale_76"
     },
@@ -10673,7 +10682,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/batch_all.py",
       "source_location": "L100",
-      "community": 34,
+      "community": 35,
       "norm_label": "run the engine once per view, shape rows for all four tools.      returns a dict",
       "id": "batch_all_rationale_100"
     },
@@ -10682,7 +10691,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/report_description_generator/batch.py",
       "source_location": "L66",
-      "community": 35,
+      "community": 36,
       "norm_label": "run tool 4 on one view; return one csv row.",
       "id": "batch_rationale_66"
     },
@@ -10691,7 +10700,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L116",
-      "community": 36,
+      "community": 37,
       "norm_label": "sqlglot's `catalog` is the sql server database; `db` is the schema.",
       "id": "products_rationale_116"
     },
@@ -10700,7 +10709,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L125",
-      "community": 37,
+      "community": 38,
       "norm_label": "ungated core for tool 1. tool 2's core calls this directly.",
       "id": "products_rationale_125"
     },
@@ -10709,7 +10718,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L192",
-      "community": 38,
+      "community": 39,
       "norm_label": "tool 1 -- enumerate every (database, schema, table, column) the sql     referenc",
       "id": "products_rationale_192"
     },
@@ -10718,7 +10727,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L204",
-      "community": 39,
+      "community": 40,
       "norm_label": "ungated core for tool 2. tool 3's core calls this directly.",
       "id": "products_rationale_204"
     },
@@ -10727,7 +10736,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L227",
-      "community": 40,
+      "community": 41,
       "norm_label": "tool 2 -- per-output-column lineage with where/join/exists filter     propagatio",
       "id": "products_rationale_227"
     },
@@ -10736,7 +10745,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L239",
-      "community": 41,
+      "community": 42,
       "norm_label": "pattern-library translator -- pure deterministic logic, no llm.      todo (may w",
       "id": "products_rationale_239"
     },
@@ -10745,7 +10754,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L253",
-      "community": 42,
+      "community": 43,
       "norm_label": "llm-backed translator. lazy-imports the client lib inside the call     so a no-l",
       "id": "products_rationale_253"
     },
@@ -10754,7 +10763,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L271",
-      "community": 43,
+      "community": 44,
       "norm_label": "ungated core for tool 3. tool 4's core calls this directly.",
       "id": "products_rationale_271"
     },
@@ -10763,7 +10772,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L285",
-      "community": 44,
+      "community": 45,
       "norm_label": "tool 3 -- english business definition for each transformed column.     `use_llm=",
       "id": "products_rationale_285"
     },
@@ -10772,7 +10781,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L301",
-      "community": 45,
+      "community": 46,
       "norm_label": "deterministic report summary built from the structured signals.      todo (may w",
       "id": "products_rationale_301"
     },
@@ -10781,7 +10790,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L308",
-      "community": 46,
+      "community": 47,
       "norm_label": "llm-backed report summary. lazy-imports google.genai inside the call     so a no",
       "id": "products_rationale_308"
     },
@@ -10790,7 +10799,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L321",
-      "community": 47,
+      "community": 48,
       "norm_label": "ungated core for tool 4.",
       "id": "products_rationale_321"
     },
@@ -10799,7 +10808,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L337",
-      "community": 48,
+      "community": 49,
       "norm_label": "tool 4 -- natural-language description of what the sql report does.     `use_llm",
       "id": "products_rationale_337"
     },
@@ -10808,7 +10817,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L472",
-      "community": 49,
+      "community": 50,
       "norm_label": "llm-backed query-level summary. lazy-imports the client library.",
       "id": "business_logic_rationale_472"
     },
@@ -10817,7 +10826,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L474",
-      "community": 50,
+      "community": 51,
       "norm_label": "llm-backed query-level summary. lazy-imports the client library.",
       "id": "business_logic_rationale_474"
     },
@@ -10826,7 +10835,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/batch.py",
       "source_location": "L101",
-      "community": 51,
+      "community": 52,
       "norm_label": "run tool 2 on one file, shape into transformation rows. skip     truly-trivial p",
       "id": "batch_rationale_101"
     },
@@ -10835,7 +10844,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/column_lineage_extractor/batch.py",
       "source_location": "L94",
-      "community": 52,
+      "community": 53,
       "norm_label": "run tool 1 on one file, shape the output for the manifest csv.",
       "id": "batch_rationale_94"
     },
@@ -10844,7 +10853,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/column_lineage_extractor/batch.py",
       "source_location": "L119",
-      "community": 53,
+      "community": 54,
       "norm_label": "run tool 1 on one file, shape the output for the manifest csv.",
       "id": "batch_rationale_119"
     },
@@ -10853,7 +10862,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/batch.py",
       "source_location": "L36",
-      "community": 54,
+      "community": 55,
       "norm_label": "read sql handling ssms's default utf-16 le bom and other encodings.",
       "id": "batch_rationale_36"
     },
@@ -10862,7 +10871,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/business_logic_extractor/batch.py",
       "source_location": "L52",
-      "community": 55,
+      "community": 56,
       "norm_label": "shape a businesslogic into business-logic rows. used by     _process_view and to",
       "id": "batch_rationale_52"
     },
@@ -10871,7 +10880,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/business_logic_extractor/batch.py",
       "source_location": "L102",
-      "community": 56,
+      "community": 57,
       "norm_label": "folder mode entry point. returns 0 on success, 1 on usage error.",
       "id": "batch_rationale_102"
     },
@@ -10880,7 +10889,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/data/schemas/csv_to_schema.py",
       "source_location": "L49",
-      "community": 57,
+      "community": 58,
       "norm_label": "ssms exports csvs as utf-16 le w/ bom by default. excel saves as     cp1252. cel",
       "id": "csv_to_schema_rationale_49"
     },
@@ -10925,7 +10934,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/batch.py",
       "source_location": "L58",
-      "community": 58,
+      "community": 59,
       "norm_label": "run tool 2 on one file, shape into transformation rows. skip     truly-trivial p",
       "id": "batch_rationale_58"
     },
@@ -10934,7 +10943,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/business_logic_extractor/batch.py",
       "source_location": "L96",
-      "community": 59,
+      "community": 60,
       "norm_label": "folder mode entry point. returns 0 on success, 1 on usage error.",
       "id": "batch_rationale_96"
     },
@@ -10943,7 +10952,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/tools/technical_logic_extractor/batch.py",
       "source_location": "L57",
-      "community": 60,
+      "community": 61,
       "norm_label": "run tool 2 on one file, shape into transformation rows. skip     truly-trivial p",
       "id": "batch_rationale_57"
     },
@@ -10952,7 +10961,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L322",
-      "community": 61,
+      "community": 62,
       "norm_label": "deterministic query-level summary built from structured signals.     healthcare-",
       "id": "business_logic_rationale_322"
     },
@@ -10961,7 +10970,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
       "source_location": "L417",
-      "community": 62,
+      "community": 63,
       "norm_label": "llm-backed query-level summary. lazy-imports the client library.",
       "id": "business_logic_rationale_417"
     },
@@ -10970,7 +10979,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L322",
-      "community": 63,
+      "community": 64,
       "norm_label": "llm-backed summary. lazy-imports the client lib.      todo (may week 4): port do",
       "id": "products_rationale_322"
     },
@@ -10979,7 +10988,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L335",
-      "community": 64,
+      "community": 65,
       "norm_label": "ungated core for tool 4.",
       "id": "products_rationale_335"
     },
@@ -10988,7 +10997,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L351",
-      "community": 65,
+      "community": 66,
       "norm_label": "tool 4 -- natural-language description of what the sql report does.     `use_llm",
       "id": "products_rationale_351"
     },
@@ -10997,7 +11006,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L258",
-      "community": 66,
+      "community": 67,
       "norm_label": "llm-backed translator. lazy-imports the client lib so a no-llm     install doesn",
       "id": "products_rationale_258"
     },
@@ -11006,7 +11015,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L275",
-      "community": 67,
+      "community": 68,
       "norm_label": "ungated core for tool 3. tool 4's core calls this directly.",
       "id": "products_rationale_275"
     },
@@ -11015,7 +11024,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L289",
-      "community": 68,
+      "community": 69,
       "norm_label": "tool 3 -- english business definition for each transformed column.     `use_llm=",
       "id": "products_rationale_289"
     },
@@ -11024,7 +11033,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L305",
-      "community": 69,
+      "community": 70,
       "norm_label": "deterministic report summary built from the structured signals.      todo (may w",
       "id": "products_rationale_305"
     },
@@ -11033,7 +11042,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L326",
-      "community": 70,
+      "community": 71,
       "norm_label": "llm-backed summary. lazy-imports the client lib.      todo (may week 4): port cl",
       "id": "products_rationale_326"
     },
@@ -11042,7 +11051,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L339",
-      "community": 71,
+      "community": 72,
       "norm_label": "ungated core for tool 4.",
       "id": "products_rationale_339"
     },
@@ -11051,7 +11060,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L355",
-      "community": 72,
+      "community": 73,
       "norm_label": "tool 4 -- natural-language description of what the sql report does.     `use_llm",
       "id": "products_rationale_355"
     },
@@ -11060,7 +11069,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/tests/run_tests.py",
       "source_location": "L41",
-      "community": 73,
+      "community": 74,
       "norm_label": "re-encode the ssms marker sql as utf-16 le with a bom in /tmp so the     runner",
       "id": "run_tests_rationale_41"
     },
@@ -11069,7 +11078,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L168",
-      "community": 74,
+      "community": 75,
       "norm_label": "tool 1 -- enumerate every (database, schema, table, column) the sql     referenc",
       "id": "products_rationale_168"
     },
@@ -11078,7 +11087,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L180",
-      "community": 75,
+      "community": 76,
       "norm_label": "ungated core for tool 2. tool 3's core calls this directly.",
       "id": "products_rationale_180"
     },
@@ -11087,7 +11096,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L203",
-      "community": 76,
+      "community": 77,
       "norm_label": "tool 2 -- per-output-column lineage with where/join/exists filter     propagatio",
       "id": "products_rationale_203"
     },
@@ -11096,7 +11105,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L215",
-      "community": 77,
+      "community": 78,
       "norm_label": "pattern-library translator -- pure deterministic logic, no llm.      todo (may w",
       "id": "products_rationale_215"
     },
@@ -11105,7 +11114,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L234",
-      "community": 78,
+      "community": 79,
       "norm_label": "llm-backed translator. lazy-imports the client lib so a no-llm     install doesn",
       "id": "products_rationale_234"
     },
@@ -11114,7 +11123,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L251",
-      "community": 79,
+      "community": 80,
       "norm_label": "ungated core for tool 3. tool 4's core calls this directly.",
       "id": "products_rationale_251"
     },
@@ -11123,7 +11132,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L265",
-      "community": 80,
+      "community": 81,
       "norm_label": "tool 3 -- english business definition for each transformed column.     `use_llm=",
       "id": "products_rationale_265"
     },
@@ -11132,7 +11141,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L281",
-      "community": 81,
+      "community": 82,
       "norm_label": "deterministic report summary built from the structured signals.      todo (may w",
       "id": "products_rationale_281"
     },
@@ -11141,7 +11150,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L315",
-      "community": 82,
+      "community": 83,
       "norm_label": "ungated core for tool 4.",
       "id": "products_rationale_315"
     },
@@ -11150,7 +11159,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/products.py",
       "source_location": "L331",
-      "community": 83,
+      "community": 84,
       "norm_label": "tool 4 -- natural-language description of what the sql report does.     `use_llm",
       "id": "products_rationale_331"
     },
@@ -11204,7 +11213,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L1",
-      "community": 84,
+      "community": 85,
       "norm_label": "extract transformed (non-passthrough) columns from a folder of sql views.  singl",
       "id": "extract_transformations_standalone_rationale_1"
     },
@@ -11213,7 +11222,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L63",
-      "community": 85,
+      "community": 86,
       "norm_label": "read a sql file, handling ssms's default utf-16 le bom.",
       "id": "extract_transformations_standalone_rationale_63"
     },
@@ -11222,7 +11231,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L105",
-      "community": 86,
+      "community": 87,
       "norm_label": "return a short label describing the transformation in this expression.     retur",
       "id": "extract_transformations_standalone_rationale_105"
     },
@@ -11231,7 +11240,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L138",
-      "community": 87,
+      "community": 88,
       "norm_label": "find the top-level select inside a parsed create view (or bare select).",
       "id": "extract_transformations_standalone_rationale_138"
     },
@@ -11240,7 +11249,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L149",
-      "community": 88,
+      "community": 89,
       "norm_label": "render a node's sql for the csv, collapsing whitespace and truncating     if abs",
       "id": "extract_transformations_standalone_rationale_149"
     },
@@ -11249,7 +11258,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/extract_transformations_standalone.py",
       "source_location": "L159",
-      "community": 89,
+      "community": 90,
       "norm_label": "parse one view; return a list of csv rows, one per transformed column.",
       "id": "extract_transformations_standalone_rationale_159"
     },
@@ -11258,7 +11267,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L41",
-      "community": 90,
+      "community": 91,
       "norm_label": "remove use / go / set-option statements and header block comments that     ssms",
       "id": "build_manifest_standalone_rationale_41"
     },
@@ -11267,7 +11276,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L54",
-      "community": 91,
+      "community": 92,
       "norm_label": "(database, schema, table) for a sqlglot table node. in sqlglot's mysql-     root",
       "id": "build_manifest_standalone_rationale_54"
     },
@@ -11276,7 +11285,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L64",
-      "community": 92,
+      "community": 93,
       "norm_label": "{alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia",
       "id": "build_manifest_standalone_rationale_64"
     },
@@ -11285,7 +11294,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L82",
-      "community": 93,
+      "community": 94,
       "norm_label": "for each cte, qualify its body separately and emit:         {(cte_alias_lower, c",
       "id": "build_manifest_standalone_rationale_82"
     },
@@ -11294,7 +11303,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L159",
-      "community": 94,
+      "community": 95,
       "norm_label": "parse one view file \u2192 list of manifest rows. importable for per-file     use in",
       "id": "build_manifest_standalone_rationale_159"
     },
@@ -11303,7 +11312,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L337",
-      "community": 95,
+      "community": 96,
       "norm_label": "notebook-callable entry point. walks input_dir for *.sql files, parses     each,",
       "id": "build_manifest_standalone_rationale_337"
     },
@@ -11312,7 +11321,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L287",
-      "community": 96,
+      "community": 97,
       "norm_label": "notebook-callable entry point. walks input_dir for *.sql files, parses     each,",
       "id": "build_manifest_standalone_rationale_287"
     },
@@ -11321,7 +11330,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L12",
-      "community": 97,
+      "community": 98,
       "norm_label": "(database, schema, table) for a sqlglot table node. in sqlglot's mysql-     root",
       "id": "build_manifest_standalone_rationale_12"
     },
@@ -11330,7 +11339,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L22",
-      "community": 98,
+      "community": 99,
       "norm_label": "{alias_or_name (lowercased): (db, schema, table)} so we can resolve any     alia",
       "id": "build_manifest_standalone_rationale_22"
     },
@@ -11339,7 +11348,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L40",
-      "community": 99,
+      "community": 100,
       "norm_label": "for each cte, qualify its body separately and emit:         {(cte_alias_lower, c",
       "id": "build_manifest_standalone_rationale_40"
     },
@@ -11348,7 +11357,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L117",
-      "community": 100,
+      "community": 101,
       "norm_label": "parse one view file \u2192 list of manifest rows. importable for per-file     use in",
       "id": "build_manifest_standalone_rationale_117"
     },
@@ -11357,7 +11366,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/view-migration/scripts/build_manifest_standalone.py",
       "source_location": "L242",
-      "community": 101,
+      "community": 102,
       "norm_label": "notebook-callable entry point. walks input_dir for *.sql files, parses     each,",
       "id": "build_manifest_standalone_rationale_242"
     },
@@ -11366,7 +11375,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L237",
-      "community": 102,
+      "community": 103,
       "norm_label": "true if the filter is a bare `column = column` relational key, not a row-restric",
       "id": "offline_translate_rationale_237"
     },
@@ -11375,7 +11384,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L248",
-      "community": 103,
+      "community": 104,
       "norm_label": "parse and re-emit with table qualifiers stripped, for dedup purposes.",
       "id": "offline_translate_rationale_248"
     },
@@ -11384,7 +11393,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L259",
-      "community": 104,
+      "community": 105,
       "norm_label": "drop correlation keys and collapse filters that differ only in alias qualifiers.",
       "id": "offline_translate_rationale_259"
     },
@@ -11393,7 +11402,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L21",
-      "community": 105,
+      "community": 106,
       "norm_label": "load and index the clarity_schema.yaml for fast lookup.      returns:         {",
       "id": "llm_translate_rationale_21"
     },
@@ -11402,7 +11411,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L63",
-      "community": 106,
+      "community": 107,
       "norm_label": "get description for a table.",
       "id": "llm_translate_rationale_63"
     },
@@ -11411,7 +11420,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L71",
-      "community": 107,
+      "community": 108,
       "norm_label": "get description for a column.",
       "id": "llm_translate_rationale_71"
     },
@@ -11420,7 +11429,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L80",
-      "community": 108,
+      "community": 109,
       "norm_label": "get enum value mappings for a zc_ table.",
       "id": "llm_translate_rationale_80"
     },
@@ -11429,7 +11438,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L86",
-      "community": 109,
+      "community": 110,
       "norm_label": "build context string for a single resolved column.      args:         resolved_c",
       "id": "llm_translate_rationale_86"
     },
@@ -11438,7 +11447,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L162",
-      "community": 110,
+      "community": 111,
       "norm_label": "translate a single resolved column to english using llm.      args:         reso",
       "id": "llm_translate_rationale_162"
     },
@@ -11447,7 +11456,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L242",
-      "community": 111,
+      "community": 112,
       "norm_label": "generate a summary of the entire sql query based on column definitions.      arg",
       "id": "llm_translate_rationale_242"
     },
@@ -11456,7 +11465,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L331",
-      "community": 112,
+      "community": 113,
       "norm_label": "translate all columns in an l5 output file to english and generate query summary",
       "id": "llm_translate_rationale_331"
     },
@@ -11465,7 +11474,7 @@
       "file_type": "rationale",
       "source_file": "llm_translate.py",
       "source_location": "L380",
-      "community": 113,
+      "community": 114,
       "norm_label": "format translation results for output.      args:         results: dict with 'su",
       "id": "llm_translate_rationale_380"
     },
@@ -11474,7 +11483,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/run_query.py",
       "source_location": "L28",
-      "community": 114,
+      "community": 115,
       "norm_label": "use the package form when available (repo dev); otherwise the flat form (work la",
       "id": "run_query_rationale_28"
     },
@@ -11483,7 +11492,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L164",
-      "community": 115,
+      "community": 116,
       "norm_label": "parse a bare sql fragment (not wrapped in select) and translate.",
       "id": "offline_translate_rationale_164"
     },
@@ -11699,7 +11708,7 @@
       "file_type": "rationale",
       "source_file": "sql_logic_extractor/extract.py",
       "source_location": "L642",
-      "community": 116,
+      "community": 117,
       "norm_label": "convert dataclass tree to plain dict, filtering empty fields.",
       "id": "extract_rationale_642"
     },
@@ -11708,7 +11717,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L37",
-      "community": 117,
+      "community": 118,
       "norm_label": "load clarity_schema.yaml as the raw dict. the pattern library builds     its own",
       "id": "offline_translate_rationale_37"
     },
@@ -11717,7 +11726,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L57",
-      "community": 118,
+      "community": 119,
       "norm_label": "classify the business domain based on column name, expression, and base tables.",
       "id": "offline_translate_rationale_57"
     },
@@ -11726,7 +11735,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L107",
-      "community": 119,
+      "community": 120,
       "norm_label": "parse a resolved sql expression and walk it with the pattern registry.      fall",
       "id": "offline_translate_rationale_107"
     },
@@ -11735,7 +11744,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L133",
-      "community": 120,
+      "community": 121,
       "norm_label": "translate l3 filter predicates by walking each with the registry.      distingui",
       "id": "offline_translate_rationale_133"
     },
@@ -11744,7 +11753,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L161",
-      "community": 121,
+      "community": 122,
       "norm_label": "parse a bare sql fragment (not wrapped in select) and translate.",
       "id": "offline_translate_rationale_161"
     },
@@ -11753,7 +11762,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L48",
-      "community": 122,
+      "community": 123,
       "norm_label": "classify the business domain based on column name, expression, and base tables.",
       "id": "offline_translate_rationale_48"
     },
@@ -11762,7 +11771,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L98",
-      "community": 123,
+      "community": 124,
       "norm_label": "parse a resolved sql expression and walk it with the pattern registry.      fall",
       "id": "offline_translate_rationale_98"
     },
@@ -11771,7 +11780,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L124",
-      "community": 124,
+      "community": 125,
       "norm_label": "translate l3 filter predicates by walking each with the registry.      distingui",
       "id": "offline_translate_rationale_124"
     },
@@ -11780,7 +11789,7 @@
       "file_type": "rationale",
       "source_file": "/Users/admin/sql-logic-extractor/offline_translate.py",
       "source_location": "L152",
-      "community": 125,
+      "community": 126,
       "norm_label": "parse a bare sql fragment (not wrapped in select) and translate.",
       "id": "offline_translate_rationale_152"
     },
@@ -11798,7 +11807,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L29",
-      "community": 126,
+      "community": 127,
       "norm_label": "load and index the clarity_schema.yaml for fast lookup.",
       "id": "offline_translate_rationale_29"
     },
@@ -11807,7 +11816,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L137",
-      "community": 127,
+      "community": 128,
       "norm_label": "expand common abbreviations in column/table names.",
       "id": "offline_translate_rationale_137"
     },
@@ -11816,7 +11825,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L153",
-      "community": 128,
+      "community": 129,
       "norm_label": "get description for a column, fall back to abbreviation expansion.",
       "id": "offline_translate_rationale_153"
     },
@@ -11825,7 +11834,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L169",
-      "community": 129,
+      "community": 130,
       "norm_label": "get enum value name from zc_ table.",
       "id": "offline_translate_rationale_169"
     },
@@ -11834,7 +11843,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L181",
-      "community": 130,
+      "community": 131,
       "norm_label": "translate datediff expressions.",
       "id": "offline_translate_rationale_181"
     },
@@ -11843,7 +11852,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L217",
-      "community": 131,
+      "community": 132,
       "norm_label": "translate case expressions.",
       "id": "offline_translate_rationale_217"
     },
@@ -11852,7 +11861,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L229",
-      "community": 132,
+      "community": 133,
       "norm_label": "translate aggregate functions (sum, avg, count, etc.).",
       "id": "offline_translate_rationale_229"
     },
@@ -11861,7 +11870,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L258",
-      "community": 133,
+      "community": 134,
       "norm_label": "translate window functions (row_number, rank, lag, etc.).",
       "id": "offline_translate_rationale_258"
     },
@@ -11870,7 +11879,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L285",
-      "community": 134,
+      "community": 135,
       "norm_label": "get a human-readable description for a column reference.",
       "id": "offline_translate_rationale_285"
     },
@@ -11879,7 +11888,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L311",
-      "community": 135,
+      "community": 136,
       "norm_label": "classify the business domain based on column name and context.",
       "id": "offline_translate_rationale_311"
     },
@@ -11888,7 +11897,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L352",
-      "community": 136,
+      "community": 137,
       "norm_label": "translate a sql expression to plain english.",
       "id": "offline_translate_rationale_352"
     },
@@ -11897,7 +11906,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L413",
-      "community": 137,
+      "community": 138,
       "norm_label": "translate filter conditions to plain english.",
       "id": "offline_translate_rationale_413"
     },
@@ -11906,7 +11915,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L449",
-      "community": 138,
+      "community": 139,
       "norm_label": "translate a single resolved column to english using templates.",
       "id": "offline_translate_rationale_449"
     },
@@ -11915,7 +11924,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L487",
-      "community": 139,
+      "community": 140,
       "norm_label": "generate a summary of the entire sql query.",
       "id": "offline_translate_rationale_487"
     },
@@ -11924,7 +11933,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L544",
-      "community": 140,
+      "community": 141,
       "norm_label": "translate all columns in an l3 output file to english.      this is the main ent",
       "id": "offline_translate_rationale_544"
     },
@@ -11933,7 +11942,7 @@
       "file_type": "rationale",
       "source_file": "offline_translate.py",
       "source_location": "L577",
-      "community": 141,
+      "community": 142,
       "norm_label": "format translation results for output.",
       "id": "offline_translate_rationale_577"
     }
@@ -28767,7 +28776,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
-      "source_location": "L650",
+      "source_location": "L653",
       "weight": 1.0,
       "_src": "users_admin_sql_logic_extractor_sql_logic_extractor_business_logic_py",
       "_tgt": "business_logic_summarize_llm",
@@ -28899,7 +28908,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
-      "source_location": "L596",
+      "source_location": "L595",
       "weight": 1.0,
       "_src": "business_logic_summarize_engineered",
       "_tgt": "business_logic_walk_fragment",
@@ -29127,7 +29136,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
-      "source_location": "L595",
+      "source_location": "L594",
       "weight": 1.0,
       "_src": "business_logic_summarize_engineered",
       "_tgt": "business_logic_promote_inline_comments",
@@ -29151,7 +29160,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
-      "source_location": "L604",
+      "source_location": "L603",
       "weight": 1.0,
       "_src": "business_logic_summarize_engineered",
       "_tgt": "business_logic_naturalize_english",
@@ -29175,7 +29184,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
-      "source_location": "L610",
+      "source_location": "L609",
       "weight": 1.0,
       "_src": "business_logic_summarize_engineered",
       "_tgt": "business_logic_extract_leading_adjective",
@@ -29223,12 +29232,12 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "/Users/admin/sql-logic-extractor/sql_logic_extractor/business_logic.py",
-      "source_location": "L651",
+      "source_location": "L654",
       "weight": 1.0,
-      "_src": "business_logic_rationale_651",
+      "_src": "business_logic_rationale_654",
       "_tgt": "business_logic_summarize_llm",
       "source": "business_logic_summarize_llm",
-      "target": "business_logic_rationale_651",
+      "target": "business_logic_rationale_654",
       "confidence_score": 1.0
     },
     {

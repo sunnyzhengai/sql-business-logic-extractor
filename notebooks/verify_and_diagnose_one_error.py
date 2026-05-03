@@ -111,23 +111,35 @@ else:
         except Exception:
             text = raw.decode('utf-16-le', errors='replace')
 
-        # Stage 1: which rules fire?
-        _, fired = apply_all(text)
-        print(f"Text rules fired: {fired or '(none)'}")
-
-        # Stage 2: full preprocess
-        clean, _ = preprocess_ssms(text)
-        print(f"\nFirst 8 lines of cleaned SQL (literals -> '***', numbers -> N):")
-
         def _redact(s: str) -> str:
             s = re.sub(r"'(?:[^']|'')*'", "'***'", s)
             s = re.sub(r"\b\d+\b", "N", s)
             return s
 
-        for i, line in enumerate(clean.splitlines()[:8], 1):
+        # Stage 1: RAW SQL (so we see what preprocess_ssms is starting from).
+        print("--- RAW SQL (first 20 lines, redacted) ---")
+        for i, line in enumerate(text.splitlines()[:20], 1):
             print(f"  {i:3}: {_redact(line)}")
 
-        # Stage 3: parse attempt
+        # Stage 2: which rules fire?
+        _, fired = apply_all(text)
+        print(f"\nText rules fired: {fired or '(none)'}")
+
+        # Stage 3: full preprocess + cleaned-SQL output
+        clean, _ = preprocess_ssms(text)
+        cleaned_lines = clean.splitlines()
+        print(f"\n--- CLEANED SQL (post preprocess_ssms): "
+              f"{len(cleaned_lines)} lines, {len(clean)} chars ---")
+        if not clean.strip():
+            print("  (EMPTY -- preprocess_ssms dropped everything. The line-by-")
+            print("   line code never found a 'body start' anchor: CREATE VIEW")
+            print("   line didn't match the engine's create-match regex AND no")
+            print("   line began with SELECT or WITH at column 0.)")
+        else:
+            for i, line in enumerate(cleaned_lines[:20], 1):
+                print(f"  {i:3}: {_redact(line)}")
+
+        # Stage 4: parse attempt
         print()
         try:
             sqlglot.parse_one(clean, dialect='tsql')

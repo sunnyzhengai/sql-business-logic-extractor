@@ -142,6 +142,26 @@ else:
         if not anchor_hits:
             print("  (NONE -- this view has no CREATE/SELECT/WITH/standalone AS")
             print("   line. preprocess_ssms drops the whole file as a result.)")
+            # Hidden-character dump: scan for lines that LOOK like they should
+            # be anchors (contain CREATE/SELECT/WITH/AS as substrings, even if
+            # the full anchor regex didn't match) and print their character
+            # codes. Catches BOMs, non-breaking spaces, zero-width chars, and
+            # other invisible junk that prevents the anchor match.
+            print("\n  Hidden-character dump for suspected anchor lines:")
+            keywords = ("CREATE", "SELECT", "WITH ", "FROM ", "  AS ", " AS\n")
+            shown = 0
+            for i, line in enumerate(all_lines, 1):
+                line_upper = line.upper()
+                if any(kw in line_upper for kw in keywords):
+                    codes = " ".join(f"U+{ord(c):04X}" for c in line[:20])
+                    print(f"    L{i:>4} repr: {line[:80]!r}")
+                    print(f"           codes (first 20 chars): {codes}")
+                    shown += 1
+                    if shown >= 5:
+                        break
+            if shown == 0:
+                print("    (no line contains any SQL keyword -- file is genuinely")
+                print("     not SQL. Probably mangled by the export pipeline.)")
 
         # Stage 2: which rules fire?
         _, fired = apply_all(text)

@@ -73,6 +73,41 @@ def test_rule_output_parses_with_sqlglot(rule_id):
         pytest.fail(f"post-rule SQL still doesn't parse: {e}")
 
 
+def test_create_view_rule_handles_bracketed_names_with_spaces():
+    """Regression: T-SQL `[Schema With Space].[Name With Slash/Stuff]`
+    style identifiers used to slip past the rule (the old `[\\w]+`
+    character class didn't allow spaces inside brackets), causing the
+    view to fail with 'Required keyword: this missing for Alias'."""
+    sql = (
+        "CREATE VIEW [Schema With Space].[Name With Slash/Stuff]\n"
+        "(\n"
+        "  [XX/XX NAME]\n"
+        ", [Other Col]\n"
+        ")\n"
+        "AS\n"
+        "SELECT 1 FROM dual"
+    )
+    out, fired = apply_all(sql)
+    assert "create_view_explicit_column_list" in fired, (
+        f"rule should fire for bracket-with-space identifiers; got: {fired}"
+    )
+    # Column list before AS must be gone after the rule fires.
+    head = out.split("AS", 1)[0]
+    assert "(" not in head, f"column list not stripped; head was: {head!r}"
+
+
+def test_create_view_rule_handles_create_or_alter_with_brackets():
+    """`CREATE OR ALTER VIEW [X].[Y] (cols) AS` -- another shape that
+    must keep working alongside the new bracket-with-spaces support."""
+    sql = (
+        "CREATE OR ALTER VIEW [Schema].[View Name] (A, B)\n"
+        "AS\nSELECT 1"
+    )
+    out, fired = apply_all(sql)
+    assert "create_view_explicit_column_list" in fired
+    assert "(A, B)" not in out
+
+
 def test_clean_sql_is_noop():
     """A SQL fragment that doesn't trigger any rule is returned unchanged.
     Guards against accidental rule overreach (e.g. a regex too greedy

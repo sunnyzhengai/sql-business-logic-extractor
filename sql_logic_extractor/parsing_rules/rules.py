@@ -24,14 +24,22 @@ PARSING_RULES: list[Rule] = [
             "outputs. sqlglot doesn't parse this form. Strip the column "
             "list and leave `CREATE VIEW name AS` -- the SELECT body is "
             "what our tools need (source columns), so we lose no useful "
-            "info."
+            "info.\n\n"
+            "Identifier matching: `[bracket-quoted]` allows ANY non-`]` "
+            "character inside (spaces, slashes, dots in T-SQL identifiers); "
+            "bare identifiers stay restricted to \\w. This was the cause of "
+            "the first 'Required keyword: this missing for Alias' error "
+            "cluster -- views named `[Schema With Space].[Name]` previously "
+            "didn't match because the regex only allowed word characters "
+            "inside brackets."
         ),
-        # Captures: CREATE [OR ALTER] VIEW <[schema].<name>>  (col list)  AS
-        # Replaces with: CREATE VIEW <name> AS  (single line, ready for
-        # the line-by-line preprocessor's existing CREATE VIEW handler).
+        # Captures: CREATE [OR ALTER] VIEW <schema?.name>  (col list)  AS
+        # The schema/name allows either a bracket-quoted identifier
+        # (anything except `]`) or a bare word identifier (\w+).
         pattern=(
             r"((?:CREATE\s+(?:OR\s+ALTER\s+)?|ALTER\s+)VIEW\s+"
-            r"(?:\[?[\w]+\]?\.)?\[?[\w]+\]?)"
+            r"(?:\[[^\]]+\]|\w+)"
+            r"(?:\.(?:\[[^\]]+\]|\w+))?)"
             r"\s*\([^)]*\)\s*"
             r"\bAS\b"
         ),

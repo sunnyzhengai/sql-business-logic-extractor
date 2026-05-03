@@ -152,6 +152,16 @@ def run_all(input_dir: str, output_dir: str, *,
               schema_path: str | None = None,
               use_llm: bool = False, llm_client=None,
               dialect: str = "tsql") -> int:
+    """Run all 4 tools across a folder of views with INCREMENTAL writes.
+
+    Per-view results are flushed to the 4 output CSVs immediately after
+    each view, plus a `run_all_progress.txt` is appended-to with
+    timestamp + view_name + per-tool row counts. So a long run is
+    monitorable in real time AND a kill mid-run keeps everything that
+    finished.
+    """
+    import time
+
     in_dir = Path(input_dir)
     if not in_dir.is_dir():
         print(f"Error: {in_dir} is not a directory")
@@ -163,29 +173,72 @@ def run_all(input_dir: str, output_dir: str, *,
 
     schema = load_schema(schema_path) if schema_path else {}
 
-    # Accumulate rows per tool across all views.
-    accum: dict[str, list[dict]] = {"tool1": [], "tool2": [], "tool3": [], "tool4": []}
-    for path in sql_files:
-        print(f"Parsing: {path.name}")
-        per_view = _process_view_all_tools(path, schema, use_llm=use_llm,
-                                              llm_client=llm_client, dialect=dialect)
-        for k in accum:
-            accum[k].extend(per_view[k])
-
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    _write_csv(out_dir / "column_lineage_extractor.csv",        TOOL1_FIELDS, accum["tool1"])
-    _write_csv(out_dir / "technical_logic_extractor.csv",       TOOL2_FIELDS, accum["tool2"])
-    _write_csv(out_dir / "business_logic_extractor.csv",        TOOL3_FIELDS, accum["tool3"])
-    _write_csv(out_dir / "report_description_generator.csv",    TOOL4_FIELDS, accum["tool4"])
+    progress_path = out_dir / "run_all_progress.txt"
 
-    err = sum(1 for r in accum["tool1"] if r.get("reference_type") == "parse_error")
+    # Open all 4 CSVs ONCE; write headers; keep handles open for streaming
+    # writes. Each per-view batch is flushed immediately so a kill leaves
+    # partial-but-valid CSV files.
+    csv_specs = [
+        (out_dir / "column_lineage_extractor.csv",     TOOL1_FIELDS, "tool1"),
+        (out_dir / "technical_logic_extractor.csv",    TOOL2_FIELDS, "tool2"),
+        (out_dir / "business_logic_extractor.csv",     TOOL3_FIELDS, "tool3"),
+        (out_dir / "report_description_generator.csv", TOOL4_FIELDS, "tool4"),
+    ]
+    handles: dict[str, tuple] = {}
+    for path, fields, key in csv_specs:
+        f = path.open("w", encoding="utf-8-sig", newline="")
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        f.flush()
+        handles[key] = (f, writer)
+
+    # Reset the progress log at the start of each run.
+    with progress_path.open("w") as pf:
+        pf.write(f"# run_all started at {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        pf.write(f"# input_dir: {in_dir}\n")
+        pf.write(f"# {len(sql_files)} view(s) to process\n")
+        pf.flush()
+
+    counts = {k: 0 for k in ("tool1", "tool2", "tool3", "tool4")}
+    t_start = time.time()
+    try:
+        for i, path in enumerate(sql_files, 1):
+            t0 = time.time()
+            per_view = _process_view_all_tools(path, schema, use_llm=use_llm,
+                                                  llm_client=llm_client, dialect=dialect)
+            per_view_counts = {k: len(per_view[k]) for k in counts}
+            for key, (_f, writer) in handles.items():
+                writer.writerows(per_view[key])
+                _f.flush()
+                counts[key] += per_view_counts[key]
+            elapsed = time.time() - t0
+            # Print AND write to progress file (Spark/YARN noise can drown
+            # stdout; the file is the reliable progress signal).
+            line = (f"[{i}/{len(sql_files)}] {path.name}  "
+                     f"({elapsed:.1f}s)  "
+                     f"t1={per_view_counts['tool1']} t2={per_view_counts['tool2']} "
+                     f"t3={per_view_counts['tool3']} t4={per_view_counts['tool4']}")
+            print(line, flush=True)
+            with progress_path.open("a") as pf:
+                pf.write(line + "\n")
+                pf.flush()
+    finally:
+        for _f, _w in handles.values():
+            _f.close()
+        with progress_path.open("a") as pf:
+            pf.write(f"# finished/exited at {time.strftime('%Y-%m-%d %H:%M:%S')} "
+                      f"after {time.time()-t_start:.1f}s\n")
+
+    err = counts["tool1"] and 0  # placeholder; per-view error rows are in t1
     mode = "LLM" if use_llm else "engineered"
     print(f"\nAll 4 tools written to {out_dir} ({mode} mode for Tools 3 + 4)")
-    print(f"  Tool 1 (column_lineage_extractor.csv):     {len(accum['tool1'])} rows")
-    print(f"  Tool 2 (technical_logic_extractor.csv):    {len(accum['tool2'])} rows")
-    print(f"  Tool 3 (business_logic_extractor.csv):     {len(accum['tool3'])} rows")
-    print(f"  Tool 4 (report_description_generator.csv): {len(accum['tool4'])} rows")
+    print(f"  Tool 1 (column_lineage_extractor.csv):     {counts['tool1']} rows")
+    print(f"  Tool 2 (technical_logic_extractor.csv):    {counts['tool2']} rows")
+    print(f"  Tool 3 (business_logic_extractor.csv):     {counts['tool3']} rows")
+    print(f"  Tool 4 (report_description_generator.csv): {counts['tool4']} rows")
+    print(f"  Progress log:                              {progress_path}")
     if err:
         print(f"  ({err} view(s) failed -- see 'parse_error' rows in each CSV)")
     return 0

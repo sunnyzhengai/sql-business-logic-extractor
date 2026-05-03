@@ -116,10 +116,32 @@ else:
             s = re.sub(r"\b\d+\b", "N", s)
             return s
 
-        # Stage 1: RAW SQL (so we see what preprocess_ssms is starting from).
-        print("--- RAW SQL (first 20 lines, redacted) ---")
-        for i, line in enumerate(text.splitlines()[:20], 1):
+        # File-level stats so we can tell if the file is truncated.
+        all_lines = text.splitlines()
+        print(f"File has {len(all_lines)} total lines, {len(text)} chars\n")
+
+        # Stage 1a: RAW SQL (first 40 lines, redacted).
+        print("--- RAW SQL (first 40 lines, redacted) ---")
+        for i, line in enumerate(all_lines[:40], 1):
             print(f"  {i:3}: {_redact(line)}")
+        if len(all_lines) > 40:
+            print(f"  ... ({len(all_lines) - 40} more lines)")
+
+        # Stage 1b: Anchor search -- find every line that COULD anchor
+        # preprocess_ssms's body_started flag. If this list is empty, we
+        # know why clean_sql ended up empty.
+        anchor_re = re.compile(r"^\s*(CREATE\s+(?:OR\s+ALTER\s+)?|ALTER\s+)?"
+                                  r"(VIEW|PROCEDURE|PROC|FUNCTION|SELECT|WITH|AS\s*$)",
+                                  re.IGNORECASE)
+        print("\n--- Anchor lines (CREATE/ALTER/SELECT/WITH/standalone AS) ---")
+        anchor_hits = []
+        for i, line in enumerate(all_lines, 1):
+            if anchor_re.match(line):
+                anchor_hits.append((i, line))
+                print(f"  L{i:>4}: {_redact(line)}")
+        if not anchor_hits:
+            print("  (NONE -- this view has no CREATE/SELECT/WITH/standalone AS")
+            print("   line. preprocess_ssms drops the whole file as a result.)")
 
         # Stage 2: which rules fire?
         _, fired = apply_all(text)

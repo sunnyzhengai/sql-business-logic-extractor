@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tool 11 -- single-pass corpus extractor.
+"""Tool 11 -- single-pass corpus extractor (Phase D, scope-correct tree).
 
 Notebook usage:
 
@@ -15,20 +15,20 @@ CLI:
 
 For each view:
   1. Read SQL (BOM-aware).
-  2. Single call to `generate_report_description(sql, schema, use_llm=False)`
-     -- this internally chains the resolver + Tool 3 (English) +
-     Tool 4 (summary), so we get everything in ONE resolver pass.
-  3. Enrich per-column with author_notes (comment_attachment) and
-     fingerprint (similar_logic_grouper.fingerprint).
-  4. Build a ViewV1 with the compact representation (view-level
-     filters / tables_referenced stored ONCE; columns reference by
-     index; column-specific filters split into filters_extra).
-  5. Append a JSON line to corpus.jsonl. Stream-write + flush so a
-     kill mid-run keeps everything finished so far.
+  2. Parse + Layer 1 extract -> Layer 3 scope-correct resolve. Produces
+     a ResolvedScopeTree with one scope per structural unit (CTE,
+     derived table, subquery, set-op branch, main SELECT, lateral).
+  3. For each scope: translate its columns to English via Tool 3's
+     engineered translator; translate its filters via the same pattern
+     library; emit a ScopeV1 with no cross-scope filter inheritance.
+  4. Enrich main-scope columns with author_notes (comment_attachment),
+     terms, and AST fingerprints.
+  5. Build a ViewV1 (tree-shaped) and append a JSON line to corpus.jsonl.
 
 Output:
-  - corpus.jsonl: header line + one ViewV1 per line.
-  - corpus_progress.txt: per-view timing log (same pattern as run_all).
+  - corpus.jsonl: header + one ViewV1 per line. Each ViewV1 is a graph
+    fragment (scopes are nodes; reads_from_* and base_columns are edges).
+  - corpus_progress.txt: per-view timing log.
 """
 
 from __future__ import annotations
@@ -37,9 +37,15 @@ import argparse
 import json
 import sys
 import time
+from dataclasses import asdict
 from pathlib import Path
 
-from sql_logic_extractor.business_logic import load_schema
+from sqlglot import exp, parse_one
+
+from sql_logic_extractor.business_logic import (
+    classify_business_domain,
+    load_schema,
+)
 from sql_logic_extractor.comment_attachment import (
     attach_to_columns,
     extract_view_level_notes,
@@ -47,14 +53,23 @@ from sql_logic_extractor.comment_attachment import (
 from sql_logic_extractor.corpus_schema import (
     SCHEMA_VERSION,
     ColumnV1,
+    FilterV1,
     InventoryRefV1,
     ReportV1,
+    ScopeV1,
     TermV1,
-    ViewLevelV1,
     ViewV1,
     _to_jsonable,
 )
-from sql_logic_extractor.products import generate_report_description
+from sql_logic_extractor.extract import SQLBusinessLogicExtractor, to_dict
+from sql_logic_extractor.patterns import Context, translate
+from sql_logic_extractor.products import _extract_columns_core
+from sql_logic_extractor.resolve import (
+    LineageResolver,
+    ResolvedScope,
+    ResolvedScopeTree,
+    ScopedColumn,
+)
 from sql_logic_extractor.term_extraction import (
     extract_terms,
     load_default_synonyms,
@@ -62,7 +77,7 @@ from sql_logic_extractor.term_extraction import (
 from tools.similar_logic_grouper.fingerprint import fingerprint as ast_fingerprint
 
 
-# ---------- file reader (BOM-aware, matches engine's pattern) -------------
+# ---------- file reader (BOM-aware) ---------------------------------------
 
 def _read_sql_file(path: Path) -> str:
     raw = path.read_bytes()
@@ -78,130 +93,219 @@ def _read_sql_file(path: Path) -> str:
         return raw.decode("utf-16-le", errors="replace")
 
 
-# ---------- helpers --------------------------------------------------------
+# ---------- English translation helper ------------------------------------
 
-def _normalize_filter_strs(raw_filters) -> list[str]:
-    """Filter entries can be list[str] OR list[dict{expression}].
-    Normalize to list[str], dropping empty/None."""
-    out: list[str] = []
-    for f in raw_filters or []:
-        if isinstance(f, dict):
-            expr = f.get("expression") or ""
-            if expr:
-                out.append(expr)
-        elif isinstance(f, str):
-            if f:
-                out.append(f)
-    return out
+def _translate_fragment(sql_frag: str, ctx: Context, dialect: str) -> str:
+    """Walk a SQL fragment through the pattern library; return English.
+    Falls back to the raw SQL on parse/translate failure."""
+    s = (sql_frag or "").strip()
+    if not s:
+        return ""
+    try:
+        node = parse_one(s, dialect=dialect)
+        if node is None:
+            return s
+        if isinstance(node, exp.Select) and node.selects:
+            node = node.selects[0]
+        if isinstance(node, exp.Alias):
+            node = node.this
+        english = (translate(node, ctx).english or "").strip()
+        return english or s
+    except Exception:
+        return s
 
 
-def _ordered_dedup(items) -> tuple[str, ...]:
-    seen: set[str] = set()
-    out: list[str] = []
-    for x in items:
-        if x and x not in seen:
-            seen.add(x)
-            out.append(x)
+# ---------- scope -> ScopeV1 ----------------------------------------------
+
+def _build_filter_v1(rf, ctx: Context, dialect: str) -> FilterV1:
+    """Translate a ScopedFilter's expression for the business form."""
+    expr = (rf.expression or "").strip()
+    english = _translate_fragment(expr, ctx, dialect) if expr else ""
+    return FilterV1(
+        expression=expr,
+        english=english,
+        kind=rf.kind or "where",
+        subquery_scope_ids=tuple(rf.subquery_scope_ids or []),
+    )
+
+
+def _build_column_v1(
+    sc: ScopedColumn,
+    ctx: Context,
+    dialect: str,
+) -> ColumnV1:
+    """Translate one ScopedColumn into a ColumnV1.
+
+    `technical_description` is the column's SQL as resolved within its
+    own scope. `business_description` is the engineered English translation
+    of that SQL. Filters live on the scope, not the column.
+    """
+    expr = (sc.resolved_expression or sc.expression or "").strip()
+    english = _translate_fragment(expr, ctx, dialect) if expr else ""
+    fp = ast_fingerprint(expr, dialect=dialect) if expr else None
+    base_tables = tuple(sc.base_tables or [])
+    domain = classify_business_domain(sc.name, list(base_tables), expr)
+    return ColumnV1(
+        column_name=sc.name or "",
+        column_type=sc.type or "unknown",
+        technical_description=expr,
+        business_description=english,
+        business_domain=domain,
+        base_columns=tuple(sc.base_columns or []),
+        base_tables=base_tables,
+        author_notes=(),                  # filled in for main-scope columns below
+        term=TermV1(name_is_structural=True),  # filled in below
+        fingerprint=fp,
+    )
+
+
+def _build_scope_v1(
+    rs: ResolvedScope,
+    ctx: Context,
+    dialect: str,
+) -> ScopeV1:
+    return ScopeV1(
+        id=rs.id,
+        kind=rs.kind,
+        filters=tuple(_build_filter_v1(f, ctx, dialect) for f in rs.filters),
+        columns=tuple(_build_column_v1(c, ctx, dialect) for c in rs.columns),
+        reads_from_scopes=tuple(rs.reads_from_scopes or []),
+        reads_from_tables=tuple(rs.reads_from_tables or []),
+    )
+
+
+# ---------- view-level bullet report (per-scope sections) ------------------
+
+def _format_scope_bullets(scope: ScopeV1, *, business: bool) -> list[str]:
+    """Render one scope as a bullet section. `business=True` uses the
+    English filter translations; otherwise raw SQL."""
+    lines: list[str] = []
+    header = f"Scope: {scope.id} ({scope.kind})"
+    lines.append(header)
+
+    if scope.reads_from_scopes:
+        lines.append(f"  Reads from scopes: {', '.join(scope.reads_from_scopes)}")
+    if scope.reads_from_tables:
+        lines.append(f"  Reads from tables: {', '.join(scope.reads_from_tables)}")
+
+    if scope.filters:
+        lines.append("  Filters:")
+        for f in scope.filters:
+            text = f.english if business and f.english else f.expression
+            lines.append(f"    - [{f.kind}] {text}")
+
+    if scope.columns:
+        lines.append("  Columns:")
+        for c in scope.columns:
+            text = c.business_description if business and c.business_description else c.technical_description
+            lines.append(f"    - {c.column_name}: {text}")
+
+    return lines
+
+
+def _build_report(view_name: str, scopes: tuple[ScopeV1, ...]) -> ReportV1:
+    tech_blocks: list[str] = []
+    biz_blocks: list[str] = []
+    for s in scopes:
+        tech_blocks.append("\n".join(_format_scope_bullets(s, business=False)))
+        biz_blocks.append("\n".join(_format_scope_bullets(s, business=True)))
+
+    main_columns = next((s.columns for s in scopes if s.id == "main"), ())
+    metrics = tuple(c.column_name for c in main_columns
+                    if c.column_type not in ("passthrough", ""))[:10]
+    primary_purpose = _infer_primary_purpose(main_columns)
+
+    return ReportV1(
+        technical_description="\n\n".join(tech_blocks),
+        business_description="\n\n".join(biz_blocks),
+        primary_purpose=primary_purpose,
+        key_metrics=metrics,
+        column_count=len(main_columns),
+        use_llm=False,
+    )
+
+
+def _infer_primary_purpose(columns: tuple[ColumnV1, ...]) -> str:
+    """Heuristic dominant-grain label, mirroring the legacy Tool 4 logic."""
+    if not columns:
+        return ""
+    types = [c.column_type for c in columns]
+    if "window" in types:
+        return "Ranked / windowed analysis"
+    if "aggregate" in types:
+        return "Aggregated reporting"
+    if "case" in types:
+        return "Categorisation and classification"
+    return "Row-level extraction"
+
+
+# ---------- inventory (Tool 1) --------------------------------------------
+
+def _build_inventory(sql: str, dialect: str) -> tuple[InventoryRefV1, ...]:
+    inv = _extract_columns_core(sql, dialect=dialect)
+    out: list[InventoryRefV1] = []
+    for c in inv.columns:
+        out.append(InventoryRefV1(
+            table=c.table or "",
+            column=c.column or "",
+            database=c.database or "",
+            schema=c.schema or "",
+            reference_type="column",
+            confidence="high" if (c.database or c.schema) else "medium",
+        ))
     return tuple(out)
 
 
-# ---------- main per-view builder -----------------------------------------
+# ---------- per-column governance enrichment ------------------------------
 
-def _build_view(view_name: str, sql: str, desc, dialect: str) -> ViewV1:
-    """Convert one ReportDescription (Tool 4 output, which embeds Tools
-    1-3) into a CorpusV1.ViewV1. Single-pass: no extra parses or
-    resolver work happens here.
+def _enrich_main_scope(scopes: list[ScopeV1], view_name: str, sql: str, dialect: str) -> list[ScopeV1]:
+    """Attach author_notes + terms to main-scope columns. CTE/subquery
+    columns are NOT comment-attached today (the engine's
+    comment_attachment library is not scope-aware); revisit if BI views
+    start carrying meaningful inline comments inside CTEs.
+
+    Returns a new scopes list (tuples are frozen, so we rebuild).
     """
-    bl = desc.business_logic
-    lineage = bl.lineage
-    inventory = lineage.inventory
+    main_idx = next((i for i, s in enumerate(scopes) if s.id == "main"), None)
+    if main_idx is None:
+        return scopes
+    main = scopes[main_idx]
+    if not main.columns:
+        return scopes
 
-    # ---- View-level: filters, tables, notes, report -------------------
+    # Run comment_attachment on a mutable dict-form of main columns.
+    main_dicts = [{
+        "column_name": c.column_name,
+        "resolved_expression": c.technical_description,
+        "author_notes": [],
+    } for c in main.columns]
+    try:
+        attach_to_columns(sql, main_dicts, dialect=dialect)
+    except Exception:
+        pass
 
-    view_filters = _ordered_dedup(lineage.query_filters or [])
-
-    # tables_referenced: union of every column's base_tables + every
-    # inventory entry's table, ordered by first appearance.
-    table_seen: list[str] = []
-    seen_set: set[str] = set()
-    for trans in bl.column_translations:
-        for t in trans.get("base_tables", []) or []:
-            if t and t not in seen_set:
-                seen_set.add(t)
-                table_seen.append(t)
-    for c in inventory.columns:
-        if c.table and c.table not in seen_set:
-            seen_set.add(c.table)
-            table_seen.append(c.table)
-    tables_referenced = tuple(table_seen)
-
-    view_level_notes = tuple(extract_view_level_notes(sql))
-
-    report = ReportV1(
-        technical_description=desc.technical_description,
-        business_description=desc.business_description,
-        primary_purpose=desc.primary_purpose,
-        key_metrics=tuple(desc.key_metrics or []),
-        column_count=len(bl.column_translations),
-        use_llm=desc.use_llm,
-    )
-    view_level = ViewLevelV1(
-        filters=view_filters,
-        tables_referenced=tables_referenced,
-        view_level_notes=view_level_notes,
-        report=report,
-    )
-
-    # ---- Per-column: enrich with comments + terms + fingerprint -------
-
-    # Make mutable copies so attach_to_columns can populate author_notes
-    # without mutating the underlying business_logic translations.
-    enriched: list[dict] = [dict(t) for t in bl.column_translations]
-    attach_to_columns(sql, enriched, dialect=dialect)
-
-    terms_list = extract_terms(
-        view_name=view_name,
-        column_translations=enriched,
-        query_filters=view_filters,
-        synonyms=load_default_synonyms(),
-    )
-    terms_by_name: dict[str, object] = {t.column_name: t for t in terms_list}
-
-    table_idx = {t: i for i, t in enumerate(tables_referenced)}
-    view_filter_set = set(view_filters)
-
-    columns: list[ColumnV1] = []
-    for trans in enriched:
-        col_name = (trans.get("column_name") or "").strip()
-        if not col_name:
-            continue
-
-        base_tables = trans.get("base_tables") or []
-        base_tables_idx = tuple(
-            table_idx[t] for t in base_tables if t in table_idx
+    # Term extraction over main columns.
+    term_dicts = [{
+        "column_name": c.column_name,
+        "column_type": c.column_type,
+        "resolved_expression": c.technical_description,
+        "english_definition": c.business_description,
+    } for c in main.columns]
+    try:
+        terms = extract_terms(
+            view_name=view_name,
+            column_translations=term_dicts,
+            query_filters=tuple(f.expression for f in main.filters),
+            synonyms=load_default_synonyms(),
         )
-        base_columns = tuple(trans.get("base_columns") or [])
+    except Exception:
+        terms = []
+    terms_by_name = {t.column_name: t for t in terms}
 
-        # Filter split: column.filters in the resolver output already
-        # includes view-level filters (they propagate). Anything in
-        # col.filters that's NOT in view_filters is column-specific.
-        col_filters = _normalize_filter_strs(trans.get("filters") or [])
-        filters_extra = tuple(f for f in col_filters if f not in view_filter_set)
-        # filters_inherited is True when ALL view filters appear on this
-        # column (the typical case post-resolver). We default to True
-        # (compact) when there's no view-level filter set to inherit.
-        filters_inherited = (
-            (not view_filters)
-            or all(vf in col_filters for vf in view_filters)
-        )
-        # If filters_inherited would be False but view_filters is empty,
-        # treat as True (no inheritance to disagree with).
-        if not view_filters:
-            filters_inherited = True
-
-        # Term lookup (extract_terms may have skipped this column per
-        # inclusion rules; emit empty TermV1 in that case).
-        t_obj = terms_by_name.get(col_name)
+    enriched_cols: list[ColumnV1] = []
+    for c, md in zip(main.columns, main_dicts):
+        notes = tuple(md.get("author_notes") or [])
+        t_obj = terms_by_name.get(c.column_name)
         if t_obj is not None:
             term = TermV1(
                 name_tokens=tuple(sorted(t_obj.name_tokens)),
@@ -212,56 +316,66 @@ def _build_view(view_name: str, sql: str, desc, dialect: str) -> ViewV1:
         else:
             term = TermV1(
                 name_is_structural=True,
-                is_passthrough=(trans.get("column_type") == "passthrough"),
+                is_passthrough=(c.column_type == "passthrough"),
             )
-
-        # Fingerprint (None if expression doesn't parse / is empty)
-        fp = ast_fingerprint(trans.get("resolved_expression") or "", dialect=dialect)
-
-        columns.append(ColumnV1(
-            column_name=col_name,
-            column_type=trans.get("column_type", "unknown"),
-            resolved_expression=trans.get("resolved_expression") or "",
-            base_tables_idx=base_tables_idx,
-            base_columns=base_columns,
-            filters_inherited=filters_inherited,
-            filters_extra=filters_extra,
-            english_definition=trans.get("english_definition") or "",
-            english_definition_with_filters=trans.get("english_definition_with_filters") or "",
-            business_domain=trans.get("business_domain") or "",
-            author_notes=tuple(trans.get("author_notes") or []),
+        enriched_cols.append(ColumnV1(
+            column_name=c.column_name,
+            column_type=c.column_type,
+            technical_description=c.technical_description,
+            business_description=c.business_description,
+            business_domain=c.business_domain,
+            base_columns=c.base_columns,
+            base_tables=c.base_tables,
+            author_notes=notes,
             term=term,
-            fingerprint=fp,
+            fingerprint=c.fingerprint,
         ))
 
-    # ---- Inventory: one entry per (table, column) reference -----------
+    new_main = ScopeV1(
+        id=main.id,
+        kind=main.kind,
+        filters=main.filters,
+        columns=tuple(enriched_cols),
+        reads_from_scopes=main.reads_from_scopes,
+        reads_from_tables=main.reads_from_tables,
+    )
+    new_scopes = list(scopes)
+    new_scopes[main_idx] = new_main
+    return new_scopes
 
-    inv_entries: list[InventoryRefV1] = []
-    for c in inventory.columns:
-        inv_entries.append(InventoryRefV1(
-            table=c.table or "",
-            column=c.column or "",
-            database=c.database or "",
-            schema=c.schema or "",
-            reference_type="column",
-            confidence="high" if (c.database or c.schema) else "medium",
-        ))
+
+# ---------- main per-view builder -----------------------------------------
+
+def _build_view(view_name: str, sql: str, schema: dict | None, dialect: str) -> ViewV1:
+    """Build a v3 ViewV1 (scope tree) for one SQL view."""
+    extractor = SQLBusinessLogicExtractor(dialect=dialect)
+    logic = to_dict(extractor.extract(sql))
+
+    resolver = LineageResolver(logic)
+    tree: ResolvedScopeTree = resolver.resolve_all_scoped()
+
+    ctx = Context(schema=schema or {})
+    scopes_v1 = [_build_scope_v1(rs, ctx, dialect) for rs in tree.scopes]
+
+    # Enrich main scope columns with author notes + term metadata.
+    scopes_v1 = _enrich_main_scope(scopes_v1, view_name, sql, dialect)
+
+    inventory = _build_inventory(sql, dialect)
+    view_level_notes = tuple(extract_view_level_notes(sql))
+    report = _build_report(view_name, tuple(scopes_v1))
 
     return ViewV1(
         view_name=view_name,
-        view_level=view_level,
-        columns=tuple(columns),
-        inventory=tuple(inv_entries),
-        use_llm=desc.use_llm,
+        report=report,
+        view_level_notes=view_level_notes,
+        scopes=tuple(scopes_v1),
+        view_outputs=tuple(tree.view_outputs),
+        inventory=inventory,
     )
 
 
-# ---------- error fallback ------------------------------------------------
-
 def _error_view(view_name: str, error_msg: str, sql: str | None = None) -> ViewV1:
-    """When a view fails, emit a minimal ViewV1 so the corpus has a
-    placeholder row instead of silently dropping the file."""
-    notes = []
+    notes: list[str] = []
     if sql:
         try:
             notes = list(extract_view_level_notes(sql))
@@ -269,13 +383,11 @@ def _error_view(view_name: str, error_msg: str, sql: str | None = None) -> ViewV
             pass
     return ViewV1(
         view_name=view_name,
-        view_level=ViewLevelV1(
-            view_level_notes=tuple(notes),
-            report=ReportV1(
-                technical_description=f"PARSE/RESOLVE ERROR: {error_msg}",
-                primary_purpose="parse_error",
-            ),
+        report=ReportV1(
+            technical_description=f"PARSE/RESOLVE ERROR: {error_msg}",
+            primary_purpose="parse_error",
         ),
+        view_level_notes=tuple(notes),
     )
 
 
@@ -288,7 +400,7 @@ def extract_corpus(
     schema_path: str | None = None,
     dialect: str = "tsql",
 ) -> int:
-    """Walk views, build a CorpusV1, stream-write to JSONL."""
+    """Walk views, build a CorpusV1 (v3 scope tree), stream-write to JSONL."""
     in_dir = Path(input_dir)
     if not in_dir.is_dir():
         print(f"Error: {in_dir} is not a directory", file=sys.stderr)
@@ -304,7 +416,6 @@ def extract_corpus(
 
     schema = load_schema(schema_path) if schema_path else {}
 
-    # Per-view counts for the summary
     n_ok = 0
     n_failed = 0
     t_start = time.time()
@@ -315,8 +426,6 @@ def extract_corpus(
         pf.write(f"# {len(sql_files)} view(s) to process\n")
         pf.flush()
 
-    # Stream-write JSONL: header line first, then one view per line.
-    # Flush after each line so a kill keeps progress.
     with out.open("w", encoding="utf-8", newline="") as f:
         f.write(json.dumps({
             "schema_version": SCHEMA_VERSION,
@@ -329,25 +438,22 @@ def extract_corpus(
             t0 = time.time()
             try:
                 sql = _read_sql_file(path)
-                desc = generate_report_description(
-                    sql, schema, use_llm=False, dialect=dialect,
-                )
-                view = _build_view(view_name, sql, desc, dialect)
+                view = _build_view(view_name, sql, schema, dialect)
                 n_ok += 1
             except Exception as e:
                 view = _error_view(view_name, f"{type(e).__name__}: {e}",
                                     sql=locals().get("sql"))
                 n_failed += 1
 
-            # Convert to JSON-friendly dict (tuples -> lists), write.
-            from dataclasses import asdict
             f.write(json.dumps(_to_jsonable(asdict(view))) + "\n")
             f.flush()
 
             elapsed = time.time() - t0
+            n_scopes = len(view.scopes)
+            n_main_cols = next((len(s.columns) for s in view.scopes if s.id == "main"), 0)
             line = (f"[{i}/{len(sql_files)}] {view_name}  ({elapsed:.1f}s)  "
-                     f"cols={len(view.columns)} inv={len(view.inventory)} "
-                     f"filters={len(view.view_level.filters)}")
+                     f"scopes={n_scopes} main_cols={n_main_cols} "
+                     f"inv={len(view.inventory)}")
             print(line, flush=True)
             with progress_path.open("a") as pf:
                 pf.write(line + "\n")
@@ -366,7 +472,7 @@ def extract_corpus(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Single-pass corpus extractor producing CorpusV1 JSONL."
+        description="Single-pass corpus extractor producing CorpusV1 v3 JSONL."
     )
     parser.add_argument("input_dir")
     parser.add_argument("-o", "--output", default="corpus.jsonl")

@@ -1,11 +1,11 @@
-"""Tests for sql_logic_extractor.corpus_schema.
+"""Tests for sql_logic_extractor.corpus_schema (v3 tree shape).
 
 Asserts the contract callers depend on:
 - Round-trip serialization (Corpus -> dict -> Corpus is identity-preserving)
-- JSONL streaming round-trip
+- JSONL streaming round-trip with versioned header
 - Schema version mismatch raises with a clear error
-- expand_view() actually denormalizes (filters and tables flattened)
-- Compact form really IS compact (no duplicated filters in storage)
+- Tree-shaped storage: scopes own filters; filters are NOT duplicated
+  on columns; cross-scope dataflow goes through scope-qualified base_columns
 - Additive backwards-compat: extra/unknown fields are ignored
 """
 
@@ -17,16 +17,16 @@ from sql_logic_extractor.corpus_schema import (
     SCHEMA_VERSION,
     ColumnV1,
     CorpusV1,
+    FilterV1,
     InventoryRefV1,
     ReportV1,
+    ScopeV1,
     TermV1,
-    ViewLevelV1,
     ViewV1,
     corpus_from_dict,
     corpus_from_jsonl_lines,
     corpus_to_dict,
     corpus_to_jsonl_lines,
-    expand_view,
     validate_corpus_dict,
 )
 
@@ -34,66 +34,73 @@ from sql_logic_extractor.corpus_schema import (
 # ---------- helpers --------------------------------------------------------
 
 def _make_sample_corpus() -> CorpusV1:
-    """One view, two columns, the kind of structure a real extractor
-    would produce. Used across multiple tests for shared fixtures."""
+    """One view with two scopes (a CTE and main). Filters live ONLY on
+    their owning scope. Main column references CTE column via
+    scope-qualified base_columns. Mirrors what the v3 extractor produces."""
+    cte_scope = ScopeV1(
+        id="cte:ActivePatients",
+        kind="cte",
+        filters=(
+            FilterV1(expression="P.STATUS_C = 1", english="Status is active",
+                      kind="where"),
+        ),
+        columns=(
+            ColumnV1(
+                column_name="PAT_ID",
+                column_type="passthrough",
+                technical_description="P.PAT_ID",
+                business_description="Patient identifier",
+                business_domain="Patient Demographics",
+                base_columns=("table:PATIENT.PAT_ID",),
+                base_tables=("PATIENT",),
+                fingerprint="aaaa1111",
+            ),
+        ),
+        reads_from_scopes=(),
+        reads_from_tables=("PATIENT",),
+    )
+    main_scope = ScopeV1(
+        id="main",
+        kind="main",
+        filters=(
+            FilterV1(expression="AP.PAT_ID > 100", english="Identifier exceeds 100",
+                      kind="where"),
+        ),
+        columns=(
+            ColumnV1(
+                column_name="PAT_ID",
+                column_type="passthrough",
+                technical_description="AP.PAT_ID",
+                business_description="Patient identifier",
+                business_domain="Patient Demographics",
+                base_columns=("cte:ActivePatients.PAT_ID",),
+                base_tables=(),
+                author_notes=("Top-of-file note",),
+                term=TermV1(name_tokens=("patient", "identifier"),
+                              is_passthrough=True, name_is_structural=False),
+                fingerprint="bbbb2222",
+            ),
+        ),
+        reads_from_scopes=("cte:ActivePatients",),
+        reads_from_tables=(),
+    )
     return CorpusV1(
         schema_version=SCHEMA_VERSION,
         views=(
             ViewV1(
-                view_name="V_PREGNANT_PATIENTS",
-                view_level=ViewLevelV1(
-                    filters=("P.STATUS_C = 1", "P.IS_VALID_PAT_YN = 'Y'"),
-                    tables_referenced=("PATIENT", "COVERAGE", "DIAGNOSIS"),
-                    view_level_notes=("Top-of-file doc comment",),
-                    report=ReportV1(
-                        technical_description="Tech desc...",
-                        business_description="Business desc...",
-                        primary_purpose="Pregnancy report",
-                        key_metrics=("Pregnant", "DueDate"),
-                        column_count=2,
-                    ),
+                view_name="V_ACTIVE_PATIENTS",
+                report=ReportV1(
+                    technical_description="Scope: cte:ActivePatients (cte)\n  ...\n\nScope: main (main)\n  ...",
+                    business_description="Scope: cte:ActivePatients (cte)\n  ...",
+                    primary_purpose="Row-level extraction",
+                    key_metrics=(),
+                    column_count=1,
                 ),
-                columns=(
-                    ColumnV1(
-                        column_name="Pregnant",
-                        column_type="calculated",
-                        resolved_expression="CASE WHEN ... END",
-                        base_tables_idx=(0, 2),    # PATIENT, DIAGNOSIS
-                        base_columns=("PATIENT.PAT_ID", "DIAGNOSIS.DX_CODE"),
-                        filters_inherited=True,
-                        filters_extra=(),
-                        english_definition="Patient is pregnant",
-                        author_notes=("see ICD-10 Z33.1",),
-                        term=TermV1(
-                            name_tokens=("pregnant",),
-                            is_passthrough=False,
-                            name_is_structural=False,
-                            has_filters=True,
-                        ),
-                        fingerprint="a3b9c2d4e5f6",
-                    ),
-                    ColumnV1(
-                        column_name="DueDate",
-                        column_type="calculated",
-                        resolved_expression="DATEADD(...)",
-                        base_tables_idx=(0,),       # PATIENT only
-                        base_columns=("PATIENT.LMP_DATE",),
-                        filters_inherited=True,
-                        filters_extra=("P.LMP_DATE IS NOT NULL",),
-                        english_definition="Estimated due date",
-                        term=TermV1(
-                            name_tokens=("date",),
-                            has_filters=True,
-                        ),
-                        fingerprint="b4d8e3a2f1c7",
-                    ),
-                ),
+                view_level_notes=("Top-of-file doc comment",),
+                scopes=(cte_scope, main_scope),
+                view_outputs=("main",),
                 inventory=(
                     InventoryRefV1(table="PATIENT", column="PAT_ID",
-                                     database="Clarity", schema="dbo"),
-                    InventoryRefV1(table="PATIENT", column="LMP_DATE",
-                                     database="Clarity", schema="dbo"),
-                    InventoryRefV1(table="DIAGNOSIS", column="DX_CODE",
                                      database="Clarity", schema="dbo"),
                 ),
             ),
@@ -114,7 +121,6 @@ def test_corpus_dict_serializes_to_json_cleanly():
     """to_dict output must be json.dumps-friendly (no tuples / sets)."""
     c = _make_sample_corpus()
     s = json.dumps(corpus_to_dict(c))
-    # Round-trip through json
     d = json.loads(s)
     c2 = corpus_from_dict(d)
     assert c == c2
@@ -123,7 +129,6 @@ def test_corpus_dict_serializes_to_json_cleanly():
 def test_jsonl_round_trip_is_identity():
     c = _make_sample_corpus()
     lines = list(corpus_to_jsonl_lines(c))
-    # Header + one line per view
     assert len(lines) == 1 + len(c.views)
     c2 = corpus_from_jsonl_lines(iter(lines))
     assert c == c2
@@ -150,109 +155,68 @@ def test_validate_rejects_wrong_version():
 
 
 def test_jsonl_rejects_wrong_version_header():
-    bad = [
-        json.dumps({"schema_version": 999, "n_views": 0}),
-    ]
+    bad = [json.dumps({"schema_version": 999, "n_views": 0})]
     with pytest.raises(ValueError, match="unsupported schema_version"):
         corpus_from_jsonl_lines(iter(bad))
 
 
 def test_corpus_from_dict_ignores_unknown_fields():
-    """Additive-evolution contract: future versions can add fields;
-    old readers ignore them and keep working."""
+    """Additive-evolution contract: future versions add fields; old
+    readers ignore them and keep working."""
     d = corpus_to_dict(_make_sample_corpus())
-    d["future_field_added_in_v1_1"] = "ignored by this reader"
+    d["future_field_added_later"] = "ignored by this reader"
     d["views"][0]["another_future_field"] = {"any": "shape"}
-    # Should not raise; should round-trip the known fields cleanly.
+    d["views"][0]["scopes"][0]["yet_another"] = ["x"]
     c2 = corpus_from_dict(d)
-    assert c2.views[0].view_name == "V_PREGNANT_PATIENTS"
+    assert c2.views[0].view_name == "V_ACTIVE_PATIENTS"
 
 
-# ---------- compact form really is compact -------------------------------
+# ---------- tree shape: filters live on scopes, not columns --------------
 
-def test_compact_form_does_not_duplicate_view_filters():
-    """The whole point of normalization: filters are stored ONCE per view
-    even though they apply to every column."""
+def test_filters_live_on_scopes_not_columns():
+    """The whole point of the v3 redesign: each scope owns its own
+    filters. Columns do NOT carry filter context."""
+    c = _make_sample_corpus()
+    view = c.views[0]
+
+    # Each scope has its own filter; no filter appears in both scopes.
+    cte_filters = {f.expression for f in view.scopes[0].filters}
+    main_filters = {f.expression for f in view.scopes[1].filters}
+    assert cte_filters == {"P.STATUS_C = 1"}
+    assert main_filters == {"AP.PAT_ID > 100"}
+    assert cte_filters.isdisjoint(main_filters)
+
+    # ColumnV1 has NO filter-related fields. Verify by attribute check.
+    col = view.scopes[0].columns[0]
+    assert not hasattr(col, "filters_inherited")
+    assert not hasattr(col, "filters_extra")
+    assert not hasattr(col, "filters")
+
+
+def test_base_columns_are_scope_qualified():
+    """Cross-scope dataflow goes through scope-qualified base_columns,
+    not flat lists."""
+    c = _make_sample_corpus()
+    view = c.views[0]
+    main_col = next(c for s in view.scopes if s.id == "main"
+                     for c in s.columns)
+    # main column reads from the CTE scope
+    assert "cte:ActivePatients.PAT_ID" in main_col.base_columns
+
+    cte_col = next(c for s in view.scopes if s.id.startswith("cte:")
+                    for c in s.columns)
+    # CTE column reads from a base table
+    assert any(b.startswith("table:") for b in cte_col.base_columns)
+
+
+def test_filter_strings_appear_only_in_their_owning_scope():
+    """JSON serialization should not duplicate filter strings."""
     c = _make_sample_corpus()
     s = json.dumps(corpus_to_dict(c))
-    # P.STATUS_C = 1 should appear EXACTLY ONCE in the serialized JSON
-    # (in view_level.filters), not duplicated per column.
+    # CTE-scope filter appears once (in cte:ActivePatients.filters)
     assert s.count("P.STATUS_C = 1") == 1
-    assert s.count("P.IS_VALID_PAT_YN = 'Y'") == 1
-
-
-def test_compact_form_does_not_duplicate_table_names():
-    """tables_referenced is a single de-duped list; columns reference
-    by index, not by repeating the strings."""
-    c = _make_sample_corpus()
-    s = json.dumps(corpus_to_dict(c))
-    # PATIENT appears once in tables_referenced + once per inventory ref
-    # but NOT in every column's base_tables (because base_tables_idx
-    # is the compact form). 1 (tables_referenced) + 2 (inventory) = 3.
-    assert s.count('"PATIENT"') == 3
-
-
-# ---------- expand_view denormalization -----------------------------------
-
-def test_expand_view_resolves_table_indices():
-    c = _make_sample_corpus()
-    expanded = expand_view(c.views[0])
-    # First column's base_tables_idx was (0, 2) -> ["PATIENT", "DIAGNOSIS"]
-    assert expanded["columns"][0]["base_tables"] == ["PATIENT", "DIAGNOSIS"]
-    # Second column's base_tables_idx was (0,) -> ["PATIENT"]
-    assert expanded["columns"][1]["base_tables"] == ["PATIENT"]
-
-
-def test_expand_view_inflates_inherited_filters():
-    """When a column has filters_inherited=True, expanded form lists
-    ALL view-level filters PLUS any filters_extra."""
-    c = _make_sample_corpus()
-    expanded = expand_view(c.views[0])
-
-    # First column inherits all view filters; no extras.
-    f1 = expanded["columns"][0]["filters"]
-    assert "P.STATUS_C = 1" in f1
-    assert "P.IS_VALID_PAT_YN = 'Y'" in f1
-    assert len(f1) == 2
-
-    # Second column inherits view filters PLUS its own extra.
-    f2 = expanded["columns"][1]["filters"]
-    assert "P.STATUS_C = 1" in f2
-    assert "P.IS_VALID_PAT_YN = 'Y'" in f2
-    assert "P.LMP_DATE IS NOT NULL" in f2
-    assert len(f2) == 3
-
-
-def test_expand_view_drops_compact_only_fields():
-    """The denormalized form should not expose internal index fields."""
-    c = _make_sample_corpus()
-    expanded = expand_view(c.views[0])
-    for col in expanded["columns"]:
-        assert "base_tables_idx" not in col
-        assert "filters_inherited" not in col
-        assert "filters_extra" not in col
-
-
-def test_expand_view_filters_inherited_false_excludes_view_filters():
-    """When a column opts out of inheritance, it shows ONLY its
-    column-specific filters."""
-    view = ViewV1(
-        view_name="V",
-        view_level=ViewLevelV1(
-            filters=("VIEW_FILTER",),
-            tables_referenced=("T",),
-        ),
-        columns=(
-            ColumnV1(
-                column_name="X",
-                base_tables_idx=(0,),
-                filters_inherited=False,
-                filters_extra=("ONLY_THIS",),
-            ),
-        ),
-    )
-    expanded = expand_view(view)
-    assert expanded["columns"][0]["filters"] == ["ONLY_THIS"]
+    # Main-scope filter appears once (in main.filters)
+    assert s.count("AP.PAT_ID > 100") == 1
 
 
 # ---------- empty / minimal cases ----------------------------------------
@@ -264,7 +228,7 @@ def test_empty_corpus_round_trips():
     assert c == c2
 
 
-def test_view_with_no_columns_or_inventory_round_trips():
+def test_view_with_no_scopes_round_trips():
     """A view that failed to resolve still has a valid CorpusV1 entry."""
     c = CorpusV1(views=(ViewV1(view_name="V_FAILED"),))
     c2 = corpus_from_dict(corpus_to_dict(c))

@@ -8,6 +8,7 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
+2026-05-03  commit  855d19f Phase D Commit 1: scope-correct resolver (resolve_all_scoped, additive)  [affected: none — code; new ResolvedScope* dataclasses + LineageResolver.resolve_all_scoped() with no cross-scope filter propagation, fixes false-grouping risk in similar_logic_grouper]
 2026-05-02  commit  649a118 Layer 4: AST-level rule registry + combined parse pipeline  [affected: none — code; AstRule dataclass + drop_table_hints starter rule + parse_with_rules entry point]
 2026-05-02  commit  7d27955 Comment-as-data steps 2-4: bind comments to AST + surface in Tool 3/4  [affected: none — code; Tool 4 business_description leads with author voice; Tool 3 column rows expose author_notes]
 2026-05-02  commit  1b19d2e Comment-as-data step 1: extractor + Comment entity + corpus audit  [affected: none — code; lays groundwork for surfacing author comments in Tool 3/4 English output]

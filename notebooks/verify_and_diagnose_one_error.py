@@ -52,6 +52,69 @@ audit_timing(
 )
 
 
+# %% [Cell D: triage all error views -- corrupt files vs real parse failures]
+#
+# When timing_audit shows N errors and the first one Cell C inspected turns
+# out to be a corrupted export (no SQL keywords), the natural question is
+# "how many of the OTHER N-1 errors are the same problem?" This cell
+# splits the error pile into two buckets so you know what's worth chasing
+# with parsing rules vs what needs to be re-exported from SSMS.
+#
+# A view file qualifies as 'parseable_but_failing' if it contains any of
+# CREATE / SELECT / WITH / AS / FROM as a substring (case-insensitive).
+# Otherwise it's 'corrupted' (genuinely not SQL content).
+
+import csv
+import os
+
+AUDIT_CSV = '/lakehouse/default/Files/outputs/timing_audit.csv'
+VIEWS_DIR = '/lakehouse/default/Files/views'
+
+# Map filenames once for case-insensitive lookup
+all_files = {f.lower(): f for f in os.listdir(VIEWS_DIR) if f.lower().endswith('.sql')}
+
+errors = []
+with open(AUDIT_CSV, encoding='utf-8-sig') as f:
+    for row in csv.DictReader(f):
+        if row['status'] == 'error':
+            errors.append(row['view_name'])
+
+corrupted: list[str] = []
+parse_failing: list[str] = []
+
+for vn in errors:
+    fname = all_files.get((vn + '.sql').lower())
+    if fname is None:
+        # try prefix match
+        candidates = [f for f in all_files.values()
+                       if f.lower().startswith(vn.lower())]
+        fname = candidates[0] if candidates else None
+    if fname is None:
+        corrupted.append(f"{vn} (file not found)")
+        continue
+    text = open(os.path.join(VIEWS_DIR, fname), 'rb').read().decode(
+        'utf-8', errors='replace').upper()
+    if any(kw in text for kw in ('CREATE ', 'SELECT ', 'WITH ', ' AS ', 'FROM ')):
+        parse_failing.append(vn)
+    else:
+        corrupted.append(vn)
+
+print(f"Of {len(errors)} error views:\n")
+print(f"  CORRUPTED (no SQL keywords found in file):  {len(corrupted)}")
+print(f"  PARSEABLE BUT FAILING (real parser edge):   {len(parse_failing)}")
+
+if corrupted:
+    print(f"\n--- Corrupted ({len(corrupted)}) -- re-export from SSMS ---")
+    for vn in corrupted:
+        print(f"  - {vn}")
+
+if parse_failing:
+    print(f"\n--- Parseable but failing ({len(parse_failing)}) -- worth a parsing rule ---")
+    for vn in parse_failing:
+        print(f"  - {vn}")
+    print("\nRun Cell C against one of these to see what the parser actually chokes on.")
+
+
 # %% [Cell C: deep-diagnose the FIRST error view]
 #
 # When 21 errors stays at 21 after a "fix", run this. It picks the first

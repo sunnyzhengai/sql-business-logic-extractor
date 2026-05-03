@@ -96,6 +96,27 @@ def test_create_view_rule_handles_bracketed_names_with_spaces():
     assert "(" not in head, f"column list not stripped; head was: {head!r}"
 
 
+def test_create_view_rule_handles_parens_inside_bracketed_column_names():
+    """Regression: column names like `[Net (Gross)]` or `[Total (USD)]`
+    contain a `)` INSIDE a bracket-quoted identifier. The naive
+    `[^)]*` matcher used to short-circuit at that inner `)` and the
+    rule failed to fire. The alternation `(?:\\[[^\\]]*\\]|[^)])*`
+    consumes whole bracket-quoted runs correctly."""
+    sql = (
+        "CREATE VIEW [XX].[XXXX]\n"
+        "(\n"
+        "[Some Col],\n"
+        "[Net (Gross)],\n"
+        "[Total (USD)]\n"
+        ")\n"
+        "AS\n"
+        "SELECT 1"
+    )
+    out, fired = apply_all(sql)
+    assert "create_view_explicit_column_list" in fired
+    assert "(" not in out.split("AS", 1)[0]
+
+
 def test_create_view_rule_handles_create_or_alter_with_brackets():
     """`CREATE OR ALTER VIEW [X].[Y] (cols) AS` -- another shape that
     must keep working alongside the new bracket-with-spaces support."""

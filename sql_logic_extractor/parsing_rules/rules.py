@@ -36,11 +36,18 @@ PARSING_RULES: list[Rule] = [
         # Captures: CREATE [OR ALTER] VIEW <schema?.name>  (col list)  AS
         # The schema/name allows either a bracket-quoted identifier
         # (anything except `]`) or a bare word identifier (\w+).
+        # Column-list matcher is non-trivial: T-SQL allows ANY characters
+        # inside `[bracket-quoted]` column names INCLUDING `)`. So a
+        # naive `[^)]*` short-circuits on a column like `[Net (Gross)]`.
+        # The alternation `(?:\[[^\]]*\]|[^)])*` consumes either a whole
+        # bracket-quoted run (with anything inside) OR one non-`)` char
+        # at a time -- correctly skipping over parens nested in column
+        # names.
         pattern=(
             r"((?:CREATE\s+(?:OR\s+ALTER\s+)?|ALTER\s+)VIEW\s+"
             r"(?:\[[^\]]+\]|\w+)"
             r"(?:\.(?:\[[^\]]+\]|\w+))?)"
-            r"\s*\([^)]*\)\s*"
+            r"\s*\((?:\[[^\]]*\]|[^)])*\)\s*"
             r"\bAS\b"
         ),
         replacement=r"\1 AS",

@@ -1,7 +1,7 @@
 # Graph Report - /Users/admin/sql-logic-extractor  (2026-05-02)
 
 ## Corpus Check
-- 119 files · ~152,350 words
+- 119 files · ~152,457 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -1223,11 +1223,11 @@ Nodes (1): Format translation results for output.
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `SQLBusinessLogicExtractor` connect `Community 0` to `Community 2`, `Community 4`, `Community 6`, `Community 7`, `Community 8`?**
-  _High betweenness centrality (0.230) - this node is a cross-community bridge._
+  _High betweenness centrality (0.278) - this node is a cross-community bridge._
 - **Why does `SQL Business Logic Extractor -- parse, normalize, compare, resolve, and translat` connect `Community 8` to `Community 0`, `Community 1`, `Community 2`, `Community 4`, `Community 5`?**
-  _High betweenness centrality (0.156) - this node is a cross-community bridge._
+  _High betweenness centrality (0.135) - this node is a cross-community bridge._
 - **Why does `resolve_query()` connect `Community 0` to `Community 1`, `Community 2`, `Community 4`, `Community 6`, `Community 7`, `Community 9`, `Community 10`, `Community 20`, `Community 21`?**
-  _High betweenness centrality (0.105) - this node is a cross-community bridge._
+  _High betweenness centrality (0.121) - this node is a cross-community bridge._
 - **Are the 231 inferred relationships involving `SQLBusinessLogicExtractor` (e.g. with `ResolvedFilter` and `ResolvedColumn`) actually correct?**
   _`SQLBusinessLogicExtractor` has 231 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 65 inferred relationships involving `AliasResolver` (e.g. with `SQLBusinessLogicExtractor` and `QueryLogic`) actually correct?**

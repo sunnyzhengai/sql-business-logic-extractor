@@ -1,0 +1,129 @@
+# Healthcare-domain synonym dictionary for term extraction.
+#
+# Each entry maps a CANONICAL form to a list of VARIANTS that should be
+# treated as equivalent during name-token comparison. The tokenizer
+# expands every variant into the canonical form before computing
+# similarity, so columns named with different abbreviations cluster
+# together.
+#
+# Curate this file by hand. Add new entries as your corpus reveals
+# new abbreviation patterns. Do NOT auto-generate -- the whole point
+# of this dictionary is HITL-curated, version-controlled,
+# governance-auditable equivalence classes.
+#
+# Conventions:
+#   - canonical: lowercase singular noun (or noun phrase). this is what
+#     the canonical form looks like AFTER expansion.
+#   - variants: lowercase strings WITHOUT underscores or spaces. The
+#     tokenizer lowercases + splits by case/underscore boundaries
+#     before matching, so list each variant as a single lowercase word.
+#   - if a variant could legitimately mean multiple canonicals (e.g.,
+#     `dt` = "date" but also "departure time" in some contexts), pick
+#     the dominant healthcare meaning and add a comment explaining the
+#     ambiguity. Future extension: `context: pregnancy` style filters.
+#
+# This seed dictionary covers the most common Epic / Clarity / general
+# healthcare abbreviations we've seen in BI views. Expect to add
+# 50-100 more entries over the first few weeks of real corpus use.
+
+synonyms:
+  # ----- Patient / member identity -----
+  - canonical: patient
+    variants: [pt, pat, member, mbr, mem, subject]
+
+  - canonical: pregnant
+    variants: [preg, pregnancy, gestational, gestation, gravid, maternity, prenatal]
+
+  - canonical: provider
+    variants: [prov, doctor, physician, clinician, practitioner, prv]
+
+  # ----- Encounters / visits -----
+  - canonical: encounter
+    variants: [enc, visit, appointment, appt, admit, admission]
+
+  - canonical: discharge
+    variants: [dc, dchg, dischg, dispo, disposition]
+
+  - canonical: inpatient
+    variants: [ip, inpt, inhospital]
+
+  - canonical: outpatient
+    variants: [op, opt, outpt]
+
+  - canonical: emergency
+    variants: [er, ed, emerg]
+
+  # ----- Diagnosis / conditions / procedures -----
+  - canonical: diagnosis
+    variants: [dx, diag, diagn, condition]
+
+  - canonical: procedure
+    variants: [proc, procd, surgery, surg]
+
+  - canonical: medication
+    variants: [med, meds, drug, rx, pharmacy, pharm]
+
+  - canonical: lab
+    variants: [labs, laboratory, labresult, labtest]
+
+  - canonical: order
+    variants: [ord, ordr, request, req]
+
+  # ----- Coverage / insurance -----
+  - canonical: coverage
+    variants: [cvg, cov, insurance, ins, plan]
+
+  - canonical: claim
+    variants: [clm, clmline]
+
+  - canonical: authorization
+    variants: [auth, authz, authrz, prior, preauth]
+
+  - canonical: referral
+    variants: [rfl, refer, referred]
+
+  # ----- Status / state -----
+  - canonical: denied
+    variants: [den, deny, denial, rejected]
+
+  - canonical: pending
+    variants: [pend, awaiting, hold]
+
+  - canonical: approved
+    variants: [appr, approval, accepted]
+
+  - canonical: cancelled
+    variants: [canc, cncl, void, voided]
+
+  - canonical: active
+    variants: [act, current, valid]
+
+  # ----- Time -----
+  - canonical: effective
+    variants: [eff, eft, start, begin]
+
+  - canonical: terminated
+    variants: [term, end, stop, expired, expir]
+
+  # ----- Common metrics -----
+  - canonical: count
+    variants: [cnt, ct, num, number, quantity, qty]
+
+  - canonical: amount
+    variants: [amt, total, sum, balance, bal]
+
+  - canonical: rate
+    variants: [pct, percent, percentage, ratio]
+
+  # ----- Healthcare-specific entities -----
+  - canonical: bed
+    variants: [bedday, bedstay, los]
+
+  - canonical: readmission
+    variants: [readmit, readm, returnvisit]
+
+  - canonical: triage
+    variants: [tri, screen, screening, intake]
+
+  - canonical: chronic
+    variants: [chr, longterm, ongoing]

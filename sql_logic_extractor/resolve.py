@@ -57,6 +57,75 @@ class ResolvedQuery:
     raw_sql: str = ""
 
 
+# ---------------------------------------------------------------------------
+# Scope-correct resolution (Phase D)
+#
+# These structures coexist with the flat ResolvedQuery / ResolvedColumn
+# above. They DO NOT propagate filters across scope boundaries -- each
+# scope owns the filters declared inside it and nothing else. Cross-scope
+# dataflow is captured via scope-qualified `base_columns` and the
+# `reads_from_*` edges on each scope.
+#
+# `kind` strings are sourced from the parser, not a closed enum. Common
+# values: "main" | "cte" | "derived" | "subquery" | "exists" | "in" |
+# "union:N" | "intersect:N" | "except:N" | "lateral". Consumers should
+# accept any string; only specialize on names they recognize.
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ScopedFilter:
+    """A predicate declared in one scope. `kind` distinguishes
+    where/having/qualify/join_on/exists/in. `subquery_scope_ids` lists
+    any subquery scopes referenced inside this predicate."""
+    expression: str
+    kind: str = "where"
+    subquery_scope_ids: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ScopedColumn:
+    """One output column of one scope.
+
+    `base_columns` are scope-qualified strings:
+      - "table:Clarity.dbo.PATIENT.PAT_ID"  -- terminal base column
+      - "cte:CTE1.PAT_ID"                    -- upstream CTE column
+      - "derived:t0.x"                       -- derived-table column
+    Consumers walk these as graph edges to reach base tables.
+
+    `filters` are NOT inlined here -- they live on the owning ResolvedScope.
+    """
+    name: str
+    expression: str
+    type: str
+    base_columns: list[str] = field(default_factory=list)
+    base_tables: list[str] = field(default_factory=list)
+    resolved_expression: str = ""
+    transformation_chain: list[dict] = field(default_factory=list)
+
+
+@dataclass
+class ResolvedScope:
+    """One structural scope (CTE, derived table, subquery, set-op branch,
+    main SELECT, lateral). Carries only what is declared inside it."""
+    id: str
+    kind: str
+    filters: list[ScopedFilter] = field(default_factory=list)
+    columns: list[ScopedColumn] = field(default_factory=list)
+    reads_from_scopes: list[str] = field(default_factory=list)
+    reads_from_tables: list[str] = field(default_factory=list)
+    raw_sql: str = ""
+
+
+@dataclass
+class ResolvedScopeTree:
+    """Scope-correct decomposition of a query. The whole tree as a flat
+    list of scopes plus an entry-point list (`view_outputs`) naming the
+    scope(s) whose columns are the user-visible view output."""
+    raw_sql: str = ""
+    scopes: list[ResolvedScope] = field(default_factory=list)
+    view_outputs: list[str] = field(default_factory=list)
+
+
 def _dedupe_resolved_filters(filters: list) -> list:
     """Deduplicate ResolvedFilter objects by expression, keeping the first instance
     (which carries any nested subqueries found in that scope)."""
@@ -406,6 +475,267 @@ class LineageResolver:
                     pass
             resolved.append(rf)
         return resolved
+
+    # ----------------------------------------------------------------
+    # Scope-correct resolution (Phase D, additive)
+    # ----------------------------------------------------------------
+
+    def resolve_all_scoped(self) -> ResolvedScopeTree:
+        """Walk the scope graph and emit one ResolvedScope per structural
+        unit. Filters DO NOT propagate across scope boundaries; cross-scope
+        dataflow is preserved through scope-qualified base_columns and
+        reads_from_* edges. Coexists with `resolve_all()`."""
+        tree = ResolvedScopeTree(raw_sql=self.logic.get("raw_sql", ""))
+        emitted: dict[str, ResolvedScope] = {}
+
+        def emit(scope: ResolvedScope) -> None:
+            if scope.id not in emitted:
+                emitted[scope.id] = scope
+                tree.scopes.append(scope)
+
+        # CTE names are visible to sibling and descendant scopes. Pre-walk
+        # the whole logic tree once so a deeply nested CTE-of-CTE knows
+        # which names are CTE references (not base tables).
+        known_ctes: dict[str, str] = {}
+        self._collect_cte_names(self.logic, known_ctes)
+
+        # Set-op view (top-level UNION / INTERSECT / EXCEPT): each branch
+        # is its own scope; the "view output" is the first branch's columns
+        # (positionally aligned, by SQL semantics).
+        set_ops = self.logic.get("set_operations") or []
+        if set_ops:
+            op = set_ops[0]
+            op_kind = (op.get("type") or "UNION").lower().replace(" ", "_")
+            for i, branch_logic in enumerate(op.get("branches") or []):
+                branch_id = f"{op_kind}:{i}"
+                self._emit_scope_recursive(branch_logic, branch_id, op_kind, emit, known_ctes)
+            tree.view_outputs = [f"{op_kind}:0"] if op.get("branches") else []
+            return tree
+
+        # Plain view (main SELECT, possibly with CTEs/subqueries).
+        self._emit_scope_recursive(self.logic, "main", "main", emit, known_ctes)
+        tree.view_outputs = ["main"]
+        return tree
+
+    def _collect_cte_names(self, logic: dict, out: dict[str, str]) -> None:
+        """Walk a logic tree and accumulate {cte_name_lower: scope_id}.
+        CTEs declared at any level are visible to their siblings and
+        descendants, so the map is global to the whole resolution."""
+        if not isinstance(logic, dict):
+            return
+        for cte in logic.get("ctes", []) or []:
+            name = cte.get("name") or ""
+            if name:
+                out[name.lower()] = f"cte:{name}"
+            sub = cte.get("logic")
+            if sub:
+                self._collect_cte_names(sub, out)
+        for sq in logic.get("subqueries", []) or []:
+            sub = sq.get("logic")
+            if sub:
+                self._collect_cte_names(sub, out)
+        for op in logic.get("set_operations", []) or []:
+            for branch in op.get("branches", []) or []:
+                self._collect_cte_names(branch, out)
+
+    def _emit_scope_recursive(
+        self,
+        logic: dict,
+        scope_id: str,
+        kind: str,
+        emit,
+        known_ctes: dict[str, str],
+    ) -> None:
+        """Build a ResolvedScope from a logic dict and emit it, then
+        recursively emit its CTEs / derived sources / subqueries."""
+        if not isinstance(logic, dict):
+            return
+        scope = ResolvedScope(
+            id=scope_id,
+            kind=kind,
+            raw_sql=logic.get("raw_sql", ""),
+        )
+
+        # --- Filters declared in THIS scope only (no propagation) ---
+        for f in logic.get("filters", []) or []:
+            f_kind = f.get("scope") or "where"
+            if f_kind == "join":
+                # Drop pure equi-join keys; keep business-bearing join predicates.
+                expr_upper = (f.get("expression") or "").upper()
+                if " = " in (f.get("expression") or "") and not any(op in expr_upper for op in
+                    [" > ", " < ", " >= ", " <= ", " <> ", " != ",
+                     "BETWEEN", "LIKE", "DATEDIFF", "AND "]):
+                    continue
+                f_kind = "join_on"
+            scope.filters.append(ScopedFilter(
+                expression=f.get("expression") or "",
+                kind=f_kind,
+                # Subquery linkage filled in below once subquery scopes have IDs.
+                subquery_scope_ids=[],
+            ))
+
+        # --- reads_from_tables / reads_from_scopes ---
+        # CTE references resolve to globally-known CTE IDs (CTEs declared
+        # anywhere in the query are visible to descendants). Derived-table
+        # aliases resolve to the local scope's subqueries.
+        cte_name_to_id = known_ctes
+        derived_alias_to_id: dict[str, str] = {}
+        for sq in logic.get("subqueries", []) or []:
+            alias = sq.get("alias")
+            if alias and (sq.get("context") in ("from", None) or False):
+                derived_alias_to_id[alias.lower()] = f"derived:{alias}"
+
+        lateral_count = 0
+        for src in logic.get("sources", []) or []:
+            stype = src.get("type") or ""
+            sname = src.get("name") or ""
+            salias = src.get("alias") or ""
+            if stype == "table":
+                if sname.lower() in cte_name_to_id:
+                    scope.reads_from_scopes.append(cte_name_to_id[sname.lower()])
+                else:
+                    scope.reads_from_tables.append(sname)
+            elif stype == "subquery":
+                if salias:
+                    scope.reads_from_scopes.append(f"derived:{salias}")
+                    derived_alias_to_id[salias.lower()] = f"derived:{salias}"
+            elif stype == "lateral":
+                lat_id = f"lateral:{salias}" if salias else f"lateral:{lateral_count}"
+                lateral_count += 1
+                scope.reads_from_scopes.append(lat_id)
+
+        for join in logic.get("joins", []) or []:
+            rt = join.get("right_table") or ""
+            ra = join.get("right_alias") or ""
+            if rt:
+                if rt.lower() in cte_name_to_id:
+                    scope.reads_from_scopes.append(cte_name_to_id[rt.lower()])
+                elif ra and ra.lower() in derived_alias_to_id:
+                    scope.reads_from_scopes.append(derived_alias_to_id[ra.lower()])
+                else:
+                    scope.reads_from_tables.append(rt)
+
+        # Dedupe edges, preserve order.
+        scope.reads_from_tables = list(dict.fromkeys(scope.reads_from_tables))
+        scope.reads_from_scopes = list(dict.fromkeys(scope.reads_from_scopes))
+
+        # --- Columns local to this scope (no transitive resolution) ---
+        alias_map = self._build_alias_map(logic, cte_name_to_id, derived_alias_to_id)
+        for out in logic.get("outputs", []) or []:
+            col = self._resolve_column_local(out, alias_map, cte_name_to_id, derived_alias_to_id)
+            if col is not None:
+                scope.columns.append(col)
+
+        emit(scope)
+
+        # --- Recurse into nested scopes ---
+        for cte in logic.get("ctes", []) or []:
+            cte_name = cte.get("name") or ""
+            cte_logic = cte.get("logic")
+            if cte_name and cte_logic:
+                self._emit_scope_recursive(cte_logic, f"cte:{cte_name}", "cte", emit, known_ctes)
+
+        # Subqueries: WHERE-EXISTS, IN, scalar, derived. Synthesize IDs.
+        ctx_counters: dict[str, int] = {}
+        for sq in logic.get("subqueries", []) or []:
+            ctx = sq.get("context") or "subquery"
+            sub_logic = sq.get("logic")
+            alias = sq.get("alias")
+            if alias and ctx in ("from", None):
+                sub_id = f"derived:{alias}"
+                sub_kind = "derived"
+            else:
+                idx = ctx_counters.get(ctx, 0)
+                ctx_counters[ctx] = idx + 1
+                sub_id = f"{ctx}:{idx}"
+                sub_kind = ctx
+            if sub_logic:
+                self._emit_scope_recursive(sub_logic, sub_id, sub_kind, emit, known_ctes)
+
+    def _build_alias_map(
+        self,
+        logic: dict,
+        cte_name_to_id: dict[str, str],
+        derived_alias_to_id: dict[str, str],
+    ) -> dict[str, str]:
+        """Map source aliases to scope-qualified prefixes used in
+        scope-local base_columns. Each entry is {alias_lower: prefix}
+        where prefix is "table:<name>" or "cte:<name>" or "derived:<alias>".
+        """
+        out: dict[str, str] = {}
+        for src in logic.get("sources", []) or []:
+            sname = src.get("name") or ""
+            salias = src.get("alias") or sname
+            stype = src.get("type") or ""
+            if stype == "table":
+                key = cte_name_to_id.get(sname.lower())
+                prefix = key if key else f"table:{sname}"
+            elif stype == "subquery":
+                prefix = f"derived:{salias}" if salias else "derived:?"
+            elif stype == "lateral":
+                prefix = f"lateral:{salias}" if salias else "lateral:?"
+            else:
+                prefix = f"table:{sname}"
+            if salias:
+                out[salias.lower()] = prefix
+            if sname:
+                out[sname.lower()] = prefix
+        for join in logic.get("joins", []) or []:
+            rt = join.get("right_table") or ""
+            ra = join.get("right_alias") or rt
+            if rt.lower() in cte_name_to_id:
+                prefix = cte_name_to_id[rt.lower()]
+            elif ra.lower() in derived_alias_to_id:
+                prefix = derived_alias_to_id[ra.lower()]
+            else:
+                prefix = f"table:{rt}"
+            if ra:
+                out[ra.lower()] = prefix
+            if rt:
+                out[rt.lower()] = prefix
+        for cte_name, cte_id in cte_name_to_id.items():
+            out.setdefault(cte_name, cte_id)
+        for alias, der_id in derived_alias_to_id.items():
+            out.setdefault(alias, der_id)
+        return out
+
+    def _resolve_column_local(
+        self,
+        out: dict,
+        alias_map: dict[str, str],
+        cte_name_to_id: dict[str, str],
+        derived_alias_to_id: dict[str, str],
+    ) -> Optional[ScopedColumn]:
+        """Build a ScopedColumn with scope-qualified base_columns. Does
+        NOT recurse into upstream scopes -- cross-scope dataflow is
+        captured by the scope-qualified prefix, which a graph walker
+        can follow."""
+        name = out.get("name") or ""
+        if name == "*":
+            return ScopedColumn(name="*", expression="*", type="star")
+        expr = out.get("expression") or ""
+        col_type = out.get("type") or ""
+        base_cols: list[str] = []
+        base_tables: list[str] = []
+        for src in out.get("source_columns", []) or []:
+            t = (src.get("table") or "").strip()
+            c = (src.get("column") or "").strip()
+            if not c:
+                continue
+            prefix = alias_map.get(t.lower()) if t else None
+            if not prefix:
+                prefix = f"table:{t}" if t else "table:?"
+            base_cols.append(f"{prefix}.{c}")
+            if prefix.startswith("table:"):
+                base_tables.append(prefix[len("table:"):])
+        return ScopedColumn(
+            name=name,
+            expression=expr,
+            type=col_type,
+            base_columns=list(dict.fromkeys(base_cols)),
+            base_tables=list(dict.fromkeys(base_tables)),
+            resolved_expression=expr,
+        )
 
     def resolve_all(self) -> ResolvedQuery:
         """Resolve every output column in the main query."""

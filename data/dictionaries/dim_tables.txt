@@ -1,0 +1,34 @@
+# Dimension / lookup tables -- excluded from FACT-table comparison.
+#
+# Used by tools/view_shape_compare to strip out enrichment-only joins
+# before clustering views by their core "shape" (which fact tables they
+# read and how they're joined).
+#
+# Format:
+#   - One name per line. Case-insensitive (matched against table name only,
+#     ignoring database/schema qualifiers).
+#   - `*` is a wildcard suffix: `ZC_*` matches ZC_RACE, ZC_SEX, etc.
+#   - Lines starting with `#` are comments.
+#   - Blank lines ignored.
+#
+# Heuristics for what to add here:
+#   - Pure code/lookup tables (Epic Clarity ZC_* zero-code tables).
+#   - Tables that appear in 50%+ of views as enrichment joins (PATIENT
+#     in healthcare BI is the canonical example).
+#   - Generic dimension tables that don't define the row population.
+#
+# What NOT to add:
+#   - Fact tables, even if frequent (e.g., ENCOUNTER, ORDER_PROC).
+#   - Bridge / many-to-many tables that DO change row counts -- those
+#     are arguably facts. Add as a separate `bridge_tables.txt` later
+#     if needed.
+#
+# Grow this list when you encounter false-positive clusters where two
+# views look "shape-identical" only because of incidental dim joins.
+
+# --- Patterns ---
+ZC_*
+CLARITY_*
+
+# --- Specific ---
+PATIENT

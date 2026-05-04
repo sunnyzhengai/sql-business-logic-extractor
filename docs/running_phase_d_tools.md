@@ -129,7 +129,42 @@ Useful when sanity-checking a specific complex view (e.g., one with deeply neste
 
 ---
 
-## 5. Run the tests (optional, requires the `tests/` files)
+## 5. Compare view shapes (table + join similarity)
+
+After you've built `corpus.jsonl`, find views that share table+join structure:
+
+### Fabric notebook
+
+```python
+from tools.view_shape_compare.batch import compare_view_shapes
+
+compare_view_shapes(
+    corpus_path='/lakehouse/default/Files/outputs/corpus.jsonl',
+    output_dir='/lakehouse/default/Files/outputs/view_shapes',
+)
+```
+
+### CLI
+
+```bash
+python -m tools.view_shape_compare.batch /path/to/corpus.jsonl -o /path/to/view_shapes
+```
+
+### Outputs (in `output_dir`)
+
+- `clusters.csv` — groups of views that are **structurally identical** (same all_tables AND same all_joins). Each row = one cluster of duplicate-shape views.
+- `cross_pairs.csv` — pair-level findings for weaker relationships:
+  - `fact_subset` / `fact_superset` — one view's fact tables ⊊ the other's
+  - `fact_overlap` — facts intersect; neither subset
+  - `same_facts_different_joins` — same fact tables, different join graph
+  - `dim_extension` — same fact tables AND fact joins, different dim tables
+  - `join_subset` — same fact tables, joins ⊊
+  - `same_driver` — same FROM driver but otherwise unrelated (weak signal)
+- `features.csv` — per-view shape: driver, fact tables, dim count, joins (useful for spreadsheet review).
+
+Dim-table noise (PATIENT, ZC_*, CLARITY_*) is filtered before fact comparison via `data/dictionaries/dim_tables.txt`. Edit that file to grow the list when you spot false positives. Use `--dim-filter /custom/path.txt` to override.
+
+## 6. Run the tests (optional, requires the `tests/` files)
 
 ```bash
 # from repo root

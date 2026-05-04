@@ -101,11 +101,23 @@ Note: `view_name` is `path.stem` — strips only the `.sql` extension. So a file
 If you just want to see the new tree shape without writing a file:
 
 ```python
+from pathlib import Path
 from sql_logic_extractor.extract import SQLBusinessLogicExtractor, to_dict
-from sql_logic_extractor.resolve import LineageResolver
+from sql_logic_extractor.resolve import LineageResolver, preprocess_ssms
+from tools.extract_corpus.batch import _read_sql_file
 
-sql = open('/path/to/one_view.sql').read()
-logic = to_dict(SQLBusinessLogicExtractor(dialect='tsql').extract(sql))
+# _read_sql_file is BOM-aware (handles UTF-16-LE / UTF-16-BE / UTF-8-BOM,
+# which SSMS export uses). Plain open().read() will fail with
+# "utf-8 codec can't decode byte 0xff" on those files.
+sql = _read_sql_file(Path('/path/to/one_view.sql'))
+
+# preprocess_ssms strips SET ANSI_NULLS, GO, header comments so sqlglot
+# can parse the underlying CREATE VIEW / SELECT.
+clean_sql, _meta = preprocess_ssms(sql)
+if not clean_sql.strip():
+    clean_sql = sql.strip()
+
+logic = to_dict(SQLBusinessLogicExtractor(dialect='tsql').extract(clean_sql))
 tree = LineageResolver(logic).resolve_all_scoped()
 for s in tree.scopes:
     print(f"{s.id} ({s.kind}): {len(s.columns)} cols, {len(s.filters)} filters")
@@ -113,7 +125,7 @@ for s in tree.scopes:
         print(f"  filter [{f.kind}]: {f.expression}")
 ```
 
-Useful when sanity-checking a specific complex view (e.g., one with deeply nested CTEs).
+Useful when sanity-checking a specific complex view (e.g., one with deeply nested CTEs). The two preprocessing steps (BOM-aware read + `preprocess_ssms`) are normally hidden inside `extract_corpus`; this cell does them manually because it goes straight to the resolver.
 
 ---
 

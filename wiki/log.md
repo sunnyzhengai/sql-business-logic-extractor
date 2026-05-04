@@ -8,7 +8,8 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
-2026-05-03  commit  Phase D Commit 3: scope-correct standalone term extraction  [affected: none — code; tools/term_extraction/batch.py uses resolve_all_scoped, default emits main-scope only, --all-scopes flag for intermediate; CTE filters no longer pollute Term.filters]
+2026-05-03  commit  Add docs/running_phase_d_tools.md (notebook + CLI cells for extract_corpus and term_extraction)  [affected: none — operational doc; copy-paste cells for Fabric users to run scope-correct corpus extraction]
+2026-05-03  commit  8cd2ddb Phase D Commit 3: scope-correct standalone term extraction  [affected: none — code; tools/term_extraction/batch.py uses resolve_all_scoped, default emits main-scope only, --all-scopes flag for intermediate; CTE filters no longer pollute Term.filters]
 2026-05-03  commit  442b4a7 Phase D Commit 2: corpus schema v3 (scope tree) + extractor rewrite  [affected: none — code; ScopeV1/FilterV1 nested tree replaces v2 flat form; extract_corpus walks ResolvedScopeTree; v1/v2 corpus.jsonl no longer readable]
 2026-05-03  commit  855d19f Phase D Commit 1: scope-correct resolver (resolve_all_scoped, additive)  [affected: none — code; new ResolvedScope* dataclasses + LineageResolver.resolve_all_scoped() with no cross-scope filter propagation, fixes false-grouping risk in similar_logic_grouper]
 2026-05-02  commit  649a118 Layer 4: AST-level rule registry + combined parse pipeline  [affected: none — code; AstRule dataclass + drop_table_hints starter rule + parse_with_rules entry point]

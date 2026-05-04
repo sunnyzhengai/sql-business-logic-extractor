@@ -176,7 +176,61 @@ Pairs are sorted by triage priority: `table_identical` → `dim_extension` → `
 
 Dim-table noise (PATIENT, `ZC_*`, `CLARITY_*`) is filtered via `data/dictionaries/dim_tables.txt`. Edit that file to grow the list when false positives surface. Use `--dim-filter /custom/path.txt` to override.
 
-## 6. Run the tests (optional, requires the `tests/` files)
+## 6. Render each view as a chain of datasets
+
+After you've built `corpus.jsonl`, render each view's CTE / subquery / main scope as a sequence of "datasets" — one per scope, with name, base dataset (lineage edge), data columns (English), and filters (English).
+
+### Fabric notebook
+
+```python
+from tools.dataset_extract.batch import extract_datasets
+
+extract_datasets(
+    corpus_path='/lakehouse/default/Files/outputs/corpus.jsonl',
+    output_dir='/lakehouse/default/Files/outputs/datasets',
+)
+```
+
+### CLI
+
+```bash
+python -m tools.dataset_extract.batch /path/to/corpus.jsonl -o /path/to/datasets
+```
+
+### Outputs (in `output_dir`)
+
+- `datasets.md` — one section per view, each scope rendered as a sub-section. Best for human review or pasting into a wiki.
+- `datasets.json` — same data, programmatic. One entry per view containing an ordered list of dataset dicts (`scope_id`, `name`, `kind`, `base_datasets`, `base_tables`, `data_columns`, `filters`).
+
+A typical CTE view renders as:
+
+```markdown
+## v_my_view
+
+### Active Patients  *(cte:ActivePatients)*
+- **Reads tables:** PATIENT
+- **Data columns:**
+    - `PAT_ID`: Patient Identifier
+- **Filters:**
+    - *[where]* Status C = 1
+
+### Age 12 Patients  *(cte:Age12Patients)*
+- **Base dataset:** Active Patients
+- **Reads tables:** PATIENT
+- **Filters:**
+    - *[where]* Age Years > 12
+
+### Main query (view output)  *(main)*
+- **Base dataset:** Age 12 Patients
+- **Reads tables:** PATIENT, CLARITY_SER
+- **Data columns:**
+    - `PAT_ID`: Patient Identifier
+    - `PCPProviderName`: Provider Name
+```
+
+CTE-scope filters stay in their CTE — they do NOT pollute downstream datasets. This is the same scope-correctness that powers `view_shape_compare`.
+
+## 7. Run the tests (optional, requires the `tests/` files)
 
 ```bash
 # from repo root

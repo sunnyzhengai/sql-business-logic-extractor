@@ -1,11 +1,17 @@
 """Per-view feature extraction for shape comparison.
 
-A view's "shape" is reduced to a small set of canonical features
-computed from its main scope (the user-visible output scope). CTE-
-internal joins are NOT included in the comparison -- two views with
-the same user-visible shape but different internal CTE plumbing should
-group together, since governance care about what a report exposes,
-not how it's computed.
+A view's "shape" is computed by walking ALL of its scopes (main + CTEs
++ derived tables + subqueries) and aggregating tables and joins across
+the whole scope tree. That way a view with `WITH C1 AS (... FROM
+ENCOUNTER ...) SELECT FROM C1 JOIN PATIENT` correctly reports
+ENCOUNTER as a fact table, even though main scope alone only reads
+from C1 (a scope reference) and PATIENT (a dim).
+
+We also retain per-scope features (`scopes`) so the JSON output can
+show readers WHERE each table comes from. Comparison itself is done
+on the aggregate axes -- two views are "shape-similar" when their
+aggregate fact tables and joins overlap, regardless of how the work
+was split across CTEs.
 """
 
 from __future__ import annotations
@@ -17,19 +23,10 @@ from .dim_filter import DimFilter
 
 
 def _bare_table(name: str) -> str:
-    """Strip database/schema qualifiers and trailing whitespace."""
     return (name or "").split(".")[-1].strip()
 
 
 def _normalize_join_type(jt: str) -> str:
-    """Canonicalize a join_type string into a small enum.
-
-    The parser produces variants like 'INNER JOIN', 'LEFT OUTER JOIN',
-    'CROSS JOIN'. We collapse synonyms so 'INNER JOIN' == 'JOIN' and
-    'LEFT OUTER JOIN' == 'LEFT JOIN'. Returns one of:
-      INNER | LEFT | RIGHT | FULL | CROSS
-    Unknown variants pass through verbatim (uppercased, OUTER stripped).
-    """
     s = (jt or "JOIN").upper()
     s = re.sub(r"\bOUTER\b", "", s)
     s = re.sub(r"\s+", " ", s).strip()
@@ -47,14 +44,6 @@ def _normalize_join_type(jt: str) -> str:
 
 
 def _normalize_on(on_expr: str) -> str:
-    """Canonicalize an ON predicate so that A.x = B.x and B.x = A.x
-    compare equal, and aliases are dropped.
-
-    This is intentionally conservative: we only canonicalize the
-    common case of `<token>.<col> = <token>.<col>` (and AND-conjunctions
-    of those). Anything more complex falls back to whitespace
-    normalization. Good enough to catch trivial alias / order
-    differences without false-merging real semantic differences."""
     if not on_expr:
         return ""
     parts = re.split(r"\s+AND\s+", on_expr, flags=re.IGNORECASE)
@@ -69,7 +58,6 @@ def _normalize_on(on_expr: str) -> str:
         )
         if m:
             l_tbl, l_col, r_tbl, r_col = m.groups()
-            # Sort the two sides so order doesn't matter.
             left = f"{l_tbl}.{l_col}"
             right = f"{r_tbl}.{r_col}"
             if left > right:
@@ -82,20 +70,41 @@ def _normalize_on(on_expr: str) -> str:
 
 
 @dataclass(frozen=True)
-class ViewShape:
-    """A view's structural fingerprint, used for clustering.
+class ScopeFeature:
+    """Per-scope shape: tables this scope reads + joins it declares.
 
-    All sets/tuples here are derived from the main-scope's reads_from_*
-    and joins. Dim-stripped variants use the filter from `DimFilter`.
+    `tables` are bare table names (database/schema stripped). Scope
+    references like `cte:X` are NOT included -- they're cross-scope
+    edges, not tables. `fact_tables` is `tables` after dim strip.
+    """
+    id: str
+    kind: str
+    tables: frozenset[str]
+    fact_tables: frozenset[str]
+    joins: tuple[tuple[str, str, str], ...]        # (right_table, type, on)
+    fact_joins: tuple[tuple[str, str, str], ...]
+
+
+@dataclass(frozen=True)
+class ViewShape:
+    """A view's structural fingerprint.
+
+    Aggregate fields (`all_tables`, `fact_tables`, `all_joins`,
+    `fact_joins`) are unions over EVERY scope in the view. Comparison
+    runs on these. `scopes` carries the per-scope decomposition for
+    transparency in the output -- consumers can see which scope a
+    given table or join came from.
     """
     view_name: str
-    driver_table: str                     # FROM driver, bare; "" if none
-    all_tables: frozenset[str]            # bare, before dim strip
-    fact_tables: frozenset[str]           # bare, after dim strip
-    all_joins: tuple[tuple[str, str, str], ...]   # canonical (right_table, type, on)
-    fact_joins: tuple[tuple[str, str, str], ...]  # joins where right_table is a fact
+    driver_table: str
 
-    # Derived signatures used for clustering keys.
+    all_tables: frozenset[str]
+    fact_tables: frozenset[str]
+    all_joins: tuple[tuple[str, str, str], ...]
+    fact_joins: tuple[tuple[str, str, str], ...]
+
+    scopes: tuple[ScopeFeature, ...]
+
     @property
     def fact_tables_sig(self) -> tuple[str, ...]:
         return tuple(sorted(self.fact_tables))
@@ -113,68 +122,92 @@ class ViewShape:
         return tuple(sorted(self.all_joins))
 
 
-def view_shape_from_dict(view_dict: dict, dim_filter: DimFilter) -> ViewShape | None:
-    """Build a ViewShape from one ViewV1 JSON dict (one line of corpus.jsonl).
+def _scope_feature(scope: dict, dim_filter: DimFilter) -> ScopeFeature:
+    """Extract per-scope tables/joins from one scope dict."""
+    sid = scope.get("id") or ""
+    skind = scope.get("kind") or ""
 
-    Returns None for views with no main scope (e.g., parse-error views
-    that fell through to _error_view) -- those don't participate in
-    comparison.
-    """
-    name = view_dict.get("view_name") or ""
-    scopes = view_dict.get("scopes") or []
-    main = next((s for s in scopes if s.get("id") == "main"), None)
-    if not main:
-        return None
-
-    # All tables: reads_from_tables + every join's right_table (when it's
-    # a base table reference, not another scope id like "cte:X").
-    all_table_set: set[str] = set()
-    for t in main.get("reads_from_tables") or []:
+    tables: set[str] = set()
+    for t in scope.get("reads_from_tables") or []:
         bare = _bare_table(t)
         if bare:
-            all_table_set.add(bare)
-    for j in main.get("joins") or []:
-        rt = _bare_table(j.get("right_table") or "")
-        # Skip scope refs like "cte:X" (they shouldn't have made it into
-        # right_table when the resolver mapped CTE refs into reads_from_scopes,
-        # but defensively skip anything containing a colon).
-        if rt and ":" not in rt:
-            all_table_set.add(rt)
+            tables.add(bare)
 
-    fact_table_set = {t for t in all_table_set if not dim_filter.is_dim(t)}
-
-    all_joins: list[tuple[str, str, str]] = []
-    fact_joins: list[tuple[str, str, str]] = []
-    for j in main.get("joins") or []:
+    joins: list[tuple[str, str, str]] = []
+    for j in scope.get("joins") or []:
         rt = _bare_table(j.get("right_table") or "")
+        # Skip scope refs (cte:X, derived:Y, etc.) -- those are cross-scope
+        # edges; the underlying tables live in the referenced scope and
+        # get picked up when we walk it.
         if not rt or ":" in rt:
             continue
-        canon = (rt, _normalize_join_type(j.get("join_type")),
-                  _normalize_on(j.get("on_expression")))
-        all_joins.append(canon)
-        if rt in fact_table_set:
-            fact_joins.append(canon)
+        tables.add(rt)
+        canon = (
+            rt,
+            _normalize_join_type(j.get("join_type")),
+            _normalize_on(j.get("on_expression")),
+        )
+        joins.append(canon)
 
-    # Driver table: the first non-dim table mentioned in reads_from_tables,
-    # falling back to the first reads_from_tables entry if all are dim.
+    fact_tables = {t for t in tables if not dim_filter.is_dim(t)}
+    fact_joins = tuple(j for j in joins if j[0] in fact_tables)
+
+    return ScopeFeature(
+        id=sid,
+        kind=skind,
+        tables=frozenset(tables),
+        fact_tables=frozenset(fact_tables),
+        joins=tuple(joins),
+        fact_joins=fact_joins,
+    )
+
+
+def view_shape_from_dict(view_dict: dict, dim_filter: DimFilter) -> ViewShape | None:
+    """Build a ViewShape by walking every scope.
+
+    Returns None for views with no scopes (e.g., parse-error views).
+    """
+    name = view_dict.get("view_name") or ""
+    scopes_raw = view_dict.get("scopes") or []
+    if not scopes_raw:
+        return None
+
+    scope_features = tuple(_scope_feature(s, dim_filter) for s in scopes_raw)
+
+    # Aggregate across scopes.
+    all_tables: set[str] = set()
+    fact_tables: set[str] = set()
+    all_joins: list[tuple[str, str, str]] = []
+    fact_joins: list[tuple[str, str, str]] = []
+    for sf in scope_features:
+        all_tables |= sf.tables
+        fact_tables |= sf.fact_tables
+        all_joins.extend(sf.joins)
+        fact_joins.extend(sf.fact_joins)
+
+    # Driver: main scope's first non-dim table; falls back to first
+    # reads_from_tables entry of main if all are dim.
     driver = ""
-    for t in main.get("reads_from_tables") or []:
-        bare = _bare_table(t)
-        if bare and not dim_filter.is_dim(bare):
-            driver = bare
-            break
-    if not driver:
+    main = next((s for s in scopes_raw if s.get("id") == "main"), None)
+    if main:
         for t in main.get("reads_from_tables") or []:
             bare = _bare_table(t)
-            if bare:
+            if bare and not dim_filter.is_dim(bare):
                 driver = bare
                 break
+        if not driver:
+            for t in main.get("reads_from_tables") or []:
+                bare = _bare_table(t)
+                if bare:
+                    driver = bare
+                    break
 
     return ViewShape(
         view_name=name,
         driver_table=driver,
-        all_tables=frozenset(all_table_set),
-        fact_tables=frozenset(fact_table_set),
+        all_tables=frozenset(all_tables),
+        fact_tables=frozenset(fact_tables),
         all_joins=tuple(all_joins),
         fact_joins=tuple(fact_joins),
+        scopes=scope_features,
     )

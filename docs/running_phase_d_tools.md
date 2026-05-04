@@ -152,17 +152,29 @@ python -m tools.view_shape_compare.batch /path/to/corpus.jsonl -o /path/to/view_
 
 ### Outputs (in `output_dir`)
 
-- `clusters.csv` — groups of views that are **structurally identical** (same all_tables AND same all_joins). Each row = one cluster of duplicate-shape views.
-- `cross_pairs.csv` — pair-level findings for weaker relationships:
-  - `fact_subset` / `fact_superset` — one view's fact tables ⊊ the other's
-  - `fact_overlap` — facts intersect; neither subset
-  - `same_facts_different_joins` — same fact tables, different join graph
-  - `dim_extension` — same fact tables AND fact joins, different dim tables
-  - `join_subset` — same fact tables, joins ⊊
-  - `same_driver` — same FROM driver but otherwise unrelated (weak signal)
-- `features.csv` — per-view shape: driver, fact tables, dim count, joins (useful for spreadsheet review).
+Two JSON files. Tables/joins are aggregated across **all scopes** (main + CTEs + subqueries), so CTE-internal facts contribute to the comparison.
 
-Dim-table noise (PATIENT, ZC_*, CLARITY_*) is filtered before fact comparison via `data/dictionaries/dim_tables.txt`. Edit that file to grow the list when you spot false positives. Use `--dim-filter /custom/path.txt` to override.
+**`pairs.json`** — one entry per (view A, view B) pair with a finding. Each entry is a side-by-side diff:
+
+```jsonc
+{
+  "view_a": "v_x", "view_b": "v_y",
+  "flags": ["dim_extension"],            // multiple flags can apply
+  "fact_tables":  { "shared": [...], "only_a": [...], "only_b": [...] },
+  "dim_tables":   { "shared": [...], "only_a": [...], "only_b": [...] },
+  "fact_joins":   { "shared": [...], "only_a": [...], "only_b": [...] },
+  "all_joins":    { "shared": [...], "only_a": [...], "only_b": [...] },
+  "drivers":      { "a": "ENCOUNTER", "b": "ENCOUNTER", "same": true },
+  "scopes_a": [{ "id": "cte:C1", "kind": "cte", "fact_tables": [...], ... }, ...],
+  "scopes_b": [...]
+}
+```
+
+Pairs are sorted by triage priority: `table_identical` → `dim_extension` → `same_facts_different_joins` → `join_subset` → `fact_subset/superset` → `fact_overlap` → `same_driver`.
+
+**`features.json`** — per-view shape data. For each view: aggregate fact/dim tables, joins, plus the per-scope decomposition. Use this for side-by-side reference when triaging a pair.
+
+Dim-table noise (PATIENT, `ZC_*`, `CLARITY_*`) is filtered via `data/dictionaries/dim_tables.txt`. Edit that file to grow the list when false positives surface. Use `--dim-filter /custom/path.txt` to override.
 
 ## 6. Run the tests (optional, requires the `tests/` files)
 

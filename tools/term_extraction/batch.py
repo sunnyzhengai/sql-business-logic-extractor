@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
-"""Tool 10 -- corpus-level term extractor.
+"""Tool 10 -- corpus-level term extractor (Phase D, scope-correct).
 
-For each *.sql in a folder, runs the resolver, walks the per-column
-translations, and emits Terms (the governance comparison unit).
+For each *.sql in a folder, runs the scope-correct resolver, walks the
+main-output scope's columns, and emits Terms (the governance comparison
+unit). Each Term's `filters` are scope-local (declared in the column's
+own scope only), NOT the cross-scope flattened union the legacy
+extractor produced.
+
+CTE-internal columns are NOT emitted as Terms by default -- they're not
+user-visible and don't participate in cross-view governance comparison.
+Pass `all_scopes=True` to include them (each Term then has its scope ID
+in `view_name` for disambiguation).
 
 Output:
     terms.json     -- list of Term records, one per qualifying column
@@ -28,10 +36,8 @@ import time
 from pathlib import Path
 
 from sql_logic_extractor.business_logic import load_schema
-from sql_logic_extractor.products import (
-    extract_business_logic,
-    extract_technical_lineage,
-)
+from sql_logic_extractor.extract import SQLBusinessLogicExtractor, to_dict
+from sql_logic_extractor.resolve import LineageResolver
 from sql_logic_extractor.term_extraction import (
     Term,
     extract_terms,
@@ -53,14 +59,72 @@ def _read_sql_file(path: Path) -> str:
         return raw.decode("utf-16-le", errors="replace")
 
 
+def _scoped_terms_for_view(
+    view_name: str,
+    sql: str,
+    *,
+    dialect: str,
+    synonyms,
+    all_scopes: bool,
+) -> list[Term]:
+    """Build Terms from a view's scope tree.
+
+    Per-scope: pick up that scope's columns, build the dict shape the
+    Term extractor expects, and pass the SCOPE's own filters as
+    query_filters (no cross-scope inheritance).
+
+    By default, only the scopes named in `view_outputs` (typically
+    `main`) contribute Terms. With `all_scopes=True`, every scope
+    contributes -- useful for governance audits that care about
+    intermediate CTE shapes.
+    """
+    extractor = SQLBusinessLogicExtractor(dialect=dialect)
+    logic = to_dict(extractor.extract(sql))
+    tree = LineageResolver(logic).resolve_all_scoped()
+
+    target_scope_ids = (
+        {s.id for s in tree.scopes}
+        if all_scopes
+        else set(tree.view_outputs or ["main"])
+    )
+
+    terms: list[Term] = []
+    for scope in tree.scopes:
+        if scope.id not in target_scope_ids:
+            continue
+
+        col_dicts = [{
+            "column_name": c.name,
+            "column_type": c.type,
+            "resolved_expression": c.resolved_expression or c.expression,
+            "base_tables": list(c.base_tables),
+            "base_columns": list(c.base_columns),
+        } for c in scope.columns]
+        scope_filters = tuple(f.expression for f in scope.filters)
+
+        # Disambiguate intermediate-scope terms by suffixing the scope ID
+        # to view_name so cross-view comparison still groups by the actual
+        # view but downstream readers can tell them apart.
+        scope_view_name = view_name if scope.id == "main" else f"{view_name}#{scope.id}"
+        terms.extend(extract_terms(
+            view_name=scope_view_name,
+            column_translations=col_dicts,
+            query_filters=scope_filters,
+            synonyms=synonyms,
+        ))
+
+    return terms
+
+
 def extract_corpus_terms(
     input_dir: str,
     output_path: str = "terms.json",
     *,
     schema_path: str | None = None,
     dialect: str = "tsql",
+    all_scopes: bool = False,
 ) -> int:
-    """Walk a folder of views, build Terms, write JSON + CSV."""
+    """Walk a folder of views, build scope-correct Terms, write JSON + CSV."""
     in_dir = Path(input_dir)
     if not in_dir.is_dir():
         print(f"Error: {in_dir} is not a directory", file=sys.stderr)
@@ -74,7 +138,11 @@ def extract_corpus_terms(
     out.parent.mkdir(parents=True, exist_ok=True)
     csv_out = out.with_suffix(".csv")
 
-    schema = load_schema(schema_path) if schema_path else {}
+    # schema_path is accepted for API compatibility; the scope-correct
+    # path doesn't use it (column English isn't part of the Term, and
+    # filter scoping doesn't depend on the data dictionary).
+    if schema_path:
+        load_schema(schema_path)
     synonyms = load_default_synonyms()
 
     all_terms: list[Term] = []
@@ -86,16 +154,9 @@ def extract_corpus_terms(
         view_name = path.stem
         try:
             sql = _read_sql_file(path)
-            # Tool 3 path gives us per-column translations with author_notes,
-            # base_tables/columns, and filters already attached. Use it
-            # rather than raw lineage so terms inherit Tool 3's enrichment.
-            bl = extract_business_logic(sql, schema, use_llm=False, dialect=dialect)
-            lineage = bl.lineage
-            terms = extract_terms(
-                view_name=view_name,
-                column_translations=bl.column_translations,
-                query_filters=lineage.query_filters,
-                synonyms=synonyms,
+            terms = _scoped_terms_for_view(
+                view_name, sql,
+                dialect=dialect, synonyms=synonyms, all_scopes=all_scopes,
             )
             all_terms.extend(terms)
             n_views_ok += 1
@@ -106,10 +167,8 @@ def extract_corpus_terms(
             print(f"[{i}/{len(sql_files)}] {view_name}: ERROR "
                   f"{type(e).__name__}: {str(e)[:100]}", flush=True)
 
-    # Write JSON (full structured records).
     out.write_text(json.dumps([t.to_dict() for t in all_terms], indent=2))
 
-    # Write CSV (flattened, for spreadsheet review).
     csv_fields = [
         "view_name", "column_name", "column_type",
         "name_tokens", "is_passthrough", "has_filters", "name_is_structural",
@@ -148,16 +207,23 @@ def extract_corpus_terms(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Extract Terms from a folder of SQL views."
+        description="Extract scope-correct Terms from a folder of SQL views."
     )
     parser.add_argument("input_dir", help="Folder containing view *.sql files")
     parser.add_argument("-o", "--output", default="terms.json",
                           help="Output JSON path (also writes <stem>.csv)")
-    parser.add_argument("--schema", default=None, help="Schema YAML/JSON for Tool 3 enrichment")
+    parser.add_argument("--schema", default=None,
+                          help="(Accepted for API compatibility; not used.)")
     parser.add_argument("-d", "--dialect", default="tsql")
+    parser.add_argument("--all-scopes", action="store_true",
+                          help="Emit Terms from intermediate scopes (CTEs, "
+                                "subqueries) too. Default: only view outputs.")
     args = parser.parse_args()
-    return extract_corpus_terms(args.input_dir, args.output,
-                                   schema_path=args.schema, dialect=args.dialect)
+    return extract_corpus_terms(
+        args.input_dir, args.output,
+        schema_path=args.schema, dialect=args.dialect,
+        all_scopes=args.all_scopes,
+    )
 
 
 def _is_notebook() -> bool:

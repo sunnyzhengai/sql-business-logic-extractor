@@ -58,6 +58,26 @@ SCHEMA_VERSION: int = 3
 # ============================================================
 
 @dataclass(frozen=True)
+class JoinV1:
+    """One JOIN declared in a scope, surfaced for view-shape comparison.
+
+    `right_table` is the right-hand side (base table or scope id, e.g.
+    a CTE reference). `join_type` preserves the parser's wording
+    ('INNER JOIN' / 'LEFT JOIN' / 'CROSS JOIN' / ...). The left side
+    is implicit -- determined by the scope's FROM driver and prior
+    joins -- and is NOT stored, since shape comparison normalizes a
+    view's joins as a multiset rather than an ordered chain.
+
+    Additive field on ScopeV1 (added post-v3, no schema bump). Old
+    corpus.jsonl files without a `joins` field are still readable.
+    """
+    right_table: str = ""
+    join_type: str = "JOIN"
+    on_expression: str = ""
+    right_alias: str = ""
+
+
+@dataclass(frozen=True)
 class FilterV1:
     """A predicate declared in one scope.
 
@@ -141,6 +161,9 @@ class ScopeV1:
 
     reads_from_scopes: tuple[str, ...] = ()
     reads_from_tables: tuple[str, ...] = ()
+
+    # Structured joins for view-shape comparison. Additive; default empty.
+    joins: tuple[JoinV1, ...] = ()
 
 
 # ============================================================
@@ -272,6 +295,16 @@ def _scope_from_dict(d: dict) -> ScopeV1:
         columns=tuple(_column_from_dict(c) for c in d.get("columns", []) or []),
         reads_from_scopes=tuple(d.get("reads_from_scopes", []) or []),
         reads_from_tables=tuple(d.get("reads_from_tables", []) or []),
+        joins=tuple(_join_from_dict(j) for j in d.get("joins", []) or []),
+    )
+
+
+def _join_from_dict(d: dict) -> JoinV1:
+    return JoinV1(
+        right_table=d.get("right_table", ""),
+        join_type=d.get("join_type", "JOIN"),
+        on_expression=d.get("on_expression", ""),
+        right_alias=d.get("right_alias", ""),
     )
 
 

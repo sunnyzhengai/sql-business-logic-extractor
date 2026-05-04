@@ -55,6 +55,7 @@ from sql_logic_extractor.corpus_schema import (
     ColumnV1,
     FilterV1,
     InventoryRefV1,
+    JoinV1,
     ReportV1,
     ScopeV1,
     TermV1,
@@ -160,6 +161,16 @@ def _build_column_v1(
     )
 
 
+def _build_join_v1(rj) -> JoinV1:
+    """Map ResolvedScope's ScopedJoin to the corpus-output JoinV1."""
+    return JoinV1(
+        right_table=rj.right_table or "",
+        join_type=rj.join_type or "JOIN",
+        on_expression=rj.on_expression or "",
+        right_alias=rj.right_alias or "",
+    )
+
+
 def _build_scope_v1(
     rs: ResolvedScope,
     ctx: Context,
@@ -172,6 +183,7 @@ def _build_scope_v1(
         columns=tuple(_build_column_v1(c, ctx, dialect) for c in rs.columns),
         reads_from_scopes=tuple(rs.reads_from_scopes or []),
         reads_from_tables=tuple(rs.reads_from_tables or []),
+        joins=tuple(_build_join_v1(j) for j in (rs.joins or [])),
     )
 
 
@@ -339,6 +351,7 @@ def _enrich_main_scope(scopes: list[ScopeV1], view_name: str, sql: str, dialect:
         columns=tuple(enriched_cols),
         reads_from_scopes=main.reads_from_scopes,
         reads_from_tables=main.reads_from_tables,
+        joins=main.joins,
     )
     new_scopes = list(scopes)
     new_scopes[main_idx] = new_main

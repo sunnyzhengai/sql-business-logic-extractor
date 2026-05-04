@@ -83,6 +83,19 @@ class ScopedFilter:
 
 
 @dataclass
+class ScopedJoin:
+    """One JOIN clause declared in a scope. `right_table` may be a base
+    table name OR another scope's id (e.g., a CTE referenced as the
+    right side of a join). `join_type` preserves the parser's wording
+    ('INNER JOIN', 'LEFT JOIN', 'CROSS JOIN', ...). `on_expression` is
+    the raw ON predicate."""
+    right_table: str
+    join_type: str
+    on_expression: str = ""
+    right_alias: str = ""
+
+
+@dataclass
 class ScopedColumn:
     """One output column of one scope.
 
@@ -113,6 +126,7 @@ class ResolvedScope:
     columns: list[ScopedColumn] = field(default_factory=list)
     reads_from_scopes: list[str] = field(default_factory=list)
     reads_from_tables: list[str] = field(default_factory=list)
+    joins: list[ScopedJoin] = field(default_factory=list)
     raw_sql: str = ""
 
 
@@ -618,6 +632,15 @@ class LineageResolver:
         # Dedupe edges, preserve order.
         scope.reads_from_tables = list(dict.fromkeys(scope.reads_from_tables))
         scope.reads_from_scopes = list(dict.fromkeys(scope.reads_from_scopes))
+
+        # --- Joins: structured (right_table, type, ON) for shape comparison ---
+        for join in logic.get("joins", []) or []:
+            scope.joins.append(ScopedJoin(
+                right_table=join.get("right_table") or "",
+                join_type=join.get("join_type") or "JOIN",
+                on_expression=join.get("on_expression") or "",
+                right_alias=join.get("right_alias") or "",
+            ))
 
         # --- Columns local to this scope (no transitive resolution) ---
         alias_map = self._build_alias_map(logic, cte_name_to_id, derived_alias_to_id)

@@ -8,7 +8,8 @@ Kinds: `ingest` · `decide` · `commit` · `lint`
 
 ---
 
-2026-05-03  commit  docs/running_phase_d_tools.md cell 4 fix: BOM-aware read + preprocess_ssms in standalone smoke check  [affected: docs/running_phase_d_tools.md; users hit utf-8 0xff decode error on SSMS UTF-16 exports]
+2026-05-03  commit  Schema additive: JoinV1 on ScopeV1  [affected: none — code; structured (right_table, join_type, on_expression) on each scope; resolver populates ScopedJoin; extract_corpus mirrors as JoinV1; powers upcoming view-shape comparison]
+2026-05-03  commit  b4f576d docs/running_phase_d_tools.md cell 4 fix: BOM-aware read + preprocess_ssms in standalone smoke check  [affected: docs/running_phase_d_tools.md; users hit utf-8 0xff decode error on SSMS UTF-16 exports]
 2026-05-03  commit  339a7b7 Phase D fix: preprocess SSMS script boilerplate before parsing  [affected: none — code; extract_corpus and term_extraction call preprocess_ssms first; surfaces error type on per-view progress line; regression test for SSMS export format]
 2026-05-03  commit  6e86e9d Add docs/running_phase_d_tools.md (notebook + CLI cells for extract_corpus and term_extraction)  [affected: none — operational doc; copy-paste cells for Fabric users to run scope-correct corpus extraction]
 2026-05-03  commit  8cd2ddb Phase D Commit 3: scope-correct standalone term extraction  [affected: none — code; tools/term_extraction/batch.py uses resolve_all_scoped, default emits main-scope only, --all-scopes flag for intermediate; CTE filters no longer pollute Term.filters]

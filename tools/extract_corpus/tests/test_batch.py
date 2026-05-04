@@ -192,6 +192,27 @@ def test_one_failing_view_does_not_kill_run(tmp_path):
     assert _main_scope(by_name["good"]).columns
 
 
+def test_joins_are_surfaced_on_main_scope(tmp_path):
+    """ScopeV1.joins is populated with structured (right_table, type,
+    on) entries from the extractor's logic['joins']. This is what the
+    view-shape comparison tool reads for table+join similarity."""
+    views = tmp_path / "views"
+    views.mkdir()
+    (views / "v_join.sql").write_text(
+        "SELECT P.PAT_ID, E.ENC_DATE\n"
+        "FROM Clarity.dbo.PATIENT P\n"
+        "INNER JOIN Clarity.dbo.ENCOUNTER E ON E.PAT_ID = P.PAT_ID\n"
+        "LEFT JOIN Clarity.dbo.ZC_RACE R ON P.RACE_C = R.RACE_C\n"
+    )
+    out = tmp_path / "corpus.jsonl"
+    extract_corpus(str(views), str(out))
+    corpus = corpus_from_jsonl_lines(iter(out.read_text().splitlines()))
+    main = _main_scope(corpus.views[0])
+    join_targets = {(j.right_table, j.join_type) for j in main.joins}
+    assert ("ENCOUNTER", "INNER JOIN") in join_targets
+    assert ("ZC_RACE", "LEFT JOIN") in join_targets
+
+
 def test_ssms_script_boilerplate_is_handled(tmp_path):
     """SSMS-exported view files start with `SET ANSI_NULLS ON`, `GO`,
     and a /****** Object: ... ******/ header comment. The extractor

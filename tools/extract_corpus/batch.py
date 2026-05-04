@@ -69,6 +69,7 @@ from sql_logic_extractor.resolve import (
     ResolvedScope,
     ResolvedScopeTree,
     ScopedColumn,
+    preprocess_ssms,
 )
 from sql_logic_extractor.term_extraction import (
     extract_terms,
@@ -347,9 +348,21 @@ def _enrich_main_scope(scopes: list[ScopeV1], view_name: str, sql: str, dialect:
 # ---------- main per-view builder -----------------------------------------
 
 def _build_view(view_name: str, sql: str, schema: dict | None, dialect: str) -> ViewV1:
-    """Build a v3 ViewV1 (scope tree) for one SQL view."""
+    """Build a v3 ViewV1 (scope tree) for one SQL view.
+
+    Preprocesses SSMS script boilerplate (`SET ANSI_NULLS ON`, `GO`,
+    header comments produced by SSMS "Script View as CREATE TO File")
+    via `preprocess_ssms` -- without this step sqlglot cannot parse
+    the typical Fabric / SSMS export format. All downstream SQL-walking
+    helpers (extractor, comment_attachment, inventory) consume the
+    cleaned SQL so they see a coherent CREATE VIEW / SELECT statement.
+    """
+    clean_sql, _meta = preprocess_ssms(sql)
+    if not clean_sql or not clean_sql.strip():
+        clean_sql = sql.strip()
+
     extractor = SQLBusinessLogicExtractor(dialect=dialect)
-    logic = to_dict(extractor.extract(sql))
+    logic = to_dict(extractor.extract(clean_sql))
 
     resolver = LineageResolver(logic)
     tree: ResolvedScopeTree = resolver.resolve_all_scoped()
@@ -358,10 +371,10 @@ def _build_view(view_name: str, sql: str, schema: dict | None, dialect: str) -> 
     scopes_v1 = [_build_scope_v1(rs, ctx, dialect) for rs in tree.scopes]
 
     # Enrich main scope columns with author notes + term metadata.
-    scopes_v1 = _enrich_main_scope(scopes_v1, view_name, sql, dialect)
+    scopes_v1 = _enrich_main_scope(scopes_v1, view_name, clean_sql, dialect)
 
-    inventory = _build_inventory(sql, dialect)
-    view_level_notes = tuple(extract_view_level_notes(sql))
+    inventory = _build_inventory(clean_sql, dialect)
+    view_level_notes = tuple(extract_view_level_notes(clean_sql))
     report = _build_report(view_name, tuple(scopes_v1))
 
     return ViewV1(
@@ -436,13 +449,14 @@ def extract_corpus(
         for i, path in enumerate(sql_files, 1):
             view_name = path.stem
             t0 = time.time()
+            err: str | None = None
             try:
                 sql = _read_sql_file(path)
                 view = _build_view(view_name, sql, schema, dialect)
                 n_ok += 1
             except Exception as e:
-                view = _error_view(view_name, f"{type(e).__name__}: {e}",
-                                    sql=locals().get("sql"))
+                err = f"{type(e).__name__}: {e}"
+                view = _error_view(view_name, err, sql=locals().get("sql"))
                 n_failed += 1
 
             f.write(json.dumps(_to_jsonable(asdict(view))) + "\n")
@@ -451,9 +465,10 @@ def extract_corpus(
             elapsed = time.time() - t0
             n_scopes = len(view.scopes)
             n_main_cols = next((len(s.columns) for s in view.scopes if s.id == "main"), 0)
-            line = (f"[{i}/{len(sql_files)}] {view_name}  ({elapsed:.1f}s)  "
+            base = (f"[{i}/{len(sql_files)}] {view_name}  ({elapsed:.1f}s)  "
                      f"scopes={n_scopes} main_cols={n_main_cols} "
                      f"inv={len(view.inventory)}")
+            line = base if err is None else f"{base}  ERROR: {err[:160]}"
             print(line, flush=True)
             with progress_path.open("a") as pf:
                 pf.write(line + "\n")

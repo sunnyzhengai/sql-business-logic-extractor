@@ -192,6 +192,34 @@ def test_one_failing_view_does_not_kill_run(tmp_path):
     assert _main_scope(by_name["good"]).columns
 
 
+def test_ssms_script_boilerplate_is_handled(tmp_path):
+    """SSMS-exported view files start with `SET ANSI_NULLS ON`, `GO`,
+    and a /****** Object: ... ******/ header comment. The extractor
+    must strip these via preprocess_ssms before parsing -- otherwise
+    every Fabric-exported view fails."""
+    views = tmp_path / "views"
+    views.mkdir()
+    (views / "v_ssms.sql").write_text(
+        "/****** Object: View [dbo].[V_TEST] Script date: 2026-01-01 ******/\n"
+        "SET ANSI_NULLS ON\n"
+        "GO\n"
+        "SET QUOTED_IDENTIFIER ON\n"
+        "GO\n"
+        "CREATE VIEW [dbo].[V_TEST] AS\n"
+        "SELECT P.PAT_ID FROM Clarity.dbo.PATIENT P WHERE P.STATUS_C = 1\n"
+    )
+    out = tmp_path / "corpus.jsonl"
+    extract_corpus(str(views), str(out))
+    corpus = corpus_from_jsonl_lines(iter(out.read_text().splitlines()))
+    view = corpus.views[0]
+    # Did NOT fall through to the error path: scopes were emitted.
+    assert view.scopes
+    main = _main_scope(view)
+    assert main.columns
+    # And the WHERE filter was extracted.
+    assert any("STATUS_C = 1" in f.expression for f in main.filters)
+
+
 def test_progress_file_written_per_view(tmp_path):
     views = tmp_path / "views"
     _seed_views(views)

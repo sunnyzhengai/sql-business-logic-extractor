@@ -37,7 +37,7 @@ from pathlib import Path
 
 from sql_logic_extractor.business_logic import load_schema
 from sql_logic_extractor.extract import SQLBusinessLogicExtractor, to_dict
-from sql_logic_extractor.resolve import LineageResolver
+from sql_logic_extractor.resolve import LineageResolver, preprocess_ssms
 from sql_logic_extractor.term_extraction import (
     Term,
     extract_terms,
@@ -78,8 +78,14 @@ def _scoped_terms_for_view(
     contributes -- useful for governance audits that care about
     intermediate CTE shapes.
     """
+    # Strip SSMS script boilerplate (SET ANSI_NULLS, GO, header comments)
+    # so sqlglot sees a parseable CREATE VIEW / SELECT statement.
+    clean_sql, _meta = preprocess_ssms(sql)
+    if not clean_sql or not clean_sql.strip():
+        clean_sql = sql.strip()
+
     extractor = SQLBusinessLogicExtractor(dialect=dialect)
-    logic = to_dict(extractor.extract(sql))
+    logic = to_dict(extractor.extract(clean_sql))
     tree = LineageResolver(logic).resolve_all_scoped()
 
     target_scope_ids = (

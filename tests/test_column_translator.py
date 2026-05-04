@@ -41,7 +41,10 @@ def test_short_description_preferred_over_description():
     assert _translate_column_ref("PATIENT.PAT_ID", schema) == "Patient ID"
 
 
-def test_falls_back_to_description_when_short_description_missing():
+def test_falls_back_to_column_name_when_short_description_missing():
+    """When short_description is absent, fall back to abbreviation
+    expansion of the column NAME -- NOT the verbose `description`
+    field. Clarity descriptions are too long for a translation slot."""
     schema = {
         "tables": [
             {
@@ -49,14 +52,37 @@ def test_falls_back_to_description_when_short_description_missing():
                 "columns": [
                     {
                         "name": "PAT_ID",
-                        "description": "Patient identifier",
+                        "description": "The unique identifier for a patient (long verbose text...)",
                         # no short_description
                     },
                 ],
             }
         ]
     }
-    assert _translate_column_ref("PATIENT.PAT_ID", schema) == "Patient identifier"
+    out = _translate_column_ref("PATIENT.PAT_ID", schema)
+    # PAT -> Patient, ID -> Identifier (abbreviation expansion)
+    assert out == "Patient Identifier"
+    # description text NOT used
+    assert "long verbose" not in out
+
+
+def test_description_field_is_intentionally_ignored():
+    """Even when description is set and short_description isn't, the
+    translator skips description entirely."""
+    schema = {
+        "tables": [
+            {
+                "name": "ENCOUNTER",
+                "columns": [
+                    {"name": "ENC_DATE",
+                     "description": "Date the encounter took place"},
+                ],
+            }
+        ]
+    }
+    out = _translate_column_ref("ENCOUNTER.ENC_DATE", schema)
+    assert "took place" not in out
+    assert "Encounter" in out and "Date" in out
 
 
 def test_falls_back_to_abbreviation_expansion_when_no_schema_entry():

@@ -165,21 +165,21 @@ def column_ref(ctx: Context, node: exp.Expression, children: dict[str, Translati
             )
 
     entry = _lookup_column(ctx.schema, table, col_name)
-    if entry is not None:
-        # Prefer short_description (user-curated, concise) over the
-        # full description (often verbose Clarity reference text).
-        chosen = (entry.get("short_description") or entry.get("description"))
-        if chosen:
-            ini_key = _ini_item_key(entry)
-            return Translation(
-                english=_clean_description(chosen),
-                category="passthrough",
-                base_columns=[ref],
-                base_tables=[table] if table else [],
-                ini_items=[ini_key] if ini_key else [],
-            )
-    # Fall back to abbreviation expansion; still flag as unknown so the
-    # schema-authoring backlog is visible.
+    if entry is not None and entry.get("short_description"):
+        # Use ONLY the user-curated short_description -- the verbose
+        # Clarity DESCRIPTION field is intentionally ignored. When
+        # short_description is absent, we fall through to column-name
+        # abbreviation expansion (cleaner than Clarity's reference text).
+        ini_key = _ini_item_key(entry)
+        return Translation(
+            english=_clean_description(entry["short_description"]),
+            category="passthrough",
+            base_columns=[ref],
+            base_tables=[table] if table else [],
+            ini_items=[ini_key] if ini_key else [],
+        )
+    # Fall back to abbreviation expansion of the column name.
+    # Still flag as unknown so the short_description backlog is visible.
     expanded = _expand_abbreviations(col_name)
     return Translation(
         english=expanded,

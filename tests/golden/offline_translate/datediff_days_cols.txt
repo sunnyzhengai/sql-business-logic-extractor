@@ -1,8 +1,8 @@
-Number of days between Admission Time and Discharge Time
+Number of days between Hospital Admission Time and Hospital Discharge Time
 # sql: DATEDIFF(DAY, HOSP_ADMSN_TIME, HOSP_DISCH_TIME)
 # category: calculated
 # subcategory: date_difference
 # base_columns: ['HOSP_ADMSN_TIME', 'HOSP_DISCH_TIME']
 # base_tables: []
 # unknown_nodes: []
-# unknown_columns: []
+# unknown_columns: ['HOSP_ADMSN_TIME', 'HOSP_DISCH_TIME']

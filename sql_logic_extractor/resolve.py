@@ -732,7 +732,14 @@ class LineageResolver:
         """Build a ScopedColumn with scope-qualified base_columns. Does
         NOT recurse into upstream scopes -- cross-scope dataflow is
         captured by the scope-qualified prefix, which a graph walker
-        can follow."""
+        can follow.
+
+        For passthroughs with a single source column, `resolved_expression`
+        inlines the alias to the real table name (e.g., `ZSR.NAME` ->
+        `ZC_SUBSC_RACE.NAME`). This is what the column translator
+        consumes, so heuristics like the ZC.NAME -> table-domain rule
+        fire correctly even when the view uses table aliases.
+        """
         name = out.get("name") or ""
         if name == "*":
             return ScopedColumn(name="*", expression="*", type="star")
@@ -740,7 +747,8 @@ class LineageResolver:
         col_type = out.get("type") or ""
         base_cols: list[str] = []
         base_tables: list[str] = []
-        for src in out.get("source_columns", []) or []:
+        sources = out.get("source_columns") or []
+        for src in sources:
             t = (src.get("table") or "").strip()
             c = (src.get("column") or "").strip()
             if not c:
@@ -751,13 +759,21 @@ class LineageResolver:
             base_cols.append(f"{prefix}.{c}")
             if prefix.startswith("table:"):
                 base_tables.append(prefix[len("table:"):])
+
+        # Passthrough single-source: inline alias to real table for translator.
+        resolved_expr = expr
+        if col_type == "passthrough" and len(sources) == 1 and base_cols:
+            bc = base_cols[0]
+            if bc.startswith("table:"):
+                resolved_expr = bc[len("table:"):]
+
         return ScopedColumn(
             name=name,
             expression=expr,
             type=col_type,
             base_columns=list(dict.fromkeys(base_cols)),
             base_tables=list(dict.fromkeys(base_tables)),
-            resolved_expression=expr,
+            resolved_expression=resolved_expr,
         )
 
     def resolve_all(self) -> ResolvedQuery:

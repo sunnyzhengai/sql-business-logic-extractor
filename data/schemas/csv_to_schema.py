@@ -3,7 +3,9 @@
 """
 Convert a Clarity metadata CSV export to clarity_schema.json.
 
-Source query (run at work against Clarity):
+Source query (run at work against Clarity), with the optional
+`short_description` column to add a user-curated concise label that
+the column translator will prefer over Clarity's full DESCRIPTION:
 
     SELECT
         TBL.TABLE_NAME,
@@ -11,6 +13,7 @@ Source query (run at work against Clarity):
         TBL.TABLE_INTRODUCTION,
         COL.COLUMN_NAME,
         COL.DESCRIPTION,
+        ''                AS short_description,   -- fill in by hand
         INI.COLUMN_INI,
         INI.COLUMN_ITEM
     FROM CLARITY.dbo.CLARITY_TBL TBL
@@ -18,6 +21,11 @@ Source query (run at work against Clarity):
     JOIN CLARITY.dbo.CLARITY_COL_INIITM INI ON COL.COLUMN_ID = INI.COLUMN_ID
     WHERE TABLE_NAME IN (...)
       AND TBL.TBL_DESCRIPTOR_OVR IS NOT NULL;
+
+Once the CSV is exported, fill in `short_description` for the columns
+you care about (the rest fall back to DESCRIPTION). The conversion is
+column-name-flexible: both `short_description` and `SHORT_DESCRIPTION`
+are accepted.
 
 The trailing `TBL_DESCRIPTOR_OVR IS NOT NULL` clause is intentional -- it
 deduplicates CLARITY_TBL entries that appear twice. Do not remove it
@@ -96,6 +104,10 @@ def csv_to_schema(csv_path: str, out_path: str) -> None:
             col = {
                 "name": (row.get("COLUMN_NAME") or "").strip(),
                 "description": (row.get("DESCRIPTION") or "").strip() or None,
+                "short_description": (
+                    (row.get("short_description") or row.get("SHORT_DESCRIPTION") or "")
+                    .strip() or None
+                ),
             }
             ini = (row.get("COLUMN_INI") or "").strip()
             item = (row.get("COLUMN_ITEM") or "").strip()

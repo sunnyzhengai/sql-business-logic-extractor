@@ -126,6 +126,49 @@ def render_filter(filter_dict: dict) -> str:
     return eng or expr
 
 
+def _bare(name: str) -> str:
+    return (name or "").split(".")[-1].strip()
+
+
+def _is_pure_label_lookup(table_name: str) -> bool:
+    """ZC_* tables in Epic Clarity are pure code-to-label lookups
+    (e.g., ZC_TAX_STATE has TAX_STATE_C and NAME). Projecting their
+    NAME column dereferences a code that lives in some OTHER table
+    (e.g., COVERAGE.SUBSCR_STATE_C); it doesn't add a cohort axis.
+    These tables are always excluded from the cohort phrase.
+    """
+    return (table_name or "").strip().upper().startswith("ZC_")
+
+
+def _selected_source_tables(scope: dict) -> list[str]:
+    """The unique set of base tables that the scope's SELECTED columns
+    trace back to, in column-declaration order.
+
+    This is the cohort-defining set:
+      - JOIN-only tables (joined for filter context but not projected)
+        are excluded -- they're enrichment for grain math, not cohort.
+      - ZC_* lookup tables are excluded even when projected -- their
+        NAME column is just a label dereference.
+      - Empty / unresolved ("?") source markers are skipped silently.
+      - Tables referenced through a CTE (column has `cte:X.col` lineage
+        and empty base_tables) yield no entry here -- the renderer
+        falls back to "same as upstream" via base_datasets.
+    """
+    seen: set[str] = set()
+    out: list[str] = []
+    for col in scope.get("columns") or []:
+        for t in col.get("base_tables") or []:
+            bare = _bare(t)
+            if not bare or bare == "?":
+                continue
+            if _is_pure_label_lookup(bare):
+                continue
+            if bare not in seen:
+                seen.add(bare)
+                out.append(bare)
+    return out
+
+
 def view_to_cohorts(
     view: dict,
     descriptions: TableDescriptions,
@@ -133,10 +176,16 @@ def view_to_cohorts(
 ) -> list[dict]:
     """Render every scope of one view as a cohort entry.
 
-    Cohort-building rule: dims are stripped from the cohort UNLESS
-    they are the ONLY tables in the scope. A view that selects only
-    from PATIENT *is* a "patients" cohort, even though PATIENT is
-    listed as a dim for the (separate) view-shape comparison purpose.
+    Cohort tables are sourced from the SELECTED columns' base_tables,
+    NOT from `reads_from_tables`. This means a JOIN-only table (joined
+    for filter context but not projected) is excluded from the cohort
+    -- which matches the user's intuition that "the grain is what your
+    SELECT clause carves out, not what your FROM clause references."
+
+    The dim filter is bypassed for selected source tables: if you
+    projected from a table, it's meaningful by definition. The dim
+    filter still applies to JOIN-only tables for the `same_driver` /
+    view-shape signal (a separate tool).
 
     Returns a list of dicts:
         {
@@ -149,13 +198,19 @@ def view_to_cohorts(
     """
     out: list[dict] = []
     for scope in view.get("scopes") or []:
-        all_tables = list(scope.get("reads_from_tables") or [])
-        fact_tables = [t for t in all_tables if not _is_dim(t, dim_predicates)]
-        # If stripping dims leaves nothing, the dims ARE the cohort.
-        if not fact_tables and all_tables:
-            fact_tables = all_tables
+        selected = _selected_source_tables(scope)
         upstream = list(scope.get("reads_from_scopes") or [])
-        cohort = build_cohort(fact_tables, upstream, descriptions)
+
+        # Fall back to all reads_from_tables for star projection / odd
+        # cases where columns don't trace back to base tables.
+        if not selected and not upstream:
+            all_tables = list(scope.get("reads_from_tables") or [])
+            non_dim = [t for t in all_tables if not _is_dim(t, dim_predicates)]
+            if not non_dim and all_tables:
+                non_dim = all_tables
+            selected = non_dim
+
+        cohort = build_cohort(selected, upstream, descriptions)
         filters = [render_filter(f) for f in (scope.get("filters") or [])]
 
         out.append({

@@ -86,12 +86,14 @@ def test_simple_query_one_table_one_filter(tmp_path):
     assert any("Last Name" in f and "Jackson" in f for f in main["filters"])
 
 
-def test_join_query_two_tables(tmp_path):
-    """User's second example: PATIENT JOIN PAT_ENC WHERE CONTACT_DATE BETWEEN..."""
+def test_join_query_explicit_columns_picks_selected_tables(tmp_path):
+    """User's second example: explicit projection picks PATIENT name +
+    PAT_ENC date -> cohort = 'patients with encounters' (both contribute
+    selected columns, so both belong to the cohort)."""
     doc = _run_cohorts(
         tmp_path,
         """
-        SELECT *
+        SELECT P.PAT_NAME, PE.CONTACT_DATE
         FROM Clarity.dbo.PATIENT P
         INNER JOIN Clarity.dbo.PAT_ENC PE ON P.PAT_ID = PE.PAT_ID
         WHERE PE.CONTACT_DATE BETWEEN '2026-01-01' AND '2026-01-31'
@@ -99,13 +101,54 @@ def test_join_query_two_tables(tmp_path):
         view_name="v_jan_visits",
     )
     main = _scope(doc, "v_jan_visits", "main")
-    # PATIENT is dim by default in our config -- cohort should be just "encounters"
-    # NOT "patients with encounters", because PATIENT is enrichment.
-    # If you DON'T want PATIENT treated as dim for cohort building, remove
-    # it from data/dictionaries/dim_tables.txt.
+    assert "patients" in main["cohort"]
     assert "encounters" in main["cohort"]
     # Filter should mention Contact Date and the date range
     assert any("Contact Date" in f for f in main["filters"])
+
+
+def test_join_only_table_with_no_projection_is_excluded(tmp_path):
+    """Reverse of the above: PATIENT joined for the WHERE filter, but
+    no patient column projected -> cohort is just "encounters". Tables
+    that don't contribute SELECTED columns are enrichment, not cohort."""
+    doc = _run_cohorts(
+        tmp_path,
+        """
+        SELECT PE.CONTACT_DATE, PE.PAT_ENC_CSN_ID
+        FROM Clarity.dbo.PATIENT P
+        INNER JOIN Clarity.dbo.PAT_ENC PE ON P.PAT_ID = PE.PAT_ID
+        WHERE P.LAST_NAME = 'Jackson'
+        """,
+        view_name="v_jackson_visits",
+    )
+    main = _scope(doc, "v_jackson_visits", "main")
+    assert main["cohort"] == "encounters"   # PATIENT joined, not projected
+    # Filter still surfaces the patient-level WHERE
+    assert any("Last Name" in f and "Jackson" in f for f in main["filters"])
+
+
+def test_select_distinct_grain_three_tables(tmp_path):
+    """User's main example: PATIENT JOIN PAT_ENC JOIN PAT_ENC_DX JOIN
+    CLARITY_EDG, projecting patient name + ICD10_CODE. Cohort sources:
+    PATIENT (name) and CLARITY_EDG (ICD10_CODE). The two JOIN-only
+    tables (PAT_ENC, PAT_ENC_DX) carve the row grain but don't appear
+    in the cohort phrase."""
+    doc = _run_cohorts(
+        tmp_path,
+        """
+        SELECT P.PAT_NAME, EDG.CURRENT_ICD10_LIST AS ICD10_CODE
+        FROM Clarity.dbo.PATIENT P
+        INNER JOIN Clarity.dbo.PAT_ENC PE ON P.PAT_ID = PE.PAT_ID
+        INNER JOIN Clarity.dbo.PAT_ENC_DX PED ON PED.PAT_ENC_CSN_ID = PE.PAT_ENC_CSN_ID
+        INNER JOIN Clarity.dbo.CLARITY_EDG EDG ON EDG.DX_ID = PED.DX_ID
+        """,
+        view_name="v_pt_icd10",
+    )
+    main = _scope(doc, "v_pt_icd10", "main")
+    assert "patients" in main["cohort"]
+    assert "ICD10 codes" in main["cohort"]
+    # The intermediate join tables are NOT in the cohort
+    assert "encounter" not in main["cohort"].lower()
 
 
 def test_cte_pattern_carves_population_per_scope(tmp_path):

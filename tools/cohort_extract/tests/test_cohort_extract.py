@@ -221,6 +221,30 @@ def test_two_or_more_others_falls_back_to_head(tmp_path):
     assert main["cohort"] == "patients"
 
 
+def test_join_predicates_excluded_from_filters(tmp_path):
+    """JOIN ON predicates should NOT appear in the cohort filter list,
+    even when they carry business logic. Only WHERE / HAVING / QUALIFY
+    filters describe the carved-out population."""
+    doc = _run_cohorts(
+        tmp_path,
+        """
+        SELECT P.PAT_ID, PE.CONTACT_DATE
+        FROM Clarity.dbo.PATIENT P
+        INNER JOIN Clarity.dbo.PAT_ENC PE
+            ON P.PAT_ID = PE.PAT_ID
+            AND PE.STATUS_C = 1
+        WHERE P.IS_VALID_PAT_YN = 'Y'
+        """,
+        view_name="v_join_filter_separation",
+    )
+    main = _scope(doc, "v_join_filter_separation", "main")
+    # The WHERE filter shows up
+    assert any("Is Valid Pat Yn" in f or "Y" in f for f in main["filters"])
+    # The JOIN ON business predicate (PE.STATUS_C = 1) does NOT show up
+    # as a cohort filter
+    assert not any("Status C = 1" in f for f in main["filters"])
+
+
 def test_select_distinct_grain_three_tables(tmp_path):
     """User's main example: PATIENT JOIN PAT_ENC JOIN PAT_ENC_DX JOIN
     CLARITY_EDG, projecting patient name + ICD10_CODE. Cohort sources:

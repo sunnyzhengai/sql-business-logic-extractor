@@ -145,6 +145,12 @@ def build_cohort(
     return head_phrase
 
 
+# Filter kinds that constrain the row population (real filters).
+# JOIN ON predicates and subquery linkages (exists/in) are structural,
+# not filters in the cohort sense -- they're excluded by default.
+_REAL_FILTER_KINDS = {"where", "having", "qualify"}
+
+
 def render_filter(filter_dict: dict) -> str:
     """Render one filter as a natural-language sentence.
 
@@ -156,6 +162,19 @@ def render_filter(filter_dict: dict) -> str:
     eng = (filter_dict.get("english") or "").strip()
     expr = (filter_dict.get("expression") or "").strip()
     return eng or expr
+
+
+def _is_real_filter(filter_dict: dict) -> bool:
+    """True for WHERE/HAVING/QUALIFY filters; False for join_on,
+    exists-subquery-link, in-subquery-link, and unknown kinds.
+
+    The corpus already drops pure equi-join keys (`A.PAT_ID = B.PAT_ID`)
+    upstream; this function additionally drops business-bearing JOIN ON
+    predicates from the cohort view -- they describe the join structure,
+    not the carved-out population.
+    """
+    kind = (filter_dict.get("kind") or "where").lower()
+    return kind in _REAL_FILTER_KINDS
 
 
 def _bare(name: str) -> str:
@@ -287,7 +306,14 @@ def view_to_cohorts(
             others = selected[1:]
 
         cohort = build_cohort(head, others, upstream, descriptions)
-        filters = [render_filter(f) for f in (scope.get("filters") or [])]
+        # Only WHERE / HAVING / QUALIFY filters are emitted in the cohort
+        # view. JOIN ON predicates (kind="join_on") and subquery linkages
+        # (kind="exists" / "in") are dropped -- they describe how scopes
+        # connect, not how the cohort is carved.
+        filters = [
+            render_filter(f) for f in (scope.get("filters") or [])
+            if _is_real_filter(f)
+        ]
 
         out.append({
             "scope_id": scope.get("id") or "",

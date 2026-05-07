@@ -89,28 +89,30 @@ def _table_phrase(name: str, descriptions: TableDescriptions) -> str:
 
 
 def build_cohort(
-    fact_tables: list[str],
+    head: str,
+    others: list[str],
     upstream_scope_ids: list[str],
     descriptions: TableDescriptions,
 ) -> str:
-    """Compose a cohort phrase from tables + upstream scopes.
+    """Compose a cohort phrase from a head entity + zero or more other
+    entities + optional upstream scope edges.
 
-    - Pure upstream-scope passthrough (no facts of its own): empty
-      string -- caller renders "(same population as <upstream>)".
-    - Single fact table: that table's short_description.
-    - Multiple fact tables: "<driver> with <other> and <other2>".
-    - Upstream scope + facts: "<upstream-cohort> enriched with
-      <other facts>" -- but only if the renderer has the upstream's
-      cohort string. For now, we keep it simple: list all facts.
+    Layer-1 rule (head + leaf):
+      - 0 other entities  ->  `<head>`
+      - 1 other entity    ->  `<head> with <other>`
+      - 2+ other entities ->  `<head>` (avoid arbitrary leaf pick;
+                              user can annotate via Layer 2 override)
+      - No head AND upstream(s) -> "" (caller renders "same as upstream")
+      - No head, no upstream -> "" (nothing to describe)
     """
-    if not fact_tables and upstream_scope_ids:
-        return ""   # caller signals "same population as <upstream>"
-    if not fact_tables:
-        return ""   # nothing to say
-    phrases = [_table_phrase(t, descriptions) for t in fact_tables]
-    if len(phrases) == 1:
-        return phrases[0]
-    return phrases[0] + " with " + " and ".join(phrases[1:])
+    if not head:
+        return ""
+    head_phrase = _table_phrase(head, descriptions)
+    if not others:
+        return head_phrase
+    if len(others) == 1:
+        return f"{head_phrase} with {_table_phrase(others[0], descriptions)}"
+    return head_phrase
 
 
 def render_filter(filter_dict: dict) -> str:
@@ -169,6 +171,33 @@ def _selected_source_tables(scope: dict) -> list[str]:
     return out
 
 
+def _from_driver(scope: dict) -> str:
+    """Detect the FROM-clause driver of this scope.
+
+    A "driver" is a table that's in `reads_from_tables` but doesn't
+    appear as the right-side of any join -- i.e., it's the leftmost
+    FROM target, not added by a JOIN. This is the head entity for the
+    cohort phrase.
+
+    Returns "" when the scope has no base-table driver (e.g., a main
+    that reads only from CTEs)."""
+    join_right_uppers: set[str] = set()
+    for j in scope.get("joins") or []:
+        rt = _bare(j.get("right_table") or "")
+        if rt:
+            join_right_uppers.add(rt.upper())
+    for t in scope.get("reads_from_tables") or []:
+        bare = _bare(t)
+        if not bare:
+            continue
+        if bare.upper() in join_right_uppers:
+            continue
+        if _is_pure_label_lookup(bare):
+            continue
+        return bare
+    return ""
+
+
 def view_to_cohorts(
     view: dict,
     descriptions: TableDescriptions,
@@ -199,6 +228,7 @@ def view_to_cohorts(
     out: list[dict] = []
     for scope in view.get("scopes") or []:
         selected = _selected_source_tables(scope)
+        driver = _from_driver(scope)
         upstream = list(scope.get("reads_from_scopes") or [])
 
         # Fall back to all reads_from_tables for star projection / odd
@@ -210,7 +240,23 @@ def view_to_cohorts(
                 non_dim = all_tables
             selected = non_dim
 
-        cohort = build_cohort(selected, upstream, descriptions)
+        # Layer 1 head/leaf rule:
+        #  - prefer the FROM driver as the head (when it contributes a
+        #    selected column, i.e., it's in `selected`)
+        #  - otherwise the first selected source becomes the head
+        #  - 0 others -> just `<head>`
+        #  - 1 other  -> `<head> with <other>`
+        #  - 2+ others -> just `<head>` (avoid arbitrary leaf pick)
+        head = ""
+        others: list[str] = []
+        if driver and driver in selected:
+            head = driver
+            others = [t for t in selected if t != head]
+        elif selected:
+            head = selected[0]
+            others = selected[1:]
+
+        cohort = build_cohort(head, others, upstream, descriptions)
         filters = [render_filter(f) for f in (scope.get("filters") or [])]
 
         out.append({

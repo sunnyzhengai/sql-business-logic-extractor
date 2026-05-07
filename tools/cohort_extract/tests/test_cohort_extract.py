@@ -33,26 +33,42 @@ def test_table_descriptions_lookup_case_insensitive():
     assert td.get("UNKNOWN_TABLE") is None
 
 
-def test_build_cohort_single_table():
+def test_build_cohort_head_only_when_no_others():
     td = TableDescriptions(by_name={"PATIENT": "patients"})
-    assert build_cohort(["PATIENT"], [], td) == "patients"
+    assert build_cohort("PATIENT", [], [], td) == "patients"
 
 
-def test_build_cohort_two_tables_joined():
+def test_build_cohort_head_with_one_other():
     td = TableDescriptions(by_name={"PATIENT": "patients", "PAT_ENC": "encounters"})
-    assert build_cohort(["PATIENT", "PAT_ENC"], [], td) == "patients with encounters"
+    assert build_cohort("PATIENT", ["PAT_ENC"], [], td) == "patients with encounters"
+
+
+def test_build_cohort_head_only_when_two_or_more_others():
+    """Layer-1 rule: with 2+ others, fall back to head only -- avoid
+    arbitrary leaf pick. User can override with Layer 2 if needed."""
+    td = TableDescriptions(by_name={
+        "COVERAGE": "coverages", "CLARITY_LOC": "locations",
+        "CLARITY_SER": "providers", "CVG_SUBSCR_ADDR": "subscriber addresses",
+    })
+    cohort = build_cohort(
+        "COVERAGE",
+        ["CLARITY_LOC", "CLARITY_SER", "CVG_SUBSCR_ADDR"],
+        [], td,
+    )
+    assert cohort == "coverages"
 
 
 def test_build_cohort_falls_back_to_humanized_name():
     td = TableDescriptions.empty()
-    assert build_cohort(["WEIRD_TABLE"], [], td) == "weird table"
+    assert build_cohort("WEIRD_TABLE", [], [], td) == "weird table"
 
 
-def test_build_cohort_returns_empty_when_only_upstream():
-    """A scope that reads ONLY from another scope (no base tables)
-    yields empty cohort -- caller renders 'same as <upstream>'."""
+def test_build_cohort_returns_empty_when_no_head():
+    """A scope with no head (no base-table driver, no selected
+    sources) yields empty cohort -- caller renders 'same as <upstream>'."""
     td = TableDescriptions.empty()
-    assert build_cohort([], ["cte:Foo"], td) == ""
+    assert build_cohort("", [], ["cte:Foo"], td) == ""
+    assert build_cohort("", [], [], td) == ""
 
 
 # ---------- end-to-end cases --------------------------------------------
@@ -125,6 +141,44 @@ def test_join_only_table_with_no_projection_is_excluded(tmp_path):
     assert main["cohort"] == "encounters"   # PATIENT joined, not projected
     # Filter still surfaces the patient-level WHERE
     assert any("Last Name" in f and "Jackson" in f for f in main["filters"])
+
+
+def test_head_is_from_driver_when_driver_contributes_a_column(tmp_path):
+    """Driver = the FROM-clause leftmost. When the driver contributes a
+    selected column (e.g., PATIENT.NAME), it's the head and any other
+    selected entity is a leaf."""
+    doc = _run_cohorts(
+        tmp_path,
+        """
+        SELECT P.PAT_NAME, PE.CONTACT_DATE
+        FROM Clarity.dbo.PATIENT P
+        INNER JOIN Clarity.dbo.PAT_ENC PE ON P.PAT_ID = PE.PAT_ID
+        """,
+        view_name="v_head_driver",
+    )
+    main = _scope(doc, "v_head_driver", "main")
+    # Head = PATIENT (driver), leaf = PAT_ENC. Head leads the phrase.
+    assert main["cohort"].startswith("patients ")
+    assert "encounters" in main["cohort"]
+
+
+def test_two_or_more_others_falls_back_to_head(tmp_path):
+    """When 2+ entities besides the head contribute selected columns,
+    the heuristic falls back to head only -- avoid arbitrary leaf pick.
+    User can annotate via Layer 2 override (not yet shipped)."""
+    doc = _run_cohorts(
+        tmp_path,
+        """
+        SELECT P.PAT_NAME, PE.CONTACT_DATE, OP.ORDER_ID, D.DX_ID
+        FROM Clarity.dbo.PATIENT P
+        INNER JOIN Clarity.dbo.PAT_ENC PE ON P.PAT_ID = PE.PAT_ID
+        INNER JOIN Clarity.dbo.ORDER_PROC OP ON OP.PAT_ENC_CSN_ID = PE.PAT_ENC_CSN_ID
+        INNER JOIN Clarity.dbo.DIAGNOSIS D ON D.PAT_ID = P.PAT_ID
+        """,
+        view_name="v_many_entities",
+    )
+    main = _scope(doc, "v_many_entities", "main")
+    assert main["cohort"] == "patients"
 
 
 def test_select_distinct_grain_three_tables(tmp_path):

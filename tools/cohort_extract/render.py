@@ -163,6 +163,28 @@ _EQUIJOIN_KEY_RE = re.compile(
 )
 
 
+# SQL block (/* ... */) and line (--) comments. Stripped from filter
+# rendering for cleanliness; the comments remain in corpus.jsonl on
+# `filter.expression` (raw SQL) for any future semantic-extraction
+# consumer that wants to read business-meaning hints out of inline
+# annotations.
+_SQL_COMMENT_RE = re.compile(r"/\*.*?\*/|--[^\n\r]*", flags=re.DOTALL)
+
+
+def _strip_sql_comments(sql_text: str) -> str:
+    """Remove /* block */ and -- line comments; normalize whitespace.
+
+    Source-of-truth note: this strip is for COHORT rendering only.
+    The original predicate text including comments is still available
+    on `filter.expression` in corpus.jsonl, so a future tool that
+    wants `STATUS_C = 2 /* Managed Care */` can recover it from there.
+    """
+    if not sql_text:
+        return ""
+    cleaned = _SQL_COMMENT_RE.sub(" ", sql_text)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
 # SQL-level equi-join key: `<token>.<col> = <token>.<col>` (both sides
 # bare table.column refs, no literals or operators other than `=`).
 _SQL_EQUIJOIN_KEY_RE = re.compile(
@@ -272,6 +294,47 @@ def _strip_equijoin_keys(text: str) -> str:
     return " and ".join(kept)
 
 
+def _annotate_zc_lookups(text: str, zc_lookups: list | tuple) -> str:
+    """For each (column, code, name) in `zc_lookups`, append ` /* name */`
+    after the matching `<col> = <code>` reference in `text`.
+
+    Two-stage match:
+      1. Specific: `<col> = <code>` (literal column name). This works
+         on JOIN ON filters that we render in SQL form -- the column
+         name is preserved verbatim.
+      2. Fallback: `= <code>` only (no column name). This handles
+         WHERE/HAVING English form where the translator rewrote the
+         column name (e.g., `COVERAGE_TYPE_C` -> `Coverage Type C`).
+         The fallback annotates only the FIRST matching occurrence to
+         avoid mass-annotating unrelated `= <code>` instances.
+
+    Idempotent -- skips occurrences already followed by a `/*` comment.
+    """
+    if not text or not zc_lookups:
+        return text
+    for z in zc_lookups:
+        col = z.get("column") if isinstance(z, dict) else getattr(z, "column", "")
+        code = z.get("code") if isinstance(z, dict) else getattr(z, "code", "")
+        name = z.get("name") if isinstance(z, dict) else getattr(z, "name", "")
+        if not (code and name):
+            continue
+        replaced = False
+        if col:
+            specific = re.compile(
+                rf"(\b{re.escape(col)}\s*=\s*{re.escape(code)})(?!\s*/\*)"
+            )
+            new_text, n = specific.subn(rf"\1 /* {name} */", text)
+            if n > 0:
+                text = new_text
+                replaced = True
+        if not replaced:
+            # Fallback: annotate the FIRST occurrence of `= <code>` not
+            # already commented. Best-effort for English-form filters.
+            fallback = re.compile(rf"(=\s*{re.escape(code)})(?!\d)(?!\s*/\*)")
+            text = fallback.sub(rf"\1 /* {name} */", text, count=1)
+    return text
+
+
 def render_filter(
     filter_dict: dict,
     alias_map: dict[str, str] | None = None,
@@ -282,19 +345,24 @@ def render_filter(
       (e.g., "Last Name = 'Jackson'").
     - JOIN ON: use the raw SQL with equi-keys stripped and aliases
       expanded to `<TABLE>(<alias>).<col>` form (e.g.,
-      `CVG_SUBSCR_ADDR(CSA).LINE = 1`). The English form would lose
-      table-of-origin info; SQL-with-alias is more diagnostic for
-      reviewing JOIN-clause filter logic.
+      `CVG_SUBSCR_ADDR(CSA).LINE = 1`).
+
+    For both kinds, `<X>_C = <N>` references that resolved against
+    zc_values.csv (in `filter.zc_lookups`) get an inline `/* name */`
+    annotation appended (e.g., `COVERAGE_TYPE_C = 2 /* Managed Care */`).
     """
     kind = (filter_dict.get("kind") or "where").lower()
+    zc_lookups = filter_dict.get("zc_lookups") or []
     if kind == "join_on":
-        return _render_join_on_filter(
+        text = _render_join_on_filter(
             filter_dict.get("expression") or "",
             alias_map or {},
         )
-    eng = (filter_dict.get("english") or "").strip()
-    expr = (filter_dict.get("expression") or "").strip()
-    return eng or expr
+    else:
+        eng = (filter_dict.get("english") or "").strip()
+        expr = (filter_dict.get("expression") or "").strip()
+        text = eng or expr
+    return _annotate_zc_lookups(text, zc_lookups)
 
 
 def _is_real_filter(filter_dict: dict) -> bool:

@@ -317,6 +317,38 @@ def test_two_or_more_others_falls_back_to_head(tmp_path):
     assert main["cohort"] == "patients"
 
 
+def test_zc_lookup_annotation_appended_to_filter_text():
+    """When a filter dict has zc_lookups, render_filter appends
+    ` /* name */` after the matching `= <code>` occurrence."""
+    from tools.cohort_extract.render import render_filter
+
+    # WHERE filter (English form): translator translated COVERAGE_TYPE_C
+    # to "Coverage Type C", so we use the fallback `= <code>` match.
+    f = {
+        "kind": "where",
+        "expression": "C.COVERAGE_TYPE_C = 2",
+        "english": "Coverage Type C = 2",
+        "zc_lookups": [
+            {"column": "COVERAGE_TYPE_C", "code": "2", "name": "Managed Care"},
+        ],
+    }
+    out = render_filter(f)
+    assert "= 2 /* Managed Care */" in out
+
+    # JOIN ON filter (SQL form): literal column name is preserved, so
+    # the specific pattern matches and the annotation lands inline.
+    f = {
+        "kind": "join_on",
+        "expression": "PE.STATUS_C = 1",
+        "english": "Status C = 1",
+        "zc_lookups": [
+            {"column": "STATUS_C", "code": "1", "name": "Active"},
+        ],
+    }
+    out = render_filter(f, alias_map={"PE": "PAT_ENC"})
+    assert "PAT_ENC(PE).STATUS_C = 1 /* Active */" in out
+
+
 def test_join_on_business_filters_kept_keys_stripped(tmp_path):
     """End-to-end: JOIN ON predicates mix equi-keys (dropped) with
     business filters (kept). The kept JOIN-clause predicates render

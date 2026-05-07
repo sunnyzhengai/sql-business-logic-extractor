@@ -209,6 +209,49 @@ def test_split_sql_comments_unit():
     assert comments == []
 
 
+def test_zc_lookups_resolved_from_csv(tmp_path):
+    """`<X>_C = <N>` filter predicates resolve to ZcLookupV1 entries
+    via zc_values.csv. The cleaned expression and english are unchanged;
+    the lookup is an additive annotation."""
+    views = tmp_path / "views"
+    views.mkdir()
+    (views / "v_managed.sql").write_text(
+        "SELECT C.COVERAGE_ID FROM Clarity.dbo.COVERAGE C "
+        "WHERE C.COVERAGE_TYPE_C = 2 AND C.STATUS_C = 1"
+    )
+    zc_csv = tmp_path / "zc_values.csv"
+    zc_csv.write_text(
+        "zc_table,code,name\n"
+        "ZC_COVERAGE_TYPE,1,Self Pay\n"
+        "ZC_COVERAGE_TYPE,2,Managed Care\n"
+        "ZC_STATUS,1,Active\n"
+        "ZC_STATUS,2,Inactive\n"
+    )
+    out = tmp_path / "corpus.jsonl"
+    extract_corpus(str(views), str(out), zc_values_path=str(zc_csv))
+    corpus = corpus_from_jsonl_lines(iter(out.read_text().splitlines()))
+    main = _main_scope(corpus.views[0])
+    all_lookups = [(z.column, z.code, z.name)
+                    for f in main.filters for z in f.zc_lookups]
+    assert ("COVERAGE_TYPE_C", "2", "Managed Care") in all_lookups
+    assert ("STATUS_C", "1", "Active") in all_lookups
+
+
+def test_zc_lookups_empty_when_no_csv(tmp_path):
+    """Without zc_values.csv, zc_lookups stay empty (graceful)."""
+    views = tmp_path / "views"
+    views.mkdir()
+    (views / "v_unmapped.sql").write_text(
+        "SELECT C.COVERAGE_ID FROM Clarity.dbo.COVERAGE C WHERE C.STATUS_C = 1"
+    )
+    out = tmp_path / "corpus.jsonl"
+    extract_corpus(str(views), str(out))   # no zc_values_path
+    corpus = corpus_from_jsonl_lines(iter(out.read_text().splitlines()))
+    main = _main_scope(corpus.views[0])
+    for f in main.filters:
+        assert f.zc_lookups == ()
+
+
 def test_inline_comments_extracted_to_filter_field(tmp_path):
     """Author annotations inside filter expressions (/* ... */ and
     -- ...) are pulled out and surfaced as the filter's

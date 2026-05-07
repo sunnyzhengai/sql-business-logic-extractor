@@ -60,6 +60,7 @@ from sql_logic_extractor.corpus_schema import (
     ScopeV1,
     TermV1,
     ViewV1,
+    ZcLookupV1,
     _to_jsonable,
 )
 from sql_logic_extractor.extract import SQLBusinessLogicExtractor, to_dict
@@ -125,6 +126,89 @@ def _split_sql_comments(sql_text: str) -> tuple[str, list[str]]:
     return cleaned, comments
 
 
+# ---- ZC values dictionary -----------------------------------------------
+
+_DEFAULT_ZC_VALUES_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "data" / "dictionaries" / "zc_values.csv"
+)
+
+
+def _load_zc_values(path: str | Path | None) -> dict[tuple[str, str], str]:
+    """Load `{(ZC_TABLE_UPPER, code_str): name}` from a CSV with columns
+    `zc_table, code, name`. Returns an empty dict if the file is absent
+    -- the lookup is opt-in.
+    """
+    import csv as _csv
+    p = Path(path) if path else _DEFAULT_ZC_VALUES_PATH
+    if not p.is_file():
+        return {}
+    out: dict[tuple[str, str], str] = {}
+    try:
+        with p.open(encoding="utf-8-sig", newline="") as f:
+            reader = _csv.DictReader(f)
+            for row in reader:
+                zc = (row.get("zc_table") or "").strip().upper()
+                code = (row.get("code") or "").strip()
+                name = (row.get("name") or "").strip()
+                if zc and code and name:
+                    out[(zc, code)] = name
+    except Exception as e:
+        print(f"WARNING: could not load zc_values from {p}: {e}", file=sys.stderr)
+        return {}
+    return out
+
+
+def _find_zc_lookups(
+    sql_expr: str,
+    zc_values: dict[tuple[str, str], str],
+    dialect: str,
+) -> list[ZcLookupV1]:
+    """Walk a filter SQL expression's AST. For every `<X>_C = <N>` binary
+    equality where `(ZC_<X>, <N>)` resolves in `zc_values`, emit a
+    ZcLookupV1. Other patterns (`<X>_C IN (...)`, `<X>_C != <N>`,
+    non-numeric RHS) are not handled today -- start with the most
+    common shape and expand when warranted.
+    """
+    if not sql_expr or not zc_values:
+        return []
+    try:
+        node = parse_one(sql_expr, dialect=dialect)
+    except Exception:
+        return []
+    if node is None:
+        return []
+    out: list[ZcLookupV1] = []
+    seen: set[tuple[str, str]] = set()
+    for eq in node.find_all(exp.EQ):
+        lhs, rhs = eq.this, eq.expression
+        if not isinstance(lhs, exp.Column):
+            continue
+        col_name = lhs.name or ""
+        if not col_name.upper().endswith("_C") or len(col_name) <= 2:
+            continue
+        if not isinstance(rhs, exp.Literal) or not rhs.is_number:
+            continue
+        code = rhs.name  # numeric literal as string
+        zc_table = "ZC_" + col_name[: -2].upper() if col_name.upper().endswith("_C") else ""
+        if not zc_table:
+            continue
+        name = zc_values.get((zc_table, code))
+        if not name:
+            continue
+        key = (col_name.upper(), code)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(ZcLookupV1(
+            column=col_name,
+            zc_table=zc_table,
+            code=code,
+            name=name,
+        ))
+    return out
+
+
 def _translate_fragment(sql_frag: str, ctx: Context, dialect: str) -> str:
     """Walk a SQL fragment through the pattern library; return English.
     Falls back to the raw SQL on parse/translate failure."""
@@ -147,23 +231,33 @@ def _translate_fragment(sql_frag: str, ctx: Context, dialect: str) -> str:
 
 # ---------- scope -> ScopeV1 ----------------------------------------------
 
-def _build_filter_v1(rf, ctx: Context, dialect: str) -> FilterV1:
+def _build_filter_v1(
+    rf,
+    ctx: Context,
+    dialect: str,
+    zc_values: dict[tuple[str, str], str] | None = None,
+) -> FilterV1:
     """Translate a ScopedFilter's expression for the business form.
 
-    Splits inline /* block */ and -- line comments out of the raw SQL
-    and surfaces them as `inline_comments` -- the cleaned SQL goes into
-    `expression` and feeds the English translator. The author's
-    hand-written annotations are kept available for future semantic
-    extraction without polluting filter rendering."""
+    Three structured fields are populated from the raw SQL:
+      - `expression` / `english` -- comments stripped, English translated
+      - `inline_comments`        -- author-written /* */ and -- annotations
+      - `zc_lookups`             -- resolved <X>_C = <N> references via
+                                    the project's zc_values dictionary
+    """
     raw = (rf.expression or "").strip()
     cleaned, comments = _split_sql_comments(raw)
     english = _translate_fragment(cleaned, ctx, dialect) if cleaned else ""
+    zc_lookups = (
+        _find_zc_lookups(cleaned, zc_values, dialect) if zc_values else []
+    )
     return FilterV1(
         expression=cleaned,
         english=english,
         kind=rf.kind or "where",
         subquery_scope_ids=tuple(rf.subquery_scope_ids or []),
         inline_comments=tuple(comments),
+        zc_lookups=tuple(zc_lookups),
     )
 
 
@@ -211,11 +305,13 @@ def _build_scope_v1(
     rs: ResolvedScope,
     ctx: Context,
     dialect: str,
+    zc_values: dict[tuple[str, str], str] | None = None,
 ) -> ScopeV1:
     return ScopeV1(
         id=rs.id,
         kind=rs.kind,
-        filters=tuple(_build_filter_v1(f, ctx, dialect) for f in rs.filters),
+        filters=tuple(_build_filter_v1(f, ctx, dialect, zc_values=zc_values)
+                       for f in rs.filters),
         columns=tuple(_build_column_v1(c, ctx, dialect) for c in rs.columns),
         reads_from_scopes=tuple(rs.reads_from_scopes or []),
         reads_from_tables=tuple(rs.reads_from_tables or []),
@@ -396,7 +492,13 @@ def _enrich_main_scope(scopes: list[ScopeV1], view_name: str, sql: str, dialect:
 
 # ---------- main per-view builder -----------------------------------------
 
-def _build_view(view_name: str, sql: str, schema: dict | None, dialect: str) -> ViewV1:
+def _build_view(
+    view_name: str,
+    sql: str,
+    schema: dict | None,
+    dialect: str,
+    zc_values: dict[tuple[str, str], str] | None = None,
+) -> ViewV1:
     """Build a v3 ViewV1 (scope tree) for one SQL view.
 
     Preprocesses SSMS script boilerplate (`SET ANSI_NULLS ON`, `GO`,
@@ -417,7 +519,8 @@ def _build_view(view_name: str, sql: str, schema: dict | None, dialect: str) -> 
     tree: ResolvedScopeTree = resolver.resolve_all_scoped()
 
     ctx = Context(schema=schema or {})
-    scopes_v1 = [_build_scope_v1(rs, ctx, dialect) for rs in tree.scopes]
+    scopes_v1 = [_build_scope_v1(rs, ctx, dialect, zc_values=zc_values)
+                  for rs in tree.scopes]
 
     # Enrich main scope columns with author notes + term metadata.
     scopes_v1 = _enrich_main_scope(scopes_v1, view_name, clean_sql, dialect)
@@ -460,9 +563,16 @@ def extract_corpus(
     output_path: str = "corpus.jsonl",
     *,
     schema_path: str | None = None,
+    zc_values_path: str | None = None,
     dialect: str = "tsql",
 ) -> int:
-    """Walk views, build a CorpusV1 (v3 scope tree), stream-write to JSONL."""
+    """Walk views, build a CorpusV1 (v3 scope tree), stream-write to JSONL.
+
+    `zc_values_path` defaults to `data/dictionaries/zc_values.csv`. When
+    present, every `<X>_C = <N>` filter predicate that resolves in the
+    CSV gets a `ZcLookupV1` entry on `filter.zc_lookups`. Missing CSV
+    is fine -- the lookup is opt-in and the corpus is still complete.
+    """
     in_dir = Path(input_dir)
     if not in_dir.is_dir():
         print(f"Error: {in_dir} is not a directory", file=sys.stderr)
@@ -477,6 +587,7 @@ def extract_corpus(
     progress_path = out.parent / "corpus_progress.txt"
 
     schema = load_schema(schema_path) if schema_path else {}
+    zc_values = _load_zc_values(zc_values_path)
 
     n_ok = 0
     n_failed = 0
@@ -501,7 +612,7 @@ def extract_corpus(
             err: str | None = None
             try:
                 sql = _read_sql_file(path)
-                view = _build_view(view_name, sql, schema, dialect)
+                view = _build_view(view_name, sql, schema, dialect, zc_values=zc_values)
                 n_ok += 1
             except Exception as e:
                 err = f"{type(e).__name__}: {e}"
@@ -540,12 +651,19 @@ def main() -> int:
     )
     parser.add_argument("input_dir")
     parser.add_argument("-o", "--output", default="corpus.jsonl")
-    parser.add_argument("--schema", default=None)
+    parser.add_argument("--schema", default=None,
+                          help="Path to clarity_schema.json")
+    parser.add_argument("--zc-values", default=None,
+                          help="Path to zc_values.csv (zc_table,code,name). "
+                                "Defaults to data/dictionaries/zc_values.csv "
+                                "when present.")
     parser.add_argument("-d", "--dialect", default="tsql")
     args = parser.parse_args()
     return extract_corpus(
         args.input_dir, args.output,
-        schema_path=args.schema, dialect=args.dialect,
+        schema_path=args.schema,
+        zc_values_path=args.zc_values,
+        dialect=args.dialect,
     )
 
 

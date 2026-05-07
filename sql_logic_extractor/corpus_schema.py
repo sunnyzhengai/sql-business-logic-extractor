@@ -78,6 +78,22 @@ class JoinV1:
 
 
 @dataclass(frozen=True)
+class ZcLookupV1:
+    """One numeric-code -> human-name lookup resolved against a Clarity
+    `ZC_*` table. Surfaced when a filter contains `<X>_C = <N>` and the
+    project's zc_values dictionary has a row for (`ZC_<X>`, `<N>`).
+
+    Example: `COVERAGE_TYPE_C = 2` resolves to
+        ZcLookupV1(column="COVERAGE_TYPE_C", zc_table="ZC_COVERAGE_TYPE",
+                   code="2", name="Managed Care")
+    """
+    column: str = ""        # the `<X>_C` column referenced
+    zc_table: str = ""      # derived: "ZC_" + column[:-2]
+    code: str = ""          # numeric literal as string (preserves leading zeros)
+    name: str = ""          # human-readable label from the ZC table's NAME column
+
+
+@dataclass(frozen=True)
 class FilterV1:
     """A predicate declared in one scope.
 
@@ -94,13 +110,21 @@ class FilterV1:
     `STATUS_C = 2 /* Managed Care */`). The author's hand-written
     annotations are kept as a structured list for future semantic
     extraction; the `expression` field is the SQL with comments stripped.
-    Additive field; default empty tuple keeps old corpora backward-readable.
+
+    `zc_lookups` resolves `<col>_C = <N>` references to their ZC table's
+    NAME value (e.g., `COVERAGE_TYPE_C = 2` -> "Managed Care") using the
+    project's zc_values.csv. Only populated for predicates where the
+    code-to-name lookup hits; absent otherwise. Author-written inline
+    comments and the auto-resolved zc_lookups are complementary signals.
+
+    Additive fields; defaults keep old corpora backward-readable.
     """
     expression: str = ""
     english: str = ""
     kind: str = "where"
     subquery_scope_ids: tuple[str, ...] = ()
     inline_comments: tuple[str, ...] = ()
+    zc_lookups: tuple[ZcLookupV1, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -323,6 +347,17 @@ def _filter_from_dict(d: dict) -> FilterV1:
         kind=d.get("kind", "where"),
         subquery_scope_ids=tuple(d.get("subquery_scope_ids", []) or []),
         inline_comments=tuple(d.get("inline_comments", []) or []),
+        zc_lookups=tuple(_zc_lookup_from_dict(z)
+                          for z in d.get("zc_lookups", []) or []),
+    )
+
+
+def _zc_lookup_from_dict(d: dict) -> ZcLookupV1:
+    return ZcLookupV1(
+        column=d.get("column", ""),
+        zc_table=d.get("zc_table", ""),
+        code=d.get("code", ""),
+        name=d.get("name", ""),
     )
 
 

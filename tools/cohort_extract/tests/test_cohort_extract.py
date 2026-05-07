@@ -15,6 +15,7 @@ from pathlib import Path
 from tools.cohort_extract.batch import extract_cohorts
 from tools.cohort_extract.render import (
     TableDescriptions,
+    _strip_equijoin_keys,
     build_cohort,
     cohorts_to_markdown,
     view_to_cohorts,
@@ -24,6 +25,52 @@ from tools.view_shape_compare.dim_filter import DimFilter
 
 
 # ---------- pure-function units ------------------------------------------
+
+def test_strip_equijoin_keys_drops_word_word_pairs():
+    """Pure key fragments like `<X> = <X>` (both sides bare word
+    phrases) get dropped; real predicates stay."""
+    text = ("Coverage Identifier = Coverage Identifier "
+            "and Coverage Type C = 2 "
+            "and Mem Covered Yn = 'Y'")
+    out = _strip_equijoin_keys(text)
+    assert "Coverage Identifier = Coverage Identifier" not in out
+    assert "Coverage Type C = 2" in out
+    assert "Mem Covered Yn = 'Y'" in out
+
+
+def test_strip_equijoin_keys_drops_cross_table_keys_too():
+    """`Member Identifier = Patient Identifier` -- two different
+    translated phrases but both bare word patterns -- is also a key
+    relationship between tables, dropped."""
+    text = "Member Identifier = Patient Identifier and Eff Date <= today"
+    out = _strip_equijoin_keys(text)
+    assert "Member Identifier = Patient Identifier" not in out
+    assert "Eff Date <= today" in out
+
+
+def test_strip_equijoin_keys_keeps_filters_with_quoted_or_numeric_rhs():
+    """RHS with quotes ('Y') or digits (2) is a literal value, not a
+    column reference -- the predicate stays."""
+    assert _strip_equijoin_keys("Status C = 1") == "Status C = 1"
+    assert _strip_equijoin_keys("Mem Covered Yn = 'Y'") == "Mem Covered Yn = 'Y'"
+    assert _strip_equijoin_keys("Last Name = 'Jackson'") == "Last Name = 'Jackson'"
+
+
+def test_strip_equijoin_keys_keeps_non_equality_predicates():
+    """Operators other than `=` (>=, <=, BETWEEN, etc.) mean it's a
+    real comparison, never a key."""
+    assert _strip_equijoin_keys("Eff Date >= today") == "Eff Date >= today"
+    assert _strip_equijoin_keys("Eff Date <= today") == "Eff Date <= today"
+
+
+def test_strip_equijoin_keys_returns_empty_when_only_keys():
+    """A predicate that's pure equi-join keys (no business content)
+    strips to empty string. Caller drops the filter entirely then."""
+    assert _strip_equijoin_keys(
+        "Coverage Identifier = Coverage Identifier "
+        "and Member Identifier = Patient Identifier"
+    ) == ""
+
 
 def test_table_descriptions_lookup_case_insensitive():
     td = TableDescriptions(by_name={"PATIENT": "patients", "PAT_ENC": "encounters"})
@@ -221,10 +268,11 @@ def test_two_or_more_others_falls_back_to_head(tmp_path):
     assert main["cohort"] == "patients"
 
 
-def test_join_predicates_excluded_from_filters(tmp_path):
-    """JOIN ON predicates should NOT appear in the cohort filter list,
-    even when they carry business logic. Only WHERE / HAVING / QUALIFY
-    filters describe the carved-out population."""
+def test_join_on_business_filters_kept_keys_stripped(tmp_path):
+    """JOIN ON predicates often mix equi-join keys (X = X structurally)
+    with real business filters. Keys are dropped; business predicates
+    stay. Both WHERE and the JOIN-clause filter should land in the
+    cohort filter list."""
     doc = _run_cohorts(
         tmp_path,
         """
@@ -235,14 +283,16 @@ def test_join_predicates_excluded_from_filters(tmp_path):
             AND PE.STATUS_C = 1
         WHERE P.IS_VALID_PAT_YN = 'Y'
         """,
-        view_name="v_join_filter_separation",
+        view_name="v_join_filter_kept",
     )
-    main = _scope(doc, "v_join_filter_separation", "main")
-    # The WHERE filter shows up
-    assert any("Is Valid Pat Yn" in f or "Y" in f for f in main["filters"])
-    # The JOIN ON business predicate (PE.STATUS_C = 1) does NOT show up
-    # as a cohort filter
-    assert not any("Status C = 1" in f for f in main["filters"])
+    main = _scope(doc, "v_join_filter_kept", "main")
+    joined = " | ".join(main["filters"])
+    # WHERE filter survives
+    assert "Is Valid Pat Yn" in joined or "'Y'" in joined
+    # JOIN ON business predicate survives
+    assert "Status C = 1" in joined
+    # Equi-join key (Patient Identifier = Patient Identifier) does NOT
+    assert "Patient Identifier = Patient Identifier" not in joined
 
 
 def test_select_distinct_grain_three_tables(tmp_path):

@@ -19,6 +19,7 @@ verbatim and lets filters describe the carve-out.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -145,33 +146,84 @@ def build_cohort(
     return head_phrase
 
 
-# Filter kinds that constrain the row population (real filters).
-# JOIN ON predicates and subquery linkages (exists/in) are structural,
-# not filters in the cohort sense -- they're excluded by default.
-_REAL_FILTER_KINDS = {"where", "having", "qualify"}
+# Filter kinds that constrain the row population. JOIN ON is included
+# because business filters often live inside the JOIN clause alongside
+# equi-join keys -- we keep the predicate but strip the keys via
+# `_strip_equijoin_keys`. EXISTS / IN / unknown kinds are dropped.
+_REAL_FILTER_KINDS = {"where", "having", "qualify", "join_on"}
+
+
+# Pattern for "<word phrase> = <word phrase>" with both sides looking
+# like translated column names (letters/digits/spaces only, must start
+# with a letter). Quoted strings, numeric literals, and operators other
+# than `=` mean this is a real filter, not an equi-join key.
+_WORD_PHRASE = r"[A-Za-z][A-Za-z0-9 _]*"
+_EQUIJOIN_KEY_RE = re.compile(
+    rf"^\s*({_WORD_PHRASE})\s*=\s*({_WORD_PHRASE})\s*$"
+)
+
+
+def _strip_equijoin_keys(text: str) -> str:
+    """Remove JOIN-key fragments from a translated predicate's English.
+
+    A JOIN-key fragment looks like `<word phrase> = <word phrase>`
+    where both sides are bare translated column names (no quotes, no
+    numeric literals, no operators other than `=`). The remaining
+    AND-conjoined fragments are real filters and stay.
+
+    Examples:
+      "Coverage Identifier = Coverage Identifier and Coverage Type C = 2"
+        -> "Coverage Type C = 2"
+
+      "Member Identifier = Patient Identifier and Eff Date <= today"
+        -> "Eff Date <= today"
+        (the M=P pair is a key relating two tables, dropped)
+
+      "Coverage Type C = 2 and Mem Covered Yn = 'Y'"
+        -> unchanged (RHS '2' / "'Y'" don't match the word pattern)
+
+    Splitting is done on the lowercase " and " emitted by the
+    engineered translator; OR connectors and BETWEEN-style ranges
+    are preserved within each fragment.
+    """
+    if not text:
+        return ""
+    # Split on " and " (case-insensitive). The translator's output uses
+    # lowercase by convention; match either for safety.
+    parts = re.split(r"\s+and\s+", text, flags=re.IGNORECASE)
+    kept: list[str] = []
+    for p in parts:
+        p = p.strip()
+        if not p:
+            continue
+        if _EQUIJOIN_KEY_RE.match(p):
+            continue
+        kept.append(p)
+    return " and ".join(kept)
 
 
 def render_filter(filter_dict: dict) -> str:
-    """Render one filter as a natural-language sentence.
-
-    Today: just returns the filter's English (already produced by the
-    engineered translator in the corpus). Future work could detect
-    common patterns like ROW_NUMBER()=1 and rewrite as
-    "most recent X per Y" -- requires cross-scope chasing, deferred.
+    """Render one filter as a natural-language sentence. For
+    join_on-kind filters, equi-key fragments are stripped first so
+    only the business predicates within the JOIN clause survive.
     """
     eng = (filter_dict.get("english") or "").strip()
     expr = (filter_dict.get("expression") or "").strip()
-    return eng or expr
+    text = eng or expr
+    kind = (filter_dict.get("kind") or "where").lower()
+    if kind == "join_on":
+        text = _strip_equijoin_keys(text)
+    return text
 
 
 def _is_real_filter(filter_dict: dict) -> bool:
-    """True for WHERE/HAVING/QUALIFY filters; False for join_on,
-    exists-subquery-link, in-subquery-link, and unknown kinds.
+    """True for WHERE / HAVING / QUALIFY / JOIN_ON filters. EXISTS /
+    IN linkages and unknown kinds are dropped -- they describe how
+    scopes connect, not how the cohort is carved.
 
-    The corpus already drops pure equi-join keys (`A.PAT_ID = B.PAT_ID`)
-    upstream; this function additionally drops business-bearing JOIN ON
-    predicates from the cohort view -- they describe the join structure,
-    not the carved-out population.
+    JOIN_ON filters that contain ONLY equi-join keys (no business
+    predicates) render as empty strings via `_strip_equijoin_keys`,
+    so they're filtered out at render time anyway.
     """
     kind = (filter_dict.get("kind") or "where").lower()
     return kind in _REAL_FILTER_KINDS

@@ -19,7 +19,7 @@ from sql_logic_extractor.corpus_schema import (
     SCHEMA_VERSION,
     corpus_from_jsonl_lines,
 )
-from tools.extract_corpus.batch import extract_corpus
+from tools.extract_corpus.batch import _split_sql_comments, extract_corpus
 
 
 # ---------- helpers --------------------------------------------------------
@@ -190,6 +190,50 @@ def test_one_failing_view_does_not_kill_run(tmp_path):
     assert "good" in by_name
     # Good view should have at least one main-scope column.
     assert _main_scope(by_name["good"]).columns
+
+
+def test_split_sql_comments_unit():
+    """Block + line comments extracted, body trimmed, SQL whitespace normalized."""
+    cleaned, comments = _split_sql_comments(
+        "STATUS_C = 2 /* Managed Care */ AND IS_VALID = 'Y' -- only active"
+    )
+    assert "Managed Care" in comments
+    assert "only active" in comments
+    assert "/*" not in cleaned
+    assert "--" not in cleaned
+    assert "STATUS_C = 2" in cleaned
+    # Empty input is safe
+    assert _split_sql_comments("") == ("", [])
+    # Whitespace-only comment body is dropped
+    cleaned, comments = _split_sql_comments("X = 1 /*  */ AND Y = 2")
+    assert comments == []
+
+
+def test_inline_comments_extracted_to_filter_field(tmp_path):
+    """Author annotations inside filter expressions (/* ... */ and
+    -- ...) are pulled out and surfaced as the filter's
+    `inline_comments` list. The `expression` field has them stripped;
+    the `english` translation never had them. Comments are preserved
+    structurally for future semantic extraction."""
+    views = tmp_path / "views"
+    views.mkdir()
+    (views / "v_managed.sql").write_text(
+        "SELECT C.COVERAGE_ID\n"
+        "FROM Clarity.dbo.COVERAGE C\n"
+        "WHERE C.COVERAGE_TYPE_C = 2  /* Managed Care */\n"
+        "  AND C.STATUS_C = 1  -- active only\n"
+    )
+    out = tmp_path / "corpus.jsonl"
+    extract_corpus(str(views), str(out))
+    corpus = corpus_from_jsonl_lines(iter(out.read_text().splitlines()))
+    main = _main_scope(corpus.views[0])
+    all_comments = [c for f in main.filters for c in f.inline_comments]
+    assert "Managed Care" in all_comments
+    assert "active only" in all_comments
+    # Cleaned expression has comments stripped
+    for f in main.filters:
+        assert "/*" not in f.expression
+        assert "--" not in f.expression
 
 
 def test_joins_are_surfaced_on_main_scope(tmp_path):

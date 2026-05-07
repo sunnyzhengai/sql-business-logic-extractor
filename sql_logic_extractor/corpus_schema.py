@@ -88,11 +88,19 @@ class FilterV1:
     `subquery_scope_ids` lists scope IDs of any subqueries referenced
     inside this predicate; the subquery scope itself is emitted as a
     sibling under the same view.
+
+    `inline_comments` captures `/* block */` and `-- line` comments that
+    appeared inside the predicate text in the original SQL (e.g.,
+    `STATUS_C = 2 /* Managed Care */`). The author's hand-written
+    annotations are kept as a structured list for future semantic
+    extraction; the `expression` field is the SQL with comments stripped.
+    Additive field; default empty tuple keeps old corpora backward-readable.
     """
     expression: str = ""
     english: str = ""
     kind: str = "where"
     subquery_scope_ids: tuple[str, ...] = ()
+    inline_comments: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -314,6 +322,7 @@ def _filter_from_dict(d: dict) -> FilterV1:
         english=d.get("english", ""),
         kind=d.get("kind", "where"),
         subquery_scope_ids=tuple(d.get("subquery_scope_ids", []) or []),
+        inline_comments=tuple(d.get("inline_comments", []) or []),
     )
 
 

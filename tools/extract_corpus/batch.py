@@ -97,6 +97,34 @@ def _read_sql_file(path: Path) -> str:
 
 # ---------- English translation helper ------------------------------------
 
+# Match SQL block (/* ... */) and line (--) comments. Used to extract
+# author annotations from filter / column expressions and surface them
+# as a structured field on the corpus output.
+_SQL_COMMENT_RE = __import__("re").compile(
+    r"/\*(.*?)\*/|--([^\n\r]*)", flags=__import__("re").DOTALL
+)
+
+
+def _split_sql_comments(sql_text: str) -> tuple[str, list[str]]:
+    """Pull /* */ and -- comments out of `sql_text`. Returns
+    (cleaned_sql, comments) where comments is a list of comment-bodies
+    (whitespace-trimmed, no `--` or `/* */` markers). The cleaned SQL
+    has comments replaced with a single space and runs of whitespace
+    collapsed."""
+    if not sql_text:
+        return "", []
+    import re as _re
+    comments: list[str] = []
+    def _take(m: "_re.Match") -> str:
+        body = (m.group(1) or m.group(2) or "").strip()
+        if body:
+            comments.append(body)
+        return " "
+    cleaned = _SQL_COMMENT_RE.sub(_take, sql_text)
+    cleaned = _re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned, comments
+
+
 def _translate_fragment(sql_frag: str, ctx: Context, dialect: str) -> str:
     """Walk a SQL fragment through the pattern library; return English.
     Falls back to the raw SQL on parse/translate failure."""
@@ -120,14 +148,22 @@ def _translate_fragment(sql_frag: str, ctx: Context, dialect: str) -> str:
 # ---------- scope -> ScopeV1 ----------------------------------------------
 
 def _build_filter_v1(rf, ctx: Context, dialect: str) -> FilterV1:
-    """Translate a ScopedFilter's expression for the business form."""
-    expr = (rf.expression or "").strip()
-    english = _translate_fragment(expr, ctx, dialect) if expr else ""
+    """Translate a ScopedFilter's expression for the business form.
+
+    Splits inline /* block */ and -- line comments out of the raw SQL
+    and surfaces them as `inline_comments` -- the cleaned SQL goes into
+    `expression` and feeds the English translator. The author's
+    hand-written annotations are kept available for future semantic
+    extraction without polluting filter rendering."""
+    raw = (rf.expression or "").strip()
+    cleaned, comments = _split_sql_comments(raw)
+    english = _translate_fragment(cleaned, ctx, dialect) if cleaned else ""
     return FilterV1(
-        expression=expr,
+        expression=cleaned,
         english=english,
         kind=rf.kind or "where",
         subquery_scope_ids=tuple(rf.subquery_scope_ids or []),
+        inline_comments=tuple(comments),
     )
 
 

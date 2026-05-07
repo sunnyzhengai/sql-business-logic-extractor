@@ -163,6 +163,76 @@ _EQUIJOIN_KEY_RE = re.compile(
 )
 
 
+# SQL-level equi-join key: `<token>.<col> = <token>.<col>` (both sides
+# bare table.column refs, no literals or operators other than `=`).
+_SQL_EQUIJOIN_KEY_RE = re.compile(
+    r"^\s*"
+    r"[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*"
+    r"\s*=\s*"
+    r"[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*"
+    r"\s*$"
+)
+# Column ref pattern for alias expansion: `<alias>.<col>`.
+_COL_REF_RE = re.compile(
+    r"\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\b"
+)
+
+
+def _build_alias_map(scope: dict) -> dict[str, str]:
+    """Build {ALIAS_UPPER: bare_table_name} from the scope's joins.
+
+    The FROM driver's alias is NOT included -- the cohort renderer
+    only uses the alias map for JOIN ON filters, and equi-join key
+    stripping removes references to the driver alias from those
+    predicates anyway.
+    """
+    out: dict[str, str] = {}
+    for j in scope.get("joins") or []:
+        alias = (j.get("right_alias") or "").strip()
+        table = (j.get("right_table") or "").strip()
+        bare = table.split(".")[-1] if table else ""
+        if alias and bare:
+            out[alias.upper()] = bare
+    return out
+
+
+def _expand_aliases(sql_text: str, alias_map: dict[str, str]) -> str:
+    """Replace `<alias>.<col>` with `<TABLE>(<alias>).<col>` for any
+    alias present in `alias_map`. Aliases not in the map pass through
+    unchanged."""
+    if not alias_map:
+        return sql_text
+    def _sub(m: "re.Match") -> str:
+        alias, col = m.group(1), m.group(2)
+        real = alias_map.get(alias.upper())
+        return f"{real}({alias}).{col}" if real else m.group(0)
+    return _COL_REF_RE.sub(_sub, sql_text)
+
+
+def _render_join_on_filter(sql_expr: str, alias_map: dict[str, str]) -> str:
+    """Render a JOIN ON predicate's SQL with:
+      1. Top-level equi-join key fragments stripped
+         (`<token>.<col> = <token>.<col>` AND'd parts)
+      2. Surviving column refs expanded to `<TABLE>(<alias>).<col>`
+
+    Returns empty string when the predicate is pure equi-keys (caller
+    drops the filter entirely)."""
+    if not sql_expr:
+        return ""
+    parts = re.split(r"\s+AND\s+", sql_expr, flags=re.IGNORECASE)
+    kept: list[str] = []
+    for p in parts:
+        p = p.strip()
+        if not p:
+            continue
+        if _SQL_EQUIJOIN_KEY_RE.match(p):
+            continue
+        kept.append(p)
+    if not kept:
+        return ""
+    return _expand_aliases(" AND ".join(kept), alias_map)
+
+
 def _strip_equijoin_keys(text: str) -> str:
     """Remove JOIN-key fragments from a translated predicate's English.
 
@@ -202,18 +272,29 @@ def _strip_equijoin_keys(text: str) -> str:
     return " and ".join(kept)
 
 
-def render_filter(filter_dict: dict) -> str:
-    """Render one filter as a natural-language sentence. For
-    join_on-kind filters, equi-key fragments are stripped first so
-    only the business predicates within the JOIN clause survive.
+def render_filter(
+    filter_dict: dict,
+    alias_map: dict[str, str] | None = None,
+) -> str:
+    """Render one filter for the cohort view.
+
+    - WHERE / HAVING / QUALIFY: use the engineered English translation
+      (e.g., "Last Name = 'Jackson'").
+    - JOIN ON: use the raw SQL with equi-keys stripped and aliases
+      expanded to `<TABLE>(<alias>).<col>` form (e.g.,
+      `CVG_SUBSCR_ADDR(CSA).LINE = 1`). The English form would lose
+      table-of-origin info; SQL-with-alias is more diagnostic for
+      reviewing JOIN-clause filter logic.
     """
-    eng = (filter_dict.get("english") or "").strip()
-    expr = (filter_dict.get("expression") or "").strip()
-    text = eng or expr
     kind = (filter_dict.get("kind") or "where").lower()
     if kind == "join_on":
-        text = _strip_equijoin_keys(text)
-    return text
+        return _render_join_on_filter(
+            filter_dict.get("expression") or "",
+            alias_map or {},
+        )
+    eng = (filter_dict.get("english") or "").strip()
+    expr = (filter_dict.get("expression") or "").strip()
+    return eng or expr
 
 
 def _is_real_filter(filter_dict: dict) -> bool:
@@ -358,12 +439,15 @@ def view_to_cohorts(
             others = selected[1:]
 
         cohort = build_cohort(head, others, upstream, descriptions)
-        # Only WHERE / HAVING / QUALIFY filters are emitted in the cohort
-        # view. JOIN ON predicates (kind="join_on") and subquery linkages
-        # (kind="exists" / "in") are dropped -- they describe how scopes
+        # WHERE / HAVING / QUALIFY are emitted as English translations.
+        # JOIN ON filters are emitted in SQL-with-alias-expansion form
+        # (e.g., CVG_SUBSCR_ADDR(CSA).LINE = 1). Subquery linkages
+        # (kind="exists"/"in") are dropped -- they describe how scopes
         # connect, not how the cohort is carved.
+        scope_alias_map = _build_alias_map(scope)
         filters = [
-            render_filter(f) for f in (scope.get("filters") or [])
+            render_filter(f, alias_map=scope_alias_map)
+            for f in (scope.get("filters") or [])
             if _is_real_filter(f)
         ]
 

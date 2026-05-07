@@ -15,6 +15,9 @@ from pathlib import Path
 from tools.cohort_extract.batch import extract_cohorts
 from tools.cohort_extract.render import (
     TableDescriptions,
+    _build_alias_map,
+    _expand_aliases,
+    _render_join_on_filter,
     _strip_equijoin_keys,
     build_cohort,
     cohorts_to_markdown,
@@ -25,6 +28,52 @@ from tools.view_shape_compare.dim_filter import DimFilter
 
 
 # ---------- pure-function units ------------------------------------------
+
+# ---------- alias-expansion for join_on filters ------------------------
+
+def test_expand_aliases_replaces_known_aliases():
+    alias_map = {"CSA": "CVG_SUBSCR_ADDR", "CVG": "COVERAGE"}
+    assert _expand_aliases("CSA.LINE = 1", alias_map) == "CVG_SUBSCR_ADDR(CSA).LINE = 1"
+    # Multiple refs in one expression
+    out = _expand_aliases("CVG.COVERAGE_ID = 5 AND CSA.LINE = 1", alias_map)
+    assert "COVERAGE(CVG).COVERAGE_ID = 5" in out
+    assert "CVG_SUBSCR_ADDR(CSA).LINE = 1" in out
+    # Unknown alias passes through unchanged
+    assert _expand_aliases("UNK.COL = 1", alias_map) == "UNK.COL = 1"
+
+
+def test_render_join_on_filter_strips_keys_and_expands_aliases():
+    """User's stated example: ADDR1.LINE = 1 -> TABLE_ADDR(ADDR1).LINE = 1.
+    The equi-join key (CSA.COVERAGE_ID = CVG.COVERAGE_ID) drops; the
+    business predicate (CSA.LINE = 1) survives with alias expanded."""
+    alias_map = {"CSA": "CVG_SUBSCR_ADDR"}
+    sql = "CSA.COVERAGE_ID = CVG.COVERAGE_ID AND CSA.LINE = 1"
+    assert _render_join_on_filter(sql, alias_map) == "CVG_SUBSCR_ADDR(CSA).LINE = 1"
+
+
+def test_render_join_on_filter_returns_empty_when_only_keys():
+    """Predicate that's pure equi-keys -> empty (caller drops filter)."""
+    alias_map = {"CSA": "CVG_SUBSCR_ADDR", "CVG": "COVERAGE"}
+    assert _render_join_on_filter(
+        "CSA.COVERAGE_ID = CVG.COVERAGE_ID AND CSA.MEMBER_ID = CVG.MEMBER_ID",
+        alias_map,
+    ) == ""
+
+
+def test_build_alias_map_from_scope_joins():
+    """Aliases come from scope.joins[*].right_alias + right_table."""
+    scope = {
+        "joins": [
+            {"right_table": "Clarity.dbo.CVG_SUBSCR_ADDR", "right_alias": "CSA"},
+            {"right_table": "PAT_ENC", "right_alias": "PE"},
+            {"right_table": "NO_ALIAS_TABLE", "right_alias": ""},
+        ]
+    }
+    out = _build_alias_map(scope)
+    assert out == {"CSA": "CVG_SUBSCR_ADDR", "PE": "PAT_ENC"}
+
+
+# ---------- legacy equi-key stripping (for English-form filters) ---------
 
 def test_strip_equijoin_keys_drops_word_word_pairs():
     """Pure key fragments like `<X> = <X>` (both sides bare word
@@ -269,10 +318,10 @@ def test_two_or_more_others_falls_back_to_head(tmp_path):
 
 
 def test_join_on_business_filters_kept_keys_stripped(tmp_path):
-    """JOIN ON predicates often mix equi-join keys (X = X structurally)
-    with real business filters. Keys are dropped; business predicates
-    stay. Both WHERE and the JOIN-clause filter should land in the
-    cohort filter list."""
+    """End-to-end: JOIN ON predicates mix equi-keys (dropped) with
+    business filters (kept). The kept JOIN-clause predicates render
+    in SQL form with `<TABLE>(<alias>).<col>` expansion. WHERE filters
+    keep the English translation."""
     doc = _run_cohorts(
         tmp_path,
         """
@@ -287,12 +336,12 @@ def test_join_on_business_filters_kept_keys_stripped(tmp_path):
     )
     main = _scope(doc, "v_join_filter_kept", "main")
     joined = " | ".join(main["filters"])
-    # WHERE filter survives
-    assert "Is Valid Pat Yn" in joined or "'Y'" in joined
-    # JOIN ON business predicate survives
-    assert "Status C = 1" in joined
-    # Equi-join key (Patient Identifier = Patient Identifier) does NOT
-    assert "Patient Identifier = Patient Identifier" not in joined
+    # WHERE filter -> English form (translator expanded PAT -> Patient)
+    assert "Is Valid Patient Yn = 'Y'" in joined
+    # JOIN ON business predicate -> SQL-with-alias form
+    assert "PAT_ENC(PE).STATUS_C = 1" in joined
+    # Equi-join key (P.PAT_ID = PE.PAT_ID) is gone
+    assert "P.PAT_ID = PE.PAT_ID" not in joined
 
 
 def test_select_distinct_grain_three_tables(tmp_path):

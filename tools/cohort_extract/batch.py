@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""Tool 14 -- cohort extractor batch driver.
+
+Reads a v3 corpus.jsonl, renders each scope as a cohort + filters
+(population-level governance description), writes JSON + MD.
+
+Notebook usage:
+
+    from tools.cohort_extract.batch import extract_cohorts
+    extract_cohorts(
+        corpus_path='/lakehouse/default/Files/outputs/corpus.jsonl',
+        output_dir='/lakehouse/default/Files/outputs/cohorts',
+    )
+
+CLI:
+    python -m tools.cohort_extract.batch <corpus.jsonl> [-o out_dir]
+                                          [--table-descriptions YAML]
+                                          [--dim-filter PATH]
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from tools.view_shape_compare.dim_filter import (
+    DEFAULT_DIM_FILTER_PATH,
+    DimFilter,
+    load_default_dim_filter,
+)
+
+from .render import (
+    TableDescriptions,
+    cohorts_to_markdown,
+    view_to_cohorts,
+)
+
+
+_DEFAULT_TABLE_DESCRIPTIONS_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "data" / "dictionaries" / "table_short_descriptions.yaml"
+)
+
+
+def _read_corpus(corpus_path: Path):
+    with corpus_path.open("r", encoding="utf-8") as f:
+        header_line = next(f, None)
+        if not header_line:
+            return
+        header = json.loads(header_line)
+        if "schema_version" not in header:
+            raise ValueError(
+                f"{corpus_path} is not a corpus.jsonl: header lacks schema_version"
+            )
+        for line in f:
+            line = line.strip()
+            if line:
+                yield json.loads(line)
+
+
+def _load_table_descriptions(path: str | None) -> TableDescriptions:
+    p = Path(path) if path else _DEFAULT_TABLE_DESCRIPTIONS_PATH
+    if not p.is_file():
+        return TableDescriptions.empty()
+    try:
+        return TableDescriptions.from_yaml(p)
+    except Exception as e:
+        print(f"WARNING: could not load table descriptions from {p}: {e}",
+               file=sys.stderr)
+        return TableDescriptions.empty()
+
+
+def _dim_predicates(dim_filter: DimFilter) -> list:
+    """Convert DimFilter into a list of predicates the cohort renderer
+    can apply directly (avoids tight coupling between modules)."""
+    return [
+        lambda name, df=dim_filter: df.is_dim(name),
+    ]
+
+
+def extract_cohorts(
+    corpus_path: str,
+    output_dir: str = "cohorts",
+    *,
+    table_descriptions_path: str | None = None,
+    dim_filter_path: str | None = None,
+) -> int:
+    corpus = Path(corpus_path)
+    if not corpus.is_file():
+        print(f"Error: {corpus} not found", file=sys.stderr)
+        return 1
+
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    descriptions = _load_table_descriptions(table_descriptions_path)
+    dim_filter = (
+        DimFilter.from_file(dim_filter_path) if dim_filter_path
+        else load_default_dim_filter()
+    )
+    dim_preds = _dim_predicates(dim_filter)
+
+    json_views: list[dict] = []
+    md_blocks: list[str] = ["# Cohorts per view\n"]
+    n_views = 0
+    n_skipped = 0
+
+    for view in _read_corpus(corpus):
+        view_name = view.get("view_name") or ""
+        scopes = view.get("scopes") or []
+        if not scopes:
+            n_skipped += 1
+            continue
+        cohorts = view_to_cohorts(view, descriptions, dim_preds)
+        json_views.append({"view_name": view_name, "cohorts": cohorts})
+        md_blocks.append(cohorts_to_markdown(view_name, cohorts))
+        n_views += 1
+
+    json_doc = {
+        "schema_version": 1,
+        "n_views": n_views,
+        "n_skipped": n_skipped,
+        "views": json_views,
+    }
+    (out_dir / "cohorts.json").write_text(
+        json.dumps(json_doc, indent=2), encoding="utf-8"
+    )
+    (out_dir / "cohorts.md").write_text(
+        "\n".join(md_blocks), encoding="utf-8"
+    )
+
+    n_with_cohort = sum(1 for v in json_views
+                          for c in v["cohorts"] if c["cohort"])
+    n_total_cohorts = sum(len(v["cohorts"]) for v in json_views)
+
+    print(f"\ncohort_extract:")
+    print(f"  views rendered: {n_views} (skipped {n_skipped} with no scopes)")
+    print(f"  cohorts emitted: {n_total_cohorts} "
+          f"({n_with_cohort} with a populated cohort phrase)")
+    print(f"  -> {out_dir / 'cohorts.json'}")
+    print(f"  -> {out_dir / 'cohorts.md'}")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Render each view's scopes as cohort + filters."
+    )
+    parser.add_argument("corpus", help="Path to corpus.jsonl")
+    parser.add_argument("-o", "--output", default="cohorts",
+                          help="Output directory (default: cohorts/)")
+    parser.add_argument("--table-descriptions", default=None,
+                          help="YAML overlay {TABLE_NAME: short_description}. "
+                                "Defaults to data/dictionaries/table_short_descriptions.yaml.")
+    parser.add_argument("--dim-filter", default=None,
+                          help="dim_tables.txt to suppress enrichment joins. "
+                                "Defaults to data/dictionaries/dim_tables.txt.")
+    args = parser.parse_args()
+    return extract_cohorts(
+        args.corpus, args.output,
+        table_descriptions_path=args.table_descriptions,
+        dim_filter_path=args.dim_filter,
+    )
+
+
+if __name__ == "__main__":
+    sys.exit(main())

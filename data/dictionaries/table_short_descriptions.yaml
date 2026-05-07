@@ -1,0 +1,81 @@
+# Table-level short descriptions used by tools/cohort_extract to render
+# cohort phrases like "patients with encounters" or "orders".
+#
+# Rules of thumb for naming:
+#   - Lowercase, plural ("patients" not "Patient")
+#   - 1-3 words; the renderer will compose them with " with " etc.
+#   - Match Epic Clarity table semantics, not the literal column names
+#
+# Format: TABLE_NAME: short description
+# Match is case-insensitive, schema/database qualifier stripped.
+#
+# Long-term these should live in clarity_metadata.csv (TABLE_NAME +
+# TABLE_SHORT_DESCRIPTION columns) so they version-control alongside
+# the column metadata. This file is the bootstrap / overlay.
+
+# --- Person / patient master ---
+PATIENT: patients
+VALID_PATIENT: validated patients
+PAT_DEMO: patient demographics
+PAT_ID_LINK: patient identity links
+
+# --- Encounters / visits ---
+PAT_ENC: encounters
+PAT_ENC_HSP: hospital encounters
+ENCOUNTER: encounters
+PAT_ENC_DX: encounter diagnoses
+
+# --- Orders ---
+ORDER_PROC: orders
+ORDER_MED: medication orders
+ORDER_RAD: radiology orders
+ORDER_LAB: lab orders
+
+# --- Diagnoses / conditions ---
+DIAGNOSIS: diagnoses
+PROBLEM_LIST: problems
+PAT_PROBLEM: patient problems
+
+# --- Medications ---
+MEDICATION: medications
+PHARMACY_DISP: pharmacy dispenses
+
+# --- Procedures ---
+PROCEDURE: procedures
+SURGERY: surgeries
+
+# --- Coverage / insurance ---
+COVERAGE: coverages
+COVERAGE_MEMBER_LIST: coverage members
+COVERAGE_PAYOR: coverage payors
+PLAN_GRP_BEN_PLAN: plan group benefit plans
+CLARITY_EPP: benefit plans
+CLARITY_LOB: lines of business
+
+# --- Providers / locations ---
+CLARITY_SER: providers
+CLARITY_LOC: locations
+CLARITY_DEP: departments
+CLARITY_POS: places of service
+
+# --- Address / contact ---
+CVG_SUBSCR_ADDR: subscriber addresses
+CVG_LOC_PCP: PCP coverage locations
+PAT_ADDRESS: patient addresses
+
+# --- Notes / documentation ---
+NOTES: notes
+HNO_INFO: notes info
+
+# --- Financial ---
+HSP_ACCOUNT: hospital accounts
+HSP_TRANSACTION: hospital transactions
+HSP_TRANSACTION_QTY: transaction quantities
+
+# --- Lab / results ---
+ORDER_RESULTS: order results
+LAB_RESULTS: lab results
+
+# --- Generic fallbacks for anything starting with a known prefix ---
+# (these don't fire as patterns -- they're documentation hints; the
+# renderer falls back to humanized table-name when no entry matches.)

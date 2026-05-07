@@ -230,7 +230,37 @@ A typical CTE view renders as:
 
 CTE-scope filters stay in their CTE — they do NOT pollute downstream datasets. This is the same scope-correctness that powers `view_shape_compare`.
 
-## 7. Run the tests (optional, requires the `tests/` files)
+## 7. Render each scope as a cohort (population-level governance)
+
+For governance reviews where the question is "which view defines which population?" (vs. "what does each column do?"), use `cohort_extract`. Each scope gets a one-line cohort phrase and its filters in plain English — no column documentation.
+
+### Fabric notebook
+
+```python
+from tools.cohort_extract.batch import extract_cohorts
+
+extract_cohorts(
+    corpus_path='/lakehouse/default/Files/outputs/corpus.jsonl',
+    output_dir='/lakehouse/default/Files/outputs/cohorts',
+)
+```
+
+### CLI
+
+```bash
+python -m tools.cohort_extract.batch /path/to/corpus.jsonl -o /path/to/cohorts
+```
+
+### Outputs
+
+- `cohorts.md` — human-readable. One section per view, each scope rendered as `Cohort: <phrase>` + `Filters: <list>`.
+- `cohorts.json` — same data, structured.
+
+Cohort phrases come from `data/dictionaries/table_short_descriptions.yaml`. Long-term, the canonical place is a `TABLE_SHORT_DESCRIPTION` column on `clarity_metadata.csv` (paralleling the column-level `SHORT_DESCRIPTION` we already added). The YAML is the bootstrap / overlay; pass `--table-descriptions /custom/path.yaml` to use a different one.
+
+The same `data/dictionaries/dim_tables.txt` filter applies, with one cohort-specific exception: when ALL tables in a scope are dim, the dims are kept as the cohort (a view that selects only from `PATIENT` IS a "patients" cohort, not empty).
+
+## 8. Run the tests (optional, requires the `tests/` files)
 
 ```bash
 # from repo root

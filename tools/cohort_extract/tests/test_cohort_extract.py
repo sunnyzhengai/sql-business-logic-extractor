@@ -33,6 +33,46 @@ def test_table_descriptions_lookup_case_insensitive():
     assert td.get("UNKNOWN_TABLE") is None
 
 
+def test_table_descriptions_from_schema_dict():
+    """The PRIMARY source for table descriptions: a clarity_schema.json
+    dict whose `tables[*].short_description` field is populated (sourced
+    from the TABLE_SHORT_DESCRIPTION column of clarity_metadata.csv)."""
+    schema = {
+        "tables": [
+            {"name": "PATIENT",
+             "description": "Long verbose Clarity intro...",
+             "short_description": "patients"},
+            {"name": "PAT_ENC",
+             "short_description": "encounters"},
+            {"name": "TABLE_WITH_NO_SHORT_DESC",
+             "description": "Only the long form populated"},
+        ]
+    }
+    td = TableDescriptions.from_schema(schema)
+    assert td.get("PATIENT") == "patients"
+    assert td.get("PAT_ENC") == "encounters"
+    # Tables without short_description are NOT in the lookup --
+    # caller falls back to humanized table name.
+    assert td.get("TABLE_WITH_NO_SHORT_DESC") is None
+
+
+def test_table_descriptions_merge_schema_overrides_yaml(tmp_path):
+    """Schema wins over YAML overlay on conflict; YAML still
+    contributes for tables not in the schema."""
+    yaml_path = tmp_path / "overlay.yaml"
+    yaml_path.write_text("PATIENT: legacy\nCUSTOM_TABLE: custom thing\n")
+
+    schema = {"tables": [{"name": "PATIENT", "short_description": "patients"}]}
+    yaml_td = TableDescriptions.from_yaml(yaml_path)
+    schema_td = TableDescriptions.from_schema(schema)
+    merged = TableDescriptions.merge(yaml_td, schema_td)
+
+    # Schema overrode YAML for PATIENT
+    assert merged.get("PATIENT") == "patients"
+    # YAML still provided CUSTOM_TABLE (not in schema)
+    assert merged.get("CUSTOM_TABLE") == "custom thing"
+
+
 def test_build_cohort_head_only_when_no_others():
     td = TableDescriptions(by_name={"PATIENT": "patients"})
     assert build_cohort("PATIENT", [], [], td) == "patients"

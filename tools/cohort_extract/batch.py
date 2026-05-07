@@ -60,16 +60,40 @@ def _read_corpus(corpus_path: Path):
                 yield json.loads(line)
 
 
-def _load_table_descriptions(path: str | None) -> TableDescriptions:
-    p = Path(path) if path else _DEFAULT_TABLE_DESCRIPTIONS_PATH
-    if not p.is_file():
+def _load_table_descriptions(
+    schema_path: str | None,
+    yaml_overlay_path: str | None,
+) -> TableDescriptions:
+    """Build the table-description lookup from two sources, in priority order:
+
+      1. clarity_schema.json (`tables[*].short_description`, sourced from
+         the `TABLE_SHORT_DESCRIPTION` column of clarity_metadata.csv).
+      2. The YAML overlay -- for custom tables not in the Clarity schema.
+
+    Schema wins on conflict. Either source may be absent."""
+    sources: list[TableDescriptions] = []
+
+    # YAML loaded FIRST (so schema overrides it via merge).
+    yaml_p = Path(yaml_overlay_path) if yaml_overlay_path else _DEFAULT_TABLE_DESCRIPTIONS_PATH
+    if yaml_p.is_file():
+        try:
+            sources.append(TableDescriptions.from_yaml(yaml_p))
+        except Exception as e:
+            print(f"WARNING: could not load table descriptions YAML from {yaml_p}: {e}",
+                   file=sys.stderr)
+
+    if schema_path:
+        schema_p = Path(schema_path)
+        if schema_p.is_file():
+            try:
+                sources.append(TableDescriptions.from_schema_path(schema_p))
+            except Exception as e:
+                print(f"WARNING: could not load schema descriptions from {schema_p}: {e}",
+                       file=sys.stderr)
+
+    if not sources:
         return TableDescriptions.empty()
-    try:
-        return TableDescriptions.from_yaml(p)
-    except Exception as e:
-        print(f"WARNING: could not load table descriptions from {p}: {e}",
-               file=sys.stderr)
-        return TableDescriptions.empty()
+    return TableDescriptions.merge(*sources)
 
 
 def _dim_predicates(dim_filter: DimFilter) -> list:
@@ -84,9 +108,18 @@ def extract_cohorts(
     corpus_path: str,
     output_dir: str = "cohorts",
     *,
+    schema_path: str | None = None,
     table_descriptions_path: str | None = None,
     dim_filter_path: str | None = None,
 ) -> int:
+    """Render each scope of each view as a cohort + filters.
+
+    `schema_path` is the clarity_schema.json built from
+    clarity_metadata.csv -- this is the PRIMARY source for table
+    short_descriptions used in the cohort phrase. `table_descriptions_path`
+    is an optional YAML overlay for tables not in the Clarity schema
+    (custom fact tables / views); the schema wins on conflict.
+    """
     corpus = Path(corpus_path)
     if not corpus.is_file():
         print(f"Error: {corpus} not found", file=sys.stderr)
@@ -95,7 +128,7 @@ def extract_cohorts(
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    descriptions = _load_table_descriptions(table_descriptions_path)
+    descriptions = _load_table_descriptions(schema_path, table_descriptions_path)
     dim_filter = (
         DimFilter.from_file(dim_filter_path) if dim_filter_path
         else load_default_dim_filter()
@@ -151,8 +184,14 @@ def main() -> int:
     parser.add_argument("corpus", help="Path to corpus.jsonl")
     parser.add_argument("-o", "--output", default="cohorts",
                           help="Output directory (default: cohorts/)")
+    parser.add_argument("--schema", default=None,
+                          help="Path to clarity_schema.json (built from "
+                                "clarity_metadata.csv). PRIMARY source for "
+                                "table_short_description and column "
+                                "short_description.")
     parser.add_argument("--table-descriptions", default=None,
-                          help="YAML overlay {TABLE_NAME: short_description}. "
+                          help="YAML overlay for tables NOT in the Clarity "
+                                "schema (custom fact tables / views). "
                                 "Defaults to data/dictionaries/table_short_descriptions.yaml.")
     parser.add_argument("--dim-filter", default=None,
                           help="dim_tables.txt to suppress enrichment joins. "
@@ -160,6 +199,7 @@ def main() -> int:
     args = parser.parse_args()
     return extract_cohorts(
         args.corpus, args.output,
+        schema_path=args.schema,
         table_descriptions_path=args.table_descriptions,
         dim_filter_path=args.dim_filter,
     )

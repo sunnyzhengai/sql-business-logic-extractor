@@ -11,9 +11,10 @@ the column translator will prefer over Clarity's full DESCRIPTION:
         TBL.TABLE_NAME,
         TBL.TABLE_ID,
         TBL.TABLE_INTRODUCTION,
+        ''                AS table_short_description,   -- fill in by hand (table level)
         COL.COLUMN_NAME,
         COL.DESCRIPTION,
-        ''                AS short_description,   -- fill in by hand
+        ''                AS short_description,         -- fill in by hand (column level)
         INI.COLUMN_INI,
         INI.COLUMN_ITEM
     FROM CLARITY.dbo.CLARITY_TBL TBL
@@ -22,10 +23,20 @@ the column translator will prefer over Clarity's full DESCRIPTION:
     WHERE TABLE_NAME IN (...)
       AND TBL.TBL_DESCRIPTOR_OVR IS NOT NULL;
 
-Once the CSV is exported, fill in `short_description` for the columns
-you care about (the rest fall back to DESCRIPTION). The conversion is
-column-name-flexible: both `short_description` and `SHORT_DESCRIPTION`
-are accepted.
+Once the CSV is exported, fill in by hand:
+  - `short_description`         (column level: e.g., "Patient ID")
+  - `table_short_description`   (table  level: e.g., "patients")
+                                 Repeat the same value across every row
+                                 for the same table -- the converter
+                                 dedupes by TABLE_NAME and uses the first
+                                 non-empty value seen.
+
+Both are optional. Column-level falls back to abbreviation expansion of
+the column name; table-level falls back to humanized table name.
+
+Conversion is column-name-flexible: both lowercase
+(`short_description`, `table_short_description`) and uppercase
+(`SHORT_DESCRIPTION`, `TABLE_SHORT_DESCRIPTION`) are accepted.
 
 The trailing `TBL_DESCRIPTOR_OVR IS NOT NULL` clause is intentional -- it
 deduplicates CLARITY_TBL entries that appear twice. Do not remove it
@@ -99,8 +110,19 @@ def csv_to_schema(csv_path: str, out_path: str) -> None:
                     "name": tname,
                     "id": (row.get("TABLE_ID") or "").strip() or None,
                     "description": (row.get("TABLE_INTRODUCTION") or "").strip() or None,
+                    "short_description": None,
                     "columns": [],
                 }
+            # Pick up table_short_description on the first non-empty
+            # row. Both lowercase and uppercase header variants accepted.
+            if not tables[tname]["short_description"]:
+                tsd = (
+                    row.get("table_short_description")
+                    or row.get("TABLE_SHORT_DESCRIPTION")
+                    or ""
+                ).strip()
+                if tsd:
+                    tables[tname]["short_description"] = tsd
             col = {
                 "name": (row.get("COLUMN_NAME") or "").strip(),
                 "description": (row.get("DESCRIPTION") or "").strip() or None,

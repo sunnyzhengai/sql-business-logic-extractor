@@ -26,15 +26,45 @@ from typing import Optional
 
 @dataclass(frozen=True)
 class TableDescriptions:
-    """Lookup of {bare_table_name_upper: short_description}."""
+    """Lookup of {bare_table_name_upper: short_description}.
+
+    Primary source is the clarity_schema.json (built from
+    clarity_metadata.csv via csv_to_schema.py): each entry under
+    `tables[*].short_description` becomes a lookup. The YAML overlay
+    is a SECONDARY source for tables not in the Clarity schema (custom
+    fact tables, views, etc.) -- pass via `from_yaml` and merge.
+    """
     by_name: dict[str, str]
 
     @classmethod
+    def from_schema(cls, schema: dict) -> "TableDescriptions":
+        """Build from a loaded clarity_schema.json dict."""
+        by_name: dict[str, str] = {}
+        for t in (schema or {}).get("tables", []) or []:
+            name = (t.get("name") or "").strip().upper()
+            sd = (t.get("short_description") or "").strip()
+            if name and sd:
+                by_name[name] = sd
+        return cls(by_name=by_name)
+
+    @classmethod
+    def from_schema_path(cls, path: str | Path) -> "TableDescriptions":
+        """Load a schema JSON from disk and build descriptions from it."""
+        import json as _json
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                schema = _json.load(f)
+        except (OSError, ValueError):
+            return cls.empty()
+        return cls.from_schema(schema)
+
+    @classmethod
     def from_yaml(cls, path: str | Path) -> "TableDescriptions":
+        """Load from a YAML overlay -- secondary source for tables not
+        in the Clarity schema (custom views / fact tables you added)."""
         import yaml
         text = Path(path).read_text(encoding="utf-8")
         raw = yaml.safe_load(text) or {}
-        # Tolerate accidental nested structure; flatten one level if needed.
         if isinstance(raw, dict):
             return cls(by_name={k.upper(): v for k, v in raw.items()
                                   if isinstance(v, str)})

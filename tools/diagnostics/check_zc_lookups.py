@@ -10,6 +10,7 @@ Notebook usage:
         check_corpus_lookups,
         check_zc_csv,
         diagnose,
+        probe_zc_filter,
     )
 
     # Run all three checks at once:
@@ -22,9 +23,19 @@ Notebook usage:
     check_corpus_lookups('/lakehouse/default/Files/outputs/corpus.jsonl')
     check_zc_csv('/lakehouse/default/Files/schemas/zc_values.csv')
 
+    # Inspect ONE concrete filter that should be annotated -- useful when
+    # corpus has lookups but cohorts.md isn't showing them. Compare the
+    # printed expression+english to the rendered line in cohorts.md.
+    probe_zc_filter(
+        '/lakehouse/default/Files/outputs/corpus.jsonl',
+        zc_table_substr='COVERAGE_TYPE',
+        code='2',
+    )
+
 CLI:
 
-    python -m tools.diagnostics.check_zc_lookups <corpus.jsonl> [zc_values.csv]
+    python -m tools.diagnostics.check_zc_lookups <corpus.jsonl> [zc_values.csv] \\
+        [--probe-zc-table COVERAGE_TYPE] [--probe-code 2] [--probe-max 1]
 """
 
 from __future__ import annotations
@@ -200,6 +211,99 @@ def diagnose(
 
 
 # ---------------------------------------------------------------------------
+# CHECK 3 -- inspect ONE concrete filter that has a zc_lookup
+# ---------------------------------------------------------------------------
+
+def probe_zc_filter(
+    corpus_path: str | Path,
+    zc_table_substr: str = "",
+    code: str | None = None,
+    column_substr: str = "",
+    max_results: int = 1,
+) -> int:
+    """Find filters in corpus.jsonl whose zc_lookups match the given
+    criteria and dump everything we'd need to debug a missing
+    annotation: expression, english, kind, full lookups list.
+
+    Args:
+        corpus_path:     Path to corpus.jsonl.
+        zc_table_substr: Case-insensitive substring match on
+                         lookup.zc_table. Empty string matches any.
+                         e.g., "COVERAGE_TYPE" or "ZC_PAT_STATUS".
+        code:            Exact string match on lookup.code (e.g., "2").
+                         None = any code.
+        column_substr:   Case-insensitive substring match on
+                         lookup.column. Empty = any.
+        max_results:     Stop after this many matching filters.
+
+    Notebook usage:
+
+        # Most common: find filters with COVERAGE_TYPE_C = 2
+        probe_zc_filter(corpus_path, zc_table_substr="COVERAGE_TYPE", code="2")
+
+        # Or just any filter that resolved a ZC lookup at all:
+        probe_zc_filter(corpus_path)
+
+        # First 5 filters touching ZC_PAT_STATUS:
+        probe_zc_filter(corpus_path, zc_table_substr="ZC_PAT_STATUS",
+                         max_results=5)
+    """
+    p = Path(corpus_path)
+    if not p.is_file():
+        print(f"ERROR: corpus.jsonl not found at {p}")
+        return 0
+
+    zc_substr_upper = (zc_table_substr or "").upper()
+    col_substr_upper = (column_substr or "").upper()
+    n_found = 0
+
+    with p.open(encoding="utf-8") as f:
+        next(f, None)
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            view = json.loads(line)
+            for s in view.get("scopes") or []:
+                for filt in s.get("filters") or []:
+                    lookups = filt.get("zc_lookups") or []
+                    matches = [
+                        z for z in lookups
+                        if (not zc_substr_upper
+                            or zc_substr_upper in (z.get("zc_table") or "").upper())
+                        and (code is None or (z.get("code") or "") == code)
+                        and (not col_substr_upper
+                             or col_substr_upper in (z.get("column") or "").upper())
+                    ]
+                    if not matches:
+                        continue
+                    n_found += 1
+                    print("=" * 60)
+                    print(f"MATCH #{n_found}")
+                    print(f"  VIEW:        {view.get('view_name', '')}")
+                    print(f"  SCOPE:       {s.get('id', '')}")
+                    print(f"  KIND:        {filt.get('kind')}")
+                    print(f"  EXPRESSION:  {filt.get('expression')}")
+                    print(f"  ENGLISH:     {filt.get('english')}")
+                    print(f"  ZC_LOOKUPS:  {lookups}")
+                    print(f"  MATCHED:     {matches}")
+                    if n_found >= max_results:
+                        return n_found
+    if n_found == 0:
+        criteria = []
+        if zc_table_substr:
+            criteria.append(f"zc_table contains {zc_table_substr!r}")
+        if code is not None:
+            criteria.append(f"code == {code!r}")
+        if column_substr:
+            criteria.append(f"column contains {column_substr!r}")
+        if not criteria:
+            criteria.append("(any zc_lookup at all)")
+        print(f"No matches: " + ", ".join(criteria))
+    return n_found
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -213,8 +317,35 @@ def main() -> int:
         "zc_csv", nargs="?", default=None,
         help="(optional) Path to zc_values.csv -- runs the CSV-readability check too",
     )
+    parser.add_argument(
+        "--probe-zc-table", default="",
+        help="If set, also probe for filters matching this zc_table substring "
+              "(e.g., 'COVERAGE_TYPE'). Dumps the first matching filter's "
+              "expression / english / lookups for inspection.",
+    )
+    parser.add_argument(
+        "--probe-code", default=None,
+        help="When used with --probe-zc-table, narrow to filters whose "
+              "lookup code equals this (e.g., '2').",
+    )
+    parser.add_argument(
+        "--probe-max", type=int, default=1,
+        help="Maximum number of probe matches to dump (default: 1).",
+    )
     args = parser.parse_args()
     diagnose(args.corpus, args.zc_csv)
+    if args.probe_zc_table:
+        print()
+        print("=" * 60)
+        print(f"PROBE: zc_table contains {args.probe_zc_table!r}"
+              + (f", code={args.probe_code!r}" if args.probe_code else ""))
+        print("=" * 60)
+        probe_zc_filter(
+            args.corpus,
+            zc_table_substr=args.probe_zc_table,
+            code=args.probe_code,
+            max_results=args.probe_max,
+        )
     return 0
 
 

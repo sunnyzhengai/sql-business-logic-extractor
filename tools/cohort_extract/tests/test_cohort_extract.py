@@ -317,6 +317,27 @@ def test_two_or_more_others_falls_back_to_head(tmp_path):
     assert main["cohort"] == "patients"
 
 
+def test_zc_lookup_annotation_handles_in_list():
+    """IN-clause lookups: each numeric in the IN list gets its own
+    annotation."""
+    from tools.cohort_extract.render import render_filter
+
+    f = {
+        "kind": "where",
+        "expression": "C.COVERAGE_TYPE_C IN (1, 2, 3)",
+        "english": "Coverage Type C in (1, 2, 3)",
+        "zc_lookups": [
+            {"column": "COVERAGE_TYPE_C", "code": "1", "name": "Self Pay"},
+            {"column": "COVERAGE_TYPE_C", "code": "2", "name": "Managed Care"},
+            {"column": "COVERAGE_TYPE_C", "code": "3", "name": "Medicare"},
+        ],
+    }
+    out = render_filter(f)
+    assert "1 /* Self Pay */" in out
+    assert "2 /* Managed Care */" in out
+    assert "3 /* Medicare */" in out
+
+
 def test_zc_lookup_annotation_appended_to_filter_text():
     """When a filter dict has zc_lookups, render_filter appends
     ` /* name */` after the matching `= <code>` occurrence."""

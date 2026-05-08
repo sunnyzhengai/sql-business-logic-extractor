@@ -164,11 +164,22 @@ def _find_zc_lookups(
     zc_values: dict[tuple[str, str], str],
     dialect: str,
 ) -> list[ZcLookupV1]:
-    """Walk a filter SQL expression's AST. For every `<X>_C = <N>` binary
-    equality where `(ZC_<X>, <N>)` resolves in `zc_values`, emit a
-    ZcLookupV1. Other patterns (`<X>_C IN (...)`, `<X>_C != <N>`,
-    non-numeric RHS) are not handled today -- start with the most
-    common shape and expand when warranted.
+    """Walk a filter SQL expression's AST. For every `<col>_C` reference
+    paired with a numeric literal in a code-comparison context, emit a
+    ZcLookupV1 if `(ZC_<X>, <N>)` resolves in `zc_values`.
+
+    Patterns handled:
+      - `<col>_C = <N>`         (most common)
+      - `<N> = <col>_C`         (reversed; less common but Clarity uses it)
+      - `<col>_C != <N>`        (negation)
+      - `<col>_C IN (<N>, ...)` (multi-value membership; emits one
+                                  lookup per matching numeric literal)
+
+    Patterns NOT handled (yet):
+      - BETWEEN ranges
+      - `<col>_C` inside CASE result expressions (only the predicate
+        is annotated, not the WHEN values)
+      - Non-numeric literals on the value side
     """
     if not sql_expr or not zc_values:
         return []
@@ -180,25 +191,25 @@ def _find_zc_lookups(
         return []
     out: list[ZcLookupV1] = []
     seen: set[tuple[str, str]] = set()
-    for eq in node.find_all(exp.EQ):
-        lhs, rhs = eq.this, eq.expression
-        if not isinstance(lhs, exp.Column):
-            continue
-        col_name = lhs.name or ""
-        if not col_name.upper().endswith("_C") or len(col_name) <= 2:
-            continue
-        if not isinstance(rhs, exp.Literal) or not rhs.is_number:
-            continue
-        code = rhs.name  # numeric literal as string
-        zc_table = "ZC_" + col_name[: -2].upper() if col_name.upper().endswith("_C") else ""
-        if not zc_table:
-            continue
+
+    def _maybe_emit(col_node, lit_node) -> None:
+        """If `col_node` is a `<X>_C` Column and `lit_node` is a numeric
+        Literal that resolves against zc_values, append a ZcLookupV1."""
+        if not isinstance(col_node, exp.Column):
+            return
+        col_name = col_node.name or ""
+        if len(col_name) <= 2 or not col_name.upper().endswith("_C"):
+            return
+        if not isinstance(lit_node, exp.Literal) or not lit_node.is_number:
+            return
+        code = lit_node.name
+        zc_table = "ZC_" + col_name[:-2].upper()
         name = zc_values.get((zc_table, code))
         if not name:
-            continue
+            return
         key = (col_name.upper(), code)
         if key in seen:
-            continue
+            return
         seen.add(key)
         out.append(ZcLookupV1(
             column=col_name,
@@ -206,6 +217,18 @@ def _find_zc_lookups(
             code=code,
             name=name,
         ))
+
+    # EQ / NEQ in either direction (`X = N`, `N = X`, `X != N`, `N != X`).
+    for op in node.find_all(exp.EQ, exp.NEQ):
+        _maybe_emit(op.this, op.expression)
+        _maybe_emit(op.expression, op.this)
+
+    # IN lists -- one ZcLookupV1 per matching numeric literal.
+    for in_node in node.find_all(exp.In):
+        col = in_node.this
+        for lit in in_node.expressions or []:
+            _maybe_emit(col, lit)
+
     return out
 
 

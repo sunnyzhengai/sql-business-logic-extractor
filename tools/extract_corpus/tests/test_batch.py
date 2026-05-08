@@ -237,6 +237,60 @@ def test_zc_lookups_resolved_from_csv(tmp_path):
     assert ("STATUS_C", "1", "Active") in all_lookups
 
 
+def test_zc_lookups_resolved_for_in_and_neq(tmp_path):
+    """ZC lookups should resolve for `IN (...)` lists and `!=` predicates,
+    not just `=`. This was the gap when only 18 of 929 filters in a
+    real corpus produced annotations -- IN was the dominant pattern."""
+    views = tmp_path / "views"
+    views.mkdir()
+    (views / "v_in.sql").write_text(
+        "SELECT * FROM Clarity.dbo.COVERAGE C "
+        "WHERE C.COVERAGE_TYPE_C IN (1, 2, 3) AND C.STATUS_C != 9"
+    )
+    zc_csv = tmp_path / "zc_values.csv"
+    zc_csv.write_text(
+        "zc_table,code,name\n"
+        "ZC_COVERAGE_TYPE,1,Self Pay\n"
+        "ZC_COVERAGE_TYPE,2,Managed Care\n"
+        "ZC_COVERAGE_TYPE,3,Medicare\n"
+        "ZC_STATUS,9,Voided\n"
+    )
+    out = tmp_path / "corpus.jsonl"
+    extract_corpus(str(views), str(out), zc_values_path=str(zc_csv))
+    corpus = corpus_from_jsonl_lines(iter(out.read_text().splitlines()))
+    main = _main_scope(corpus.views[0])
+    all_codes = {(z.column, z.code, z.name)
+                  for f in main.filters for z in f.zc_lookups}
+    # All three IN values resolved
+    assert ("COVERAGE_TYPE_C", "1", "Self Pay") in all_codes
+    assert ("COVERAGE_TYPE_C", "2", "Managed Care") in all_codes
+    assert ("COVERAGE_TYPE_C", "3", "Medicare") in all_codes
+    # NEQ predicate also resolved
+    assert ("STATUS_C", "9", "Voided") in all_codes
+
+
+def test_zc_lookups_resolved_for_reversed_equality(tmp_path):
+    """`<N> = <col>_C` (literal on left, column on right) resolves
+    same as `<col>_C = <N>`."""
+    views = tmp_path / "views"
+    views.mkdir()
+    (views / "v_rev.sql").write_text(
+        "SELECT * FROM Clarity.dbo.COVERAGE C WHERE 2 = C.COVERAGE_TYPE_C"
+    )
+    zc_csv = tmp_path / "zc_values.csv"
+    zc_csv.write_text(
+        "zc_table,code,name\n"
+        "ZC_COVERAGE_TYPE,2,Managed Care\n"
+    )
+    out = tmp_path / "corpus.jsonl"
+    extract_corpus(str(views), str(out), zc_values_path=str(zc_csv))
+    corpus = corpus_from_jsonl_lines(iter(out.read_text().splitlines()))
+    main = _main_scope(corpus.views[0])
+    all_codes = [(z.column, z.code, z.name)
+                  for f in main.filters for z in f.zc_lookups]
+    assert ("COVERAGE_TYPE_C", "2", "Managed Care") in all_codes
+
+
 def test_zc_lookups_empty_when_no_csv(tmp_path):
     """Without zc_values.csv, zc_lookups stay empty (graceful)."""
     views = tmp_path / "views"

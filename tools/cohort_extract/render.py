@@ -296,19 +296,18 @@ def _strip_equijoin_keys(text: str) -> str:
 
 def _annotate_zc_lookups(text: str, zc_lookups: list | tuple) -> str:
     """For each (column, code, name) in `zc_lookups`, append ` /* name */`
-    after the matching `<col> = <code>` reference in `text`.
+    after the matching code reference in `text`.
 
-    Two-stage match:
-      1. Specific: `<col> = <code>` (literal column name). This works
-         on JOIN ON filters that we render in SQL form -- the column
-         name is preserved verbatim.
-      2. Fallback: `= <code>` only (no column name). This handles
-         WHERE/HAVING English form where the translator rewrote the
-         column name (e.g., `COVERAGE_TYPE_C` -> `Coverage Type C`).
-         The fallback annotates only the FIRST matching occurrence to
-         avoid mass-annotating unrelated `= <code>` instances.
+    Three-stage match (try in order, take the first that lands):
+      1. Specific: `<col> = <code>` (literal column name kept).
+         Works on JOIN ON filters rendered in SQL form.
+      2. Generic-context: `<code>` preceded by `=`, `,`, or `(` --
+         catches both `= <code>` (English-form WHERE) and IN-list
+         positions (`( <code>`, `, <code>`). Annotates only the first
+         unannotated occurrence to avoid mass-annotating unrelated
+         numerics.
 
-    Idempotent -- skips occurrences already followed by a `/*` comment.
+    Idempotent -- never annotates a position already followed by `/*`.
     """
     if not text or not zc_lookups:
         return text
@@ -318,6 +317,7 @@ def _annotate_zc_lookups(text: str, zc_lookups: list | tuple) -> str:
         name = z.get("name") if isinstance(z, dict) else getattr(z, "name", "")
         if not (code and name):
             continue
+
         replaced = False
         if col:
             specific = re.compile(
@@ -327,11 +327,16 @@ def _annotate_zc_lookups(text: str, zc_lookups: list | tuple) -> str:
             if n > 0:
                 text = new_text
                 replaced = True
+
         if not replaced:
-            # Fallback: annotate the FIRST occurrence of `= <code>` not
-            # already commented. Best-effort for English-form filters.
-            fallback = re.compile(rf"(=\s*{re.escape(code)})(?!\d)(?!\s*/\*)")
-            text = fallback.sub(rf"\1 /* {name} */", text, count=1)
+            # Generic: annotate the FIRST `<code>` preceded by an
+            # equality / IN-list delimiter and not already commented.
+            # Captures `=`, `,`, or `(` as the boundary so this works
+            # for both `= <code>` and `IN (<code>, <code>, ...)`.
+            generic = re.compile(
+                rf"([(,=]\s*){re.escape(code)}\b(?!\d)(?!\s*/\*)"
+            )
+            text = generic.sub(rf"\g<1>{code} /* {name} */", text, count=1)
     return text
 
 

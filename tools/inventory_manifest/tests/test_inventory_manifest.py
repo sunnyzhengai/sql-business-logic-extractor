@@ -49,7 +49,14 @@ def test_used_tables_includes_facts_and_zcs(tmp_path):
 def test_used_zc_tables_filters_to_zc_only(tmp_path):
     out = _run_manifest(tmp_path)
     zc_tables = (out / "used_zc_tables.txt").read_text().splitlines()
-    assert sorted(zc_tables) == ["ZC_APPT_STATUS", "ZC_PATIENT_RACE"]
+    # Joined ZC tables -- explicitly present in FROM/JOIN
+    assert "ZC_APPT_STATUS" in zc_tables
+    assert "ZC_PATIENT_RACE" in zc_tables
+    # Inferred ZC tables -- derived from `<X>_C` column references.
+    # The fixture has STATUS_C in a WHERE and RACE_C / APPT_STATUS_C in
+    # JOIN ON predicates; all imply their ZC_<X> counterparts.
+    assert "ZC_STATUS" in zc_tables
+    assert "ZC_RACE" in zc_tables
     # Non-ZC tables should NOT be here
     assert "PATIENT" not in zc_tables
     assert "PAT_ENC" not in zc_tables
@@ -76,6 +83,32 @@ def test_zc_values_clause_is_paste_ready(tmp_path):
     lines = [l.strip() for l in text.splitlines() if l.strip().startswith("('")]
     assert lines, "no values lines emitted"
     assert not lines[-1].endswith(","), f"last line has trailing comma: {lines[-1]}"
+
+
+def test_zc_tables_inferred_from_C_columns_even_without_join(tmp_path):
+    """A view that FILTERS on a `<X>_C` column without JOINing the
+    corresponding ZC table should still surface `ZC_<X>` in the
+    used_zc_tables manifest -- so the zc_values.csv extract picks
+    up the codes needed to annotate that filter."""
+    views = tmp_path / "views"
+    views.mkdir()
+    # No JOIN to ZC_COVERAGE_TYPE -- only a WHERE predicate using the code
+    (views / "v_codes_only.sql").write_text(
+        "SELECT C.COVERAGE_ID FROM Clarity.dbo.COVERAGE C "
+        "WHERE C.COVERAGE_TYPE_C = 2 AND C.STATUS_C IN (1, 3)"
+    )
+    corpus = tmp_path / "corpus.jsonl"
+    extract_corpus(str(views), str(corpus))
+    out = tmp_path / "inv_out"
+    build_inventory_manifest(str(corpus), str(out))
+
+    zc_tables = (out / "used_zc_tables.txt").read_text().splitlines()
+    # COVERAGE is a fact table (joined); should NOT be in zc_tables
+    assert "COVERAGE" not in zc_tables
+    # But ZC_COVERAGE_TYPE and ZC_STATUS, inferred from `<X>_C` columns,
+    # MUST be present so the user's zc_values.csv extract picks them up.
+    assert "ZC_COVERAGE_TYPE" in zc_tables
+    assert "ZC_STATUS" in zc_tables
 
 
 def test_cte_aliases_filtered_out(tmp_path):

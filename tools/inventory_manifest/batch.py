@@ -59,6 +59,18 @@ def _collect(corpus_path: Path):
     inventory as if they were base tables -- per view, we know which
     scope IDs exist (cte:X, derived:Y), so any inventory `table`
     matching a same-view CTE/derived alias gets skipped.
+
+    `zc_tables` is the union of:
+      (a) ZC_* tables explicitly READ in any view (joined or in FROM)
+      (b) ZC_* tables INFERRED from `<X>_C` column references anywhere
+          in the corpus (e.g., `WHERE COVERAGE_TYPE_C = 2` implies
+          `ZC_COVERAGE_TYPE` even when the view doesn't JOIN that table).
+
+    The (b) rule matters because Epic Clarity views frequently filter
+    on numeric codes without joining the ZC table to dereference the
+    name -- they only join when they need to project the label. Without
+    this rule, the zc_values.csv that drives ZC code-to-name annotation
+    misses every code-only filter predicate.
     """
     tables: set[str] = set()
     columns: set[tuple[str, str]] = set()
@@ -99,7 +111,17 @@ def _collect(corpus_path: Path):
                 if rt and ":" not in rt and rt.upper() not in scope_aliases:
                     tables.add(rt)
 
-    zc_tables = {t for t in tables if t.upper().startswith("ZC_")}
+    # Rule (a): ZC tables explicitly present as joined / FROM tables.
+    zc_tables: set[str] = {t for t in tables if t.upper().startswith("ZC_")}
+
+    # Rule (b): ZC tables INFERRED from <X>_C column references. Even when
+    # the view doesn't JOIN ZC_<X>, a predicate `<X>_C = <N>` implies the
+    # ZC table -- it's the lookup target for the code value.
+    for _t, col in columns:
+        col_upper = col.upper()
+        if col_upper.endswith("_C") and len(col_upper) > 2:
+            zc_tables.add("ZC_" + col_upper[:-2])
+
     return tables, columns, zc_tables
 
 

@@ -237,6 +237,35 @@ def test_zc_lookups_resolved_from_csv(tmp_path):
     assert ("STATUS_C", "1", "Active") in all_lookups
 
 
+def test_zc_lookups_resolve_via_column_name_when_naming_doesnt_match(tmp_path):
+    """ZC tables whose code column doesn't match the ZC_<X>↔<X>_C
+    convention still resolve when the CSV's `column_name` field is
+    populated. Real-world example: ZC_CLM_AP_STAT has code column
+    AP_STS_C (not the convention-derived CLM_AP_STAT_C)."""
+    views = tmp_path / "views"
+    views.mkdir()
+    (views / "v_ap.sql").write_text(
+        "SELECT C.CLAIM_ID FROM Clarity.dbo.CLAIM C "
+        "WHERE C.AP_STS_C = 5"
+    )
+    zc_csv = tmp_path / "zc_values.csv"
+    # Note 4-column format: zc_table,column_name,code,name
+    zc_csv.write_text(
+        "zc_table,column_name,code,name\n"
+        "ZC_CLM_AP_STAT,AP_STS_C,1,Pending\n"
+        "ZC_CLM_AP_STAT,AP_STS_C,5,Approved\n"
+    )
+    out = tmp_path / "corpus.jsonl"
+    extract_corpus(str(views), str(out), zc_values_path=str(zc_csv))
+    corpus = corpus_from_jsonl_lines(iter(out.read_text().splitlines()))
+    main = _main_scope(corpus.views[0])
+    all_lookups = [(z.column, z.zc_table, z.code, z.name)
+                    for f in main.filters for z in f.zc_lookups]
+    # Column-name lookup resolves to the actual ZC table, NOT the
+    # naming-convention-derived ZC_AP_STS that doesn't exist.
+    assert ("AP_STS_C", "ZC_CLM_AP_STAT", "5", "Approved") in all_lookups
+
+
 def test_zc_lookups_resolved_for_in_and_neq(tmp_path):
     """ZC lookups should resolve for `IN (...)` lists and `!=` predicates,
     not just `=`. This was the gap when only 18 of 929 filters in a

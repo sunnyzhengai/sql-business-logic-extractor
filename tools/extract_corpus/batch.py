@@ -134,34 +134,57 @@ _DEFAULT_ZC_VALUES_PATH = (
 )
 
 
-def _load_zc_values(path: str | Path | None) -> dict[tuple[str, str], str]:
-    """Load `{(ZC_TABLE_UPPER, code_str): name}` from a CSV with columns
-    `zc_table, code, name`. Returns an empty dict if the file is absent
-    -- the lookup is opt-in.
+def _load_zc_values(path: str | Path | None) -> dict:
+    """Load ZC code-to-name lookups from a CSV.
+
+    Two CSV shapes are supported:
+
+      Old format (3 columns: `zc_table, code, name`):
+        only the `(ZC_TABLE_UPPER, code) -> name` index is populated.
+        Lookups still work via the ZC_<X>↔<X>_C naming convention.
+
+      New format (4 columns: `zc_table, column_name, code, name`):
+        adds a `(COLUMN_NAME_UPPER, code) -> {zc_table, name}` index.
+        Robust to ZC tables whose code column doesn't match convention
+        (e.g., ZC_CLM_AP_STAT.AP_STS_C).
+
+    Returns a dict with two indexes plus a helper:
+      {
+        'by_col':    {(col_upper, code): {'zc_table', 'name'}},
+        'by_table':  {(zc_table_upper, code): {'column_name', 'name'}},
+      }
+
+    Empty dict if file absent or unreadable -- the lookup is opt-in.
     """
     import csv as _csv
     p = Path(path) if path else _DEFAULT_ZC_VALUES_PATH
     if not p.is_file():
         return {}
-    out: dict[tuple[str, str], str] = {}
+    by_col: dict[tuple[str, str], dict[str, str]] = {}
+    by_table: dict[tuple[str, str], dict[str, str]] = {}
     try:
         with p.open(encoding="utf-8-sig", newline="") as f:
             reader = _csv.DictReader(f)
             for row in reader:
                 zc = (row.get("zc_table") or "").strip().upper()
+                col = (row.get("column_name") or "").strip().upper()
                 code = (row.get("code") or "").strip()
                 name = (row.get("name") or "").strip()
-                if zc and code and name:
-                    out[(zc, code)] = name
+                if not (code and name):
+                    continue
+                if zc:
+                    by_table[(zc, code)] = {"column_name": col, "name": name}
+                if col:
+                    by_col[(col, code)] = {"zc_table": zc, "name": name}
     except Exception as e:
         print(f"WARNING: could not load zc_values from {p}: {e}", file=sys.stderr)
         return {}
-    return out
+    return {"by_col": by_col, "by_table": by_table}
 
 
 def _find_zc_lookups(
     sql_expr: str,
-    zc_values: dict[tuple[str, str], str],
+    zc_values: dict,
     dialect: str,
 ) -> list[ZcLookupV1]:
     """Walk a filter SQL expression's AST. For every `<col>_C` reference
@@ -189,12 +212,21 @@ def _find_zc_lookups(
         return []
     if node is None:
         return []
+    by_col = zc_values.get("by_col") or {}
+    by_table = zc_values.get("by_table") or {}
     out: list[ZcLookupV1] = []
     seen: set[tuple[str, str]] = set()
 
     def _maybe_emit(col_node, lit_node) -> None:
         """If `col_node` is a `<X>_C` Column and `lit_node` is a numeric
-        Literal that resolves against zc_values, append a ZcLookupV1."""
+        Literal that resolves against zc_values, append a ZcLookupV1.
+
+        Resolution order:
+          1. by_col lookup (column_name, code) -- robust to non-standard
+             ZC table naming (e.g., AP_STS_C -> ZC_CLM_AP_STAT).
+          2. by_table lookup with naming convention `ZC_<X>` --
+             fallback for old-format CSVs that don't carry column_name.
+        """
         if not isinstance(col_node, exp.Column):
             return
         col_name = col_node.name or ""
@@ -203,11 +235,23 @@ def _find_zc_lookups(
         if not isinstance(lit_node, exp.Literal) or not lit_node.is_number:
             return
         code = lit_node.name
-        zc_table = "ZC_" + col_name[:-2].upper()
-        name = zc_values.get((zc_table, code))
+        col_upper = col_name.upper()
+
+        info = by_col.get((col_upper, code))
+        if info:
+            zc_table = info.get("zc_table") or ""
+            name = info.get("name") or ""
+        else:
+            # Fallback: naming convention.
+            zc_table = "ZC_" + col_name[:-2].upper()
+            info = by_table.get((zc_table, code))
+            if not info:
+                return
+            name = info.get("name") or ""
+
         if not name:
             return
-        key = (col_name.upper(), code)
+        key = (col_upper, code)
         if key in seen:
             return
         seen.add(key)
@@ -258,7 +302,7 @@ def _build_filter_v1(
     rf,
     ctx: Context,
     dialect: str,
-    zc_values: dict[tuple[str, str], str] | None = None,
+    zc_values: dict | None = None,
 ) -> FilterV1:
     """Translate a ScopedFilter's expression for the business form.
 
@@ -328,7 +372,7 @@ def _build_scope_v1(
     rs: ResolvedScope,
     ctx: Context,
     dialect: str,
-    zc_values: dict[tuple[str, str], str] | None = None,
+    zc_values: dict | None = None,
 ) -> ScopeV1:
     return ScopeV1(
         id=rs.id,
@@ -520,7 +564,7 @@ def _build_view(
     sql: str,
     schema: dict | None,
     dialect: str,
-    zc_values: dict[tuple[str, str], str] | None = None,
+    zc_values: dict | None = None,
 ) -> ViewV1:
     """Build a v3 ViewV1 (scope tree) for one SQL view.
 

@@ -7,9 +7,12 @@
 -- ("Managed Care") during corpus extraction.
 --
 -- Output columns:
---     zc_table  -- e.g., ZC_COVERAGE_TYPE
---     code      -- the numeric code as a string (preserves leading zeros)
---     name      -- the NAME column value
+--     zc_table     -- e.g., ZC_COVERAGE_TYPE
+--     column_name  -- the actual `_C` code column on that ZC table
+--                     (e.g., COVERAGE_TYPE_C, but ALSO AP_STS_C for
+--                     ZC_CLM_AP_STAT and any other non-convention case)
+--     code         -- the numeric code as a string (preserves leading zeros)
+--     name         -- the NAME column value
 --
 -- ============================================================
 -- HOW TO USE (typical SSMS workflow)
@@ -101,23 +104,31 @@ DELETE FROM @TableFilter WHERE TABLE_NAME = '__placeholder_so_the_INSERT_is_synt
 DECLARE @use_filter BIT = CASE WHEN EXISTS (SELECT 1 FROM @TableFilter) THEN 1 ELSE 0 END;
 DECLARE @sql NVARCHAR(MAX) = N'';
 
+-- For each ZC table we'll emit, find the actual `_C` code column from
+-- CLARITY_COL rather than assuming the ZC_<X>.<X>_C naming convention.
+-- Many real Clarity ZC tables don't follow that convention -- e.g.,
+-- ZC_CLM_AP_STAT's code column is AP_STS_C, not CLM_AP_STAT_C. Joining
+-- to CLARITY_COL with COLUMN_NAME LIKE '%[_]C' catches all of them.
 SELECT @sql = @sql +
     CASE WHEN @sql = N'' THEN N'' ELSE N' UNION ALL ' END +
     N'SELECT ''' + TBL.TABLE_NAME + N''' AS zc_table, ' +
-    N'CAST(' + QUOTENAME(SUBSTRING(TBL.TABLE_NAME, 4, 256) + '_C')
-        + N' AS NVARCHAR(50)) AS code, ' +
+    N'''' + COALESCE(code_col.COLUMN_NAME, N'') + N''' AS column_name, ' +
+    N'CAST(' + QUOTENAME(code_col.COLUMN_NAME) + N' AS NVARCHAR(50)) AS code, ' +
     N'CAST([NAME] AS NVARCHAR(500)) AS [name] ' +
     N'FROM CLARITY.dbo.' + QUOTENAME(TBL.TABLE_NAME)
 FROM CLARITY.dbo.CLARITY_TBL TBL
+CROSS APPLY (
+    -- Pick the actual `_C` column from CLARITY_COL. Most ZC tables
+    -- have exactly one; if there are multiple, take the lowest
+    -- COLUMN_ID (Clarity's column ordinal).
+    SELECT TOP 1 COL.COLUMN_NAME
+    FROM CLARITY.dbo.CLARITY_COL COL
+    WHERE COL.TABLE_ID = TBL.TABLE_ID
+      AND COL.COLUMN_NAME LIKE '%[_]C'
+    ORDER BY COL.COLUMN_ID
+) code_col
 WHERE TBL.TABLE_NAME LIKE 'ZC[_]%'
-  AND TBL.TBL_DESCRIPTOR_OVR IS NOT NULL
   AND (@use_filter = 0 OR TBL.TABLE_NAME IN (SELECT TABLE_NAME FROM @TableFilter))
-  AND EXISTS (
-        SELECT 1
-        FROM CLARITY.dbo.CLARITY_COL COL
-        WHERE COL.TABLE_ID = TBL.TABLE_ID
-          AND COL.COLUMN_NAME = SUBSTRING(TBL.TABLE_NAME, 4, 256) + '_C'
-      )
   AND EXISTS (
         SELECT 1
         FROM CLARITY.dbo.CLARITY_COL COL

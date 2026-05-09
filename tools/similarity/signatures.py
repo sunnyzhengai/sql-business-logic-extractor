@@ -212,6 +212,12 @@ def _canonicalize_filter(sql_text: str, dialect: str = "tsql") -> str:
             l, r = leaf.this, leaf.expression
             if isinstance(l, exp.Column) and isinstance(r, exp.Column):
                 continue
+        # Strip table-alias prefixes from every column reference so
+        # filters that differ only in alias choice (`CVG.COVERAGE_TYPE_C`
+        # vs `C.COVERAGE_TYPE_C`) canonicalize to the same string. The
+        # alias is structural noise; the column name is the meaning.
+        for col in leaf.find_all(exp.Column):
+            col.set("table", None)
         try:
             txt = leaf.sql(dialect=dialect).strip()
         except Exception:

@@ -49,6 +49,17 @@ def test_leaf_driver_handles_nested_cte_chain():
     assert _leaf_driver(scopes_by_id, "main") == "ENCOUNTER"
 
 
+def test_canonicalize_filter_strips_alias_prefixes():
+    """Two filters that differ only in alias choice should canonicalize
+    to the same string."""
+    a = _canonicalize_filter("CVG.COVERAGE_TYPE_C = 2 AND CVG.STATUS_C = 1")
+    b = _canonicalize_filter("C.COVERAGE_TYPE_C = 2 AND C.STATUS_C = 1")
+    assert a == b
+    # And neither should contain the alias prefix.
+    assert "CVG." not in a
+    assert "C." not in a
+
+
 def test_canonicalize_filter_strips_equijoin_keys_and_sorts():
     canon = _canonicalize_filter(
         "P.PAT_ID = E.PAT_ID AND P.STATUS_C = 1 AND E.ENC_DATE > '2020-01-01'"
@@ -134,9 +145,15 @@ def _cluster_with_members(doc: dict, expected_members: set[str]) -> dict | None:
     return None
 
 
-# Shape 1: A superset of B in tables -- L1 only
+# Shape 1: A superset of B in tables, DIFFERENT drivers -> no L1 cluster
+# (strict driver equality).
 
-def test_shape1_table_superset_clusters_at_l1_only(tmp_path):
+def test_shape1_different_drivers_do_not_l1_cluster(tmp_path):
+    """v_a drives from PATIENT, v_b drives from ENCOUNTER. Even though
+    ENCOUNTER appears in v_a's all_tables, strict-driver-equality L1
+    keeps them in separate clusters. Per the design choice to avoid
+    over-clustering in healthcare corpora where everything chains
+    through shared fact tables."""
     views = tmp_path / "views"
     _seed(views, "v_a",
         "SELECT P.PAT_ID, E.ENC_DATE, D.DX_ID "
@@ -149,15 +166,13 @@ def test_shape1_table_superset_clusters_at_l1_only(tmp_path):
         "INNER JOIN Clarity.dbo.DIAGNOSIS D ON D.PAT_ENC_CSN_ID = E.PAT_ENC_CSN_ID")
     out = _run(tmp_path)
 
+    # Different drivers (PATIENT vs ENCOUNTER) -> separate L1 clusters.
     l1 = _load(out, "L1")
-    cluster = _cluster_with_members(l1, {"v_a", "v_b"})
-    assert cluster is not None, f"v_a/v_b not in any L1 cluster; got: {l1}"
-    # B's driver (ENCOUNTER) is in A's all_tables -> they cluster
-    assert cluster["level"] == "L1"
-
-    # Should NOT cluster at L2 (joined_set differs)
-    l2 = _load(out, "L2")
-    assert _cluster_with_members(l2, {"v_a", "v_b"}) is None
+    assert _cluster_with_members(l1, {"v_a", "v_b"}) is None
+    # And L2-L4 are also separate (joined_sets differ regardless).
+    for level in ("L2", "L3", "L4"):
+        doc = _load(out, level)
+        assert _cluster_with_members(doc, {"v_a", "v_b"}) is None
 
 
 # Shape 2: CTE-wrapped vs flat, semantically identical -- L4
@@ -189,9 +204,11 @@ def test_shape2_cte_vs_flat_clusters_at_l4(tmp_path):
         )
 
 
-# Shape 3: Multi-CTE vs flat slice -- L1 only
+# Shape 3: Multi-CTE vs flat slice, DIFFERENT drivers -> no L1 cluster.
 
-def test_shape3_multi_cte_vs_flat_slice_clusters_at_l1_only(tmp_path):
+def test_shape3_multi_cte_vs_flat_slice_different_drivers(tmp_path):
+    """v_complex drives from T1 (via cte1), v_flat_slice drives from T3.
+    Different drivers -> different L1 clusters under strict equality."""
     views = tmp_path / "views"
     _seed(views, "v_complex", """
         WITH cte1 AS (
@@ -218,13 +235,9 @@ def test_shape3_multi_cte_vs_flat_slice_clusters_at_l1_only(tmp_path):
     """)
     out = _run(tmp_path)
 
+    # Different drivers (T1 vs T3) -> separate L1 clusters.
     l1 = _load(out, "L1")
-    cluster = _cluster_with_members(l1, {"v_complex", "v_flat_slice"})
-    assert cluster is not None, f"v_complex/v_flat_slice not in L1; got: {l1}"
-
-    # Should NOT cluster at L2 (joined_set differs: {T2,T3,T4} vs {T1})
-    l2 = _load(out, "L2")
-    assert _cluster_with_members(l2, {"v_complex", "v_flat_slice"}) is None
+    assert _cluster_with_members(l1, {"v_complex", "v_flat_slice"}) is None
 
 
 # ---------- bonus: join-type consistency annotation ----------------------

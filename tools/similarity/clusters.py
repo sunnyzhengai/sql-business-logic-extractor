@@ -45,14 +45,20 @@ class _UnionFind:
 
 
 def _l1_match(a: ViewSignature, b: ViewSignature) -> bool:
-    """One-way driver containment: A.driver in B.all_tables OR vice versa.
+    """L1 = strict driver equality. Two views share a "subject" if and
+    only if they drive from the same base table.
 
-    Both views must have a non-empty driver (otherwise we can't say
-    they share a subject).
+    Earlier this was one-way driver containment (A.driver in B.all_tables
+    OR vice versa), but in healthcare-style corpora where views chain
+    PATIENT ↔ ENCOUNTER ↔ COVERAGE ↔ ... the asymmetric relation
+    transitively union-finds nearly every view into one giant cluster
+    that isn't actionable. Strict equality matches the user's original
+    spec ("all queries using this main table as the FIRST table in
+    FROM clause") and produces a clean per-driver subject taxonomy.
     """
     if not a.driver or not b.driver:
         return False
-    return (a.driver in b.all_tables) or (b.driver in a.all_tables)
+    return a.driver == b.driver
 
 
 # ---------- cluster output structures ------------------------------------

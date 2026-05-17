@@ -237,7 +237,7 @@ For governance reviews where the question is "which view defines which populatio
 ### Fabric notebook
 
 ```python
-from tools.cohort_extract.batch import extract_cohorts
+from tools.p40_synthesize.cohort_extract import extract_cohorts
 
 extract_cohorts(
     corpus_path='/lakehouse/default/Files/outputs/corpus.jsonl',
@@ -248,7 +248,7 @@ extract_cohorts(
 ### CLI
 
 ```bash
-python -m tools.cohort_extract.batch /path/to/corpus.jsonl -o /path/to/cohorts
+python -m tools.p40_synthesize.cohort_extract /path/to/corpus.jsonl -o /path/to/cohorts
 ```
 
 ### Outputs

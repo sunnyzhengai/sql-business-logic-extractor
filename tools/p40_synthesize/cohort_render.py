@@ -15,6 +15,16 @@ When a scope reads ONLY from upstream scopes (no base tables, e.g.
 `SELECT FROM ActiveMembers WHERE ROW = 1`), the cohort is inherited
 from the upstream scope -- the renderer uses "<upstream cohort>"
 verbatim and lets filters describe the carve-out.
+
+Historical note
+---------------
+This module was previously `tools.cohort_extract.render`. It was renamed
+to `tools.p40_synthesize.cohort_render` as part of the 2026-05 codebase
+restructure (see `tools/PHASES.md`). The renaming -- from generic
+`render.py` to the more specific `cohort_render.py` -- is so each file
+at the p40_synthesize root has a descriptive name when sitting next to
+peers like `inventory_manifest.py`. The entry-point lives at
+`tools.p40_synthesize.cohort_extract` (formerly `tools.cohort_extract.batch`).
 """
 
 from __future__ import annotations

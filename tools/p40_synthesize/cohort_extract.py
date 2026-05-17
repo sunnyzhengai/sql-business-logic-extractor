@@ -1,21 +1,34 @@
 #!/usr/bin/env python3
-"""Tool 14 -- cohort extractor batch driver.
+"""Cohort extractor entry-point.
 
 Reads a v3 corpus.jsonl, renders each scope as a cohort + filters
 (population-level governance description), writes JSON + MD.
 
 Notebook usage:
 
-    from tools.cohort_extract.batch import extract_cohorts
+    from tools.p40_synthesize.cohort_extract import extract_cohorts
     extract_cohorts(
         corpus_path='/lakehouse/default/Files/outputs/corpus.jsonl',
         output_dir='/lakehouse/default/Files/outputs/cohorts',
     )
 
 CLI:
-    python -m tools.cohort_extract.batch <corpus.jsonl> [-o out_dir]
-                                          [--table-descriptions YAML]
-                                          [--dim-filter PATH]
+    python -m tools.p40_synthesize.cohort_extract <corpus.jsonl> [-o out_dir]
+                                                   [--table-descriptions YAML]
+                                                   [--dim-filter PATH]
+
+Historical note
+---------------
+This module was previously `tools.cohort_extract.batch` ("Tool 14 --
+cohort extractor batch driver"). It was renamed to
+`tools.p40_synthesize.cohort_extract` as part of the 2026-05 codebase
+restructure (see `tools/PHASES.md`) which placed steward-artifact
+generators under p40_synthesize. The pure-function renderer lives at
+`tools.p40_synthesize.cohort_render` (formerly `tools.cohort_extract.render`).
+
+The `view_shape_compare.dim_filter` dependency below is still in its
+pre-restructure location; it will migrate (or be replaced) in a later
+phase. Importing it from the legacy path works today.
 """
 
 from __future__ import annotations
@@ -31,7 +44,10 @@ from tools.view_shape_compare.dim_filter import (
     load_default_dim_filter,
 )
 
-from .render import (
+# Relative import: cohort_render.py lives next to this file inside p40_synthesize.
+# Renamed from the original `render.py` so the file name is descriptive at the
+# phase-folder level (where multiple tools sit side by side).
+from .cohort_render import (
     TableDescriptions,
     cohorts_to_markdown,
     view_to_cohorts,

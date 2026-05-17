@@ -12,8 +12,8 @@ Covers the user's three stated examples:
 import json
 from pathlib import Path
 
-from tools.cohort_extract.batch import extract_cohorts
-from tools.cohort_extract.render import (
+from tools.p40_synthesize.cohort_extract import extract_cohorts
+from tools.p40_synthesize.cohort_render import (
     TableDescriptions,
     _build_alias_map,
     _expand_aliases,
@@ -320,7 +320,7 @@ def test_two_or_more_others_falls_back_to_head(tmp_path):
 def test_zc_lookup_annotation_handles_in_list():
     """IN-clause lookups: each numeric in the IN list gets its own
     annotation."""
-    from tools.cohort_extract.render import render_filter
+    from tools.p40_synthesize.cohort_render import render_filter
 
     f = {
         "kind": "where",
@@ -341,7 +341,7 @@ def test_zc_lookup_annotation_handles_in_list():
 def test_zc_lookup_annotation_appended_to_filter_text():
     """When a filter dict has zc_lookups, render_filter appends
     ` /* name */` after the matching `= <code>` occurrence."""
-    from tools.cohort_extract.render import render_filter
+    from tools.p40_synthesize.cohort_render import render_filter
 
     # WHERE filter (English form): translator translated COVERAGE_TYPE_C
     # to "Coverage Type C", so we use the fallback `= <code>` match.

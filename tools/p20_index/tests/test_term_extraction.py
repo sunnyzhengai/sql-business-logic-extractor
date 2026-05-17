@@ -1,10 +1,10 @@
-"""Tests for tools/term_extraction/batch.py -- corpus walker."""
+"""Tests for tools/p20_index/term_extraction.py -- corpus walker."""
 
 import csv
 import json
 from pathlib import Path
 
-from tools.term_extraction.batch import extract_corpus_terms
+from tools.p20_index.term_extraction import extract_corpus_terms
 
 
 def test_extract_corpus_writes_json_and_csv(tmp_path):

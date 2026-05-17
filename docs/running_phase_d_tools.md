@@ -40,7 +40,7 @@ python -m tools.p10_extract.batch /path/to/views_dir \
 ### Fabric notebook
 
 ```python
-from tools.term_extraction.batch import extract_corpus_terms
+from tools.p20_index.term_extraction import extract_corpus_terms
 
 extract_corpus_terms(
     input_dir='/lakehouse/default/Files/views_healthy',
@@ -52,9 +52,9 @@ extract_corpus_terms(
 ### CLI
 
 ```bash
-python -m tools.term_extraction.batch /path/to/views -o /path/to/outputs/terms.json
+python -m tools.p20_index.term_extraction /path/to/views -o /path/to/outputs/terms.json
 # Or with --all-scopes to include CTE-internal terms:
-python -m tools.term_extraction.batch /path/to/views -o terms.json --all-scopes
+python -m tools.p20_index.term_extraction /path/to/views -o terms.json --all-scopes
 ```
 
 ### Outputs
@@ -250,7 +250,7 @@ Specifically the Phase D scope-correctness tests:
 ```bash
 python -m pytest tests/test_resolve_scoped.py \
     tools/p10_extract/tests/test_batch.py \
-    tools/term_extraction/tests/test_batch.py \
+    tools/p20_index/tests/test_term_extraction.py \
     -v
 ```
 

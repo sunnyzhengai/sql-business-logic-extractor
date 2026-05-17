@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tool 10 -- corpus-level term extractor (Phase D, scope-correct).
+"""Corpus-level term extractor (scope-correct).
 
 For each *.sql in a folder, runs the scope-correct resolver, walks the
 main-output scope's columns, and emits Terms (the governance comparison
@@ -12,20 +12,38 @@ user-visible and don't participate in cross-view governance comparison.
 Pass `all_scopes=True` to include them (each Term then has its scope ID
 in `view_name` for disambiguation).
 
+A "Term" here is the lexical unit -- a column name + its scope-local
+context (filters, source tables, fingerprint). The graph-based
+discovery in `p20_index/graph_builder.py` operates on tables and
+columns directly; this term extractor produces the parallel
+*lexical anchor* set that lets us answer "show me every column /
+CTE / comment that contains the word 'pregnant'."
+
 Output:
     terms.json     -- list of Term records, one per qualifying column
     terms.csv      -- the same data flattened for spreadsheet review
 
 Notebook usage:
 
-    from tools.term_extraction.batch import extract_corpus_terms
+    from tools.p20_index.term_extraction import extract_corpus_terms
     extract_corpus_terms(
         input_dir='/lakehouse/default/Files/views_healthy',
         output_path='/lakehouse/default/Files/outputs/terms.json',
     )
 
 CLI:
-    python -m tools.term_extraction.batch <input_dir> [-o terms.json]
+    python -m tools.p20_index.term_extraction <input_dir> [-o terms.json]
+
+Historical note
+---------------
+This module was previously `tools.term_extraction.batch` ("Tool 10
+-- corpus-level term extraction"). It moved to
+`tools.p20_index.term_extraction` as part of the 2026-05 codebase
+restructure (see `tools/PHASES.md`) which placed the lexical-anchor
+layer alongside the graph-construction layer inside p20_index. The
+two are intentional partners: the graph captures structural
+relationships, the lexical anchors capture string-level
+relationships, and both feed downstream discovery in p30_analyze.
 """
 
 import argparse

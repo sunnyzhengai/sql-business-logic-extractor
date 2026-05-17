@@ -23,7 +23,7 @@ from tools.cohort_extract.render import (
     cohorts_to_markdown,
     view_to_cohorts,
 )
-from tools.extract_corpus.batch import extract_corpus
+from tools.p10_extract.batch import extract_corpus
 from tools.view_shape_compare.dim_filter import DimFilter
 
 

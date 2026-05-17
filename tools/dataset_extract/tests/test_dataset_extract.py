@@ -18,7 +18,7 @@ from tools.dataset_extract.render import (
     scope_to_dataset,
     view_to_datasets,
 )
-from tools.extract_corpus.batch import extract_corpus
+from tools.p10_extract.batch import extract_corpus
 
 
 # ---------- humanize_scope_id pure-function unit tests -------------------

@@ -11,7 +11,7 @@ The `extract_corpus` and `extract_corpus_terms` tools both read a folder of `*.s
 ### Fabric notebook
 
 ```python
-from tools.extract_corpus.batch import extract_corpus
+from tools.p10_extract.batch import extract_corpus
 
 extract_corpus(
     input_dir='/lakehouse/default/Files/views_healthy',
@@ -23,7 +23,7 @@ extract_corpus(
 ### CLI
 
 ```bash
-python -m tools.extract_corpus.batch /path/to/views_dir \
+python -m tools.p10_extract.batch /path/to/views_dir \
     -o /path/to/outputs/corpus.jsonl \
     --schema /path/to/clarity_schema.json
 ```
@@ -104,7 +104,7 @@ If you just want to see the new tree shape without writing a file:
 from pathlib import Path
 from sql_logic_extractor.extract import SQLBusinessLogicExtractor, to_dict
 from sql_logic_extractor.resolve import LineageResolver, preprocess_ssms
-from tools.extract_corpus.batch import _read_sql_file
+from tools.p10_extract.batch import _read_sql_file
 
 # _read_sql_file is BOM-aware (handles UTF-16-LE / UTF-16-BE / UTF-8-BOM,
 # which SSMS export uses). Plain open().read() will fail with
@@ -272,7 +272,7 @@ Specifically the Phase D scope-correctness tests:
 
 ```bash
 python -m pytest tests/test_resolve_scoped.py \
-    tools/extract_corpus/tests/test_batch.py \
+    tools/p10_extract/tests/test_batch.py \
     tools/term_extraction/tests/test_batch.py \
     -v
 ```

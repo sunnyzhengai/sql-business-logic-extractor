@@ -1,4 +1,4 @@
-"""Tests for tools/extract_corpus/batch.py (v3 scope-tree extractor).
+"""Tests for tools/p10_extract/batch.py (v3 scope-tree extractor).
 
 Asserts the corpus extractor's contract:
 - Produces JSONL with one header + one ViewV1 per line.
@@ -19,7 +19,7 @@ from sql_logic_extractor.corpus_schema import (
     SCHEMA_VERSION,
     corpus_from_jsonl_lines,
 )
-from tools.extract_corpus.batch import _split_sql_comments, extract_corpus
+from tools.p10_extract.batch import _split_sql_comments, extract_corpus
 
 
 # ---------- helpers --------------------------------------------------------

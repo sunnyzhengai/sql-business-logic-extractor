@@ -3,7 +3,7 @@
 
 Notebook usage:
 
-    from tools.extract_corpus.batch import extract_corpus
+    from tools.p10_extract.batch import extract_corpus
     extract_corpus(
         input_dir='/lakehouse/default/Files/views_healthy',
         output_path='/lakehouse/default/Files/outputs/corpus.jsonl',
@@ -11,7 +11,7 @@ Notebook usage:
     )
 
 CLI:
-    python -m tools.extract_corpus.batch <input_dir> [-o corpus.jsonl] [--schema ...]
+    python -m tools.p10_extract.batch <input_dir> [-o corpus.jsonl] [--schema ...]
 
 For each view:
   1. Read SQL (BOM-aware).

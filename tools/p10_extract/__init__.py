@@ -18,12 +18,32 @@ Produces
 
 Read order
 ----------
-- `parser.py`           -- entry point and CLI
-- `view_v1_schema.py`   -- the ViewV1 dataclass definitions
-- `resolver.py`         -- column-lineage resolution through CTEs
-- `zc_annotator.py`     -- inline lookup annotation
+- `batch.py`            -- entry point and CLI
+- (more files arrive as the parser is refactored from sql_logic_extractor/)
 
-Phase 0 status: this folder is a skeleton. Existing tooling lives in
-`tools/extract_corpus/`; migration into this folder will happen in
-Phase 1 of the codebase restructure (see `tools/PHASES.md`).
+Historical note
+---------------
+This module was previously named `tools.extract_corpus` ("Tool 11 --
+corpus extractor, Phase D scope-correct tree"). It was renamed to
+`tools.p10_extract` as part of the 2026-05 codebase restructure that
+introduced the seven-phase pipeline naming convention (see
+`tools/PHASES.md`).
+
+The CorpusV1 schema (`sql_logic_extractor/corpus_schema.py`) remains
+the single source of truth for what this module emits.
+
+It replaced earlier separate-pass tools (now removed or being migrated):
+  - `tools/batch_all`             (Tools 1-4 in one resolver pass)
+  - `tools/term_extraction/batch` (separate term-extraction pass)
+  - `tools/similar_logic_grouper` (separate fingerprint pass)
+  - `tools/timing_audit`          (separate timing pass)
+
+CLI
+---
+    python -m tools.p10_extract.batch <input_dir> [-o corpus.jsonl] [--schema ...]
+
+Notebook
+--------
+    from tools.p10_extract.batch import extract_corpus
+    extract_corpus(input_dir=..., output_path=...)
 """

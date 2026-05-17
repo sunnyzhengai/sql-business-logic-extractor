@@ -4,7 +4,7 @@ import csv
 import json
 from pathlib import Path
 
-from tools.extract_corpus.batch import extract_corpus
+from tools.p10_extract.batch import extract_corpus
 from tools.inventory_manifest.batch import build_inventory_manifest
 
 

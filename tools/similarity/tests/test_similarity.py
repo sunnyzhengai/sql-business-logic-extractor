@@ -9,7 +9,7 @@ Pins the three dry-run shapes from the design discussion:
 import json
 from pathlib import Path
 
-from tools.extract_corpus.batch import extract_corpus
+from tools.p10_extract.batch import extract_corpus
 from tools.similarity.batch import extract_similarity_clusters
 from tools.similarity.signatures import (
     ViewSignature,

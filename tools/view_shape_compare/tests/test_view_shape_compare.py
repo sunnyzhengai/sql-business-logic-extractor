@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.extract_corpus.batch import extract_corpus
+from tools.p10_extract.batch import extract_corpus
 from tools.view_shape_compare.batch import compare_view_shapes
 from tools.view_shape_compare.clusters import (
     FLAG_DIM_EXTENSION,

@@ -1,4 +1,5 @@
-"""AST fingerprinting for cross-view business-logic deduplication.
+"""AST fingerprinting for cross-view business-logic deduplication
+(shared utility).
 
 The fingerprint of a SQL expression is a canonical form that ignores:
 - table aliases (CVG vs C vs Coverage all collapse to a placeholder)
@@ -15,6 +16,22 @@ Two columns from two different views with the same fingerprint are very
 likely the same business term implemented twice. The fingerprint is a
 hash of the canonical AST -- equality, not similarity (we use the
 fingerprint as a dict key for cluster discovery).
+
+Used by `tools.p10_extract` to attach a per-column fingerprint to every
+column during corpus extraction. Likely consumers in future phases:
+`p20_index` (fingerprint-keyed cross-corpus lookups) and `p30_analyze`
+(surfacing "same logic, different name" findings at column level).
+
+Historical note
+---------------
+This module was previously `tools.similar_logic_grouper.fingerprint`
+("Tool 5 -- find columns across views that share the same business
+logic"). It moved to `tools.shared.fingerprint` as part of the
+2026-05 codebase restructure (see `tools/PHASES.md`). The rest of
+similar_logic_grouper (a batch.py that grouped columns by fingerprint
+into clusters) was deleted -- the same finding will be produced by
+`p30_analyze` from the unified graph, not by a separate batch pass.
+Cross-phase utilities live in `tools/shared/`.
 """
 
 import hashlib

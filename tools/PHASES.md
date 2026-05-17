@@ -268,7 +268,7 @@ phase folders happens in subsequent restructure phases. Status legend:
 | `dataset_extract/`                | TBD                                            | Pending evaluation    |
 | `business_logic_extractor/`       | likely superseded                              | Pending evaluation    |
 | `technical_logic_extractor/`      | likely superseded                              | Pending evaluation    |
-| `similar_logic_grouper/`          | superseded by `p30_analyze/`                   | Pending decision      |
+| `similar_logic_grouper/`          | split: `fingerprint.py` -> `tools/shared/`; batch.py deleted (the same finding is produced by `p30_analyze` from the unified graph) | **Done** (Phase 1g)   |
 | `auto_propose_rule/`              | possibly `p10_extract/`                        | Pending evaluation    |
 | `comment_audit/`                  | possibly `p10_extract/` or diagnostics         | Pending evaluation    |
 | `preflight_check/`                | `diagnostics/`                                 | Pending evaluation    |

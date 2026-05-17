@@ -77,7 +77,7 @@ from sql_logic_extractor.term_extraction import (
     extract_terms,
     load_default_synonyms,
 )
-from tools.similar_logic_grouper.fingerprint import fingerprint as ast_fingerprint
+from tools.shared.fingerprint import fingerprint as ast_fingerprint
 
 
 # ---------- file reader (BOM-aware) ---------------------------------------

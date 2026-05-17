@@ -1,4 +1,4 @@
-"""Tests for the AST fingerprinting in tools/similar_logic_grouper.
+"""Tests for the AST fingerprinting in tools.shared.fingerprint.
 
 Asserts the public contract:
 - alias-equivalent expressions produce the SAME fingerprint
@@ -7,7 +7,7 @@ Asserts the public contract:
 - malformed input returns None instead of crashing
 """
 
-from tools.similar_logic_grouper.fingerprint import fingerprint
+from tools.shared.fingerprint import fingerprint
 
 
 def test_alias_normalization_same_fingerprint():

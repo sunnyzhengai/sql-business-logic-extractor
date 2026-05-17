@@ -1,4 +1,4 @@
-"""Render networkx graphs (built by `tools.graph_explore.build`) in
+"""Render networkx graphs (built by `tools.p20_index.graph_builder`) in
 formats useful for governance review.
 
   render_pyvis(g, output_path)   interactive HTML (drag/zoom/click).
@@ -10,7 +10,14 @@ formats useful for governance review.
                                   Best for graphs <50 nodes.
 
 All three lazy-import their backend so importing
-`tools.graph_explore.render` is cheap.
+`tools.p50_present.render` is cheap.
+
+Historical note
+---------------
+This module was previously `tools.graph_explore.render`. It was renamed
+to `tools.p50_present.render` as part of the 2026-05 codebase restructure
+(see `tools/PHASES.md`). The build counterpart lives at
+`tools.p20_index.graph_builder` (formerly `tools.graph_explore.build`).
 """
 
 from __future__ import annotations

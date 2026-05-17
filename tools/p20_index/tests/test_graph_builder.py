@@ -1,18 +1,25 @@
-"""Smoke tests for tools.graph_explore.
+"""Smoke tests for tools.p20_index.graph_builder.
 
 Run from the repo root:
-    python -m unittest tools.graph_explore.tests.test_graph_explore
+    python -m unittest tools.p20_index.tests.test_graph_builder
+
+Asserts the basic shape of the graphs produced by build_view_graph,
+build_cluster_graph, and build_corpus_graph: typed nodes, expected
+edge relations, global table nodes across views, ZC flag detection,
+and view filtering on corpus load.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import tempfile
 import unittest
 from pathlib import Path
 
 
+# Fixture views used by every test below. Shared with the rendering
+# tests in tools/p50_present/tests/test_render.py (intentionally
+# duplicated -- small fixtures, simpler than a shared module).
 SAMPLE_VIEW_A = {
     "view_name": "VW_PATIENT_COVERAGE",
     "scopes": [
@@ -92,7 +99,7 @@ SAMPLE_VIEW_B = {
 
 class TestBuild(unittest.TestCase):
     def test_build_view_graph_has_typed_nodes(self):
-        from tools.graph_explore.build import build_view_graph
+        from tools.p20_index.graph_builder import build_view_graph
         g = build_view_graph(SAMPLE_VIEW_A)
 
         types = {a.get("ntype") for _, a in g.nodes(data=True)}
@@ -103,7 +110,7 @@ class TestBuild(unittest.TestCase):
         self.assertIn("filter", types)
 
     def test_view_graph_has_expected_edges(self):
-        from tools.graph_explore.build import build_view_graph
+        from tools.p20_index.graph_builder import build_view_graph
         g = build_view_graph(SAMPLE_VIEW_A)
         relations = {a.get("relation") for _, _, a in g.edges(data=True)}
         # All these relations should appear at least once.
@@ -116,7 +123,7 @@ class TestBuild(unittest.TestCase):
 
     def test_table_nodes_are_global(self):
         """PATIENT should be a single node even when both views reference it."""
-        from tools.graph_explore.build import build_cluster_graph
+        from tools.p20_index.graph_builder import build_cluster_graph
         g = build_cluster_graph([SAMPLE_VIEW_A, SAMPLE_VIEW_B])
         patient_nodes = [n for n, a in g.nodes(data=True)
                           if a.get("ntype") == "table" and a.get("label") == "PATIENT"]
@@ -124,7 +131,7 @@ class TestBuild(unittest.TestCase):
                           "PATIENT table should be a single global node")
 
     def test_zc_table_flagged(self):
-        from tools.graph_explore.build import build_view_graph
+        from tools.p20_index.graph_builder import build_view_graph
         g = build_view_graph(SAMPLE_VIEW_A)
         zc = [n for n, a in g.nodes(data=True)
                 if a.get("ntype") == "table" and a.get("label") == "ZC_CLM_AP_STAT"]
@@ -132,7 +139,7 @@ class TestBuild(unittest.TestCase):
         self.assertTrue(g.nodes[zc[0]].get("is_zc"))
 
     def test_build_corpus_graph_with_filter(self):
-        from tools.graph_explore.build import build_corpus_graph
+        from tools.p20_index.graph_builder import build_corpus_graph
         with tempfile.TemporaryDirectory() as d:
             corpus = Path(d) / "corpus.jsonl"
             with corpus.open("w", encoding="utf-8") as f:
@@ -142,30 +149,6 @@ class TestBuild(unittest.TestCase):
             g = build_corpus_graph(corpus, view_filter=["VW_PATIENT_DEMO"])
             view_nodes = [n for n, a in g.nodes(data=True) if a.get("ntype") == "view"]
             self.assertEqual(view_nodes, ["VW_PATIENT_DEMO"])
-
-
-class TestRender(unittest.TestCase):
-    def test_render_pyvis_writes_html(self):
-        from tools.graph_explore.build import build_view_graph
-        from tools.graph_explore.render import render_pyvis
-        g = build_view_graph(SAMPLE_VIEW_A)
-        with tempfile.TemporaryDirectory() as d:
-            out = Path(d) / "view.html"
-            render_pyvis(g, out)
-            self.assertTrue(out.is_file())
-            txt = out.read_text(encoding="utf-8")
-            self.assertIn("VW_PATIENT_COVERAGE", txt)
-
-    def test_export_graphml_writes_xml(self):
-        from tools.graph_explore.build import build_view_graph
-        from tools.graph_explore.render import export_graphml
-        g = build_view_graph(SAMPLE_VIEW_A)
-        with tempfile.TemporaryDirectory() as d:
-            out = Path(d) / "view.graphml"
-            export_graphml(g, out)
-            self.assertTrue(out.is_file())
-            txt = out.read_text(encoding="utf-8")
-            self.assertIn("<graphml", txt)
 
 
 if __name__ == "__main__":

@@ -25,6 +25,13 @@ Edges carry a `relation` attribute. Common values:
   DERIVED_FROM       column -> column (cross-scope dataflow)
   REFERENCES_TABLE   column -> table (when base_columns is a base table)
   HAS_FILTER         scope -> filter
+
+Historical note
+---------------
+This module was previously `tools.graph_explore.build`. It was renamed
+to `tools.p20_index.graph_builder` as part of the 2026-05 codebase
+restructure (see `tools/PHASES.md`). The render counterpart lives at
+`tools.p50_present.render` (formerly `tools.graph_explore.render`).
 """
 
 from __future__ import annotations

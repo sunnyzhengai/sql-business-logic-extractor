@@ -759,10 +759,44 @@ def _safe_filename(s: str) -> str:
     return "".join(c.lower() if c.isalnum() else "_" for c in s)[:40]
 
 
+def _compute_static_positions(g, scale: float = 1000.0) -> dict[str, tuple[float, float]]:
+    """Compute a deterministic static layout for a graph (no animation).
+
+    Uses networkx's spring_layout with a fixed seed. Returns a dict
+    mapping node_id -> (x, y) where x and y are in pyvis pixel coordinates
+    (scale of `scale` from the unit square spring_layout returns).
+
+    Why a static layout: pyvis with physics-on animates the graph for
+    several seconds while vis.js's force simulation converges, which the
+    user found distracting on small graphs. Pre-computing positions in
+    networkx + setting physics=False gives the user an instant, stable,
+    community-centric layout.
+    """
+    import networkx as nx
+
+    n = g.number_of_nodes()
+    if n == 0:
+        return {}
+    if n <= 200:
+        # kamada_kawai gives a nice readable layout for small graphs;
+        # spring_layout is also fine but can overlap nodes in small graphs.
+        try:
+            raw = nx.kamada_kawai_layout(g)
+        except Exception:
+            # kamada_kawai requires connectivity; fall back to spring on disconnected
+            raw = nx.spring_layout(g, seed=42, k=0.5, iterations=80)
+    else:
+        # For larger graphs, spring_layout is faster and good enough.
+        raw = nx.spring_layout(g, seed=42, k=0.4, iterations=50)
+
+    # spring_layout returns coords in [-1, 1] for spring or [0, 1] for kamada_kawai.
+    # Normalize to a pyvis-friendly pixel range centered around 0.
+    return {node: (float(x) * scale, float(y) * scale) for node, (x, y) in raw.items()}
+
+
 def render_community_html(
     table_g, community_index: int, community_tables: set[str],
     bridge_tables: set[str], output_path: str | Path,
-    auto_no_physics_threshold: int = 200,
 ) -> str:
     """Render ONE community as interactive HTML, with bridges shown muted.
 
@@ -770,15 +804,13 @@ def render_community_html(
       - All tables in this community (colored with the community color)
       - All bridge tables connected to any community-table (colored muted gray)
       - Edges between any pair of the above
-    This gives stewards a focused, readable view of one domain plus its
-    dimensional context, without the noise of all other communities.
 
-    Auto-disables pyvis physics if the rendered graph would exceed
-    `auto_no_physics_threshold` nodes -- past that point the simulation
-    spends minutes converging instead of rendering instantly.
+    The layout is pre-computed with networkx and frozen (physics=off,
+    fixed=true on every node). This gives stewards an instant, readable,
+    non-animated view -- the previous behavior animated even small graphs
+    for several seconds, which was distracting.
     """
     from pyvis.network import Network
-    import networkx as nx
 
     # Collect the nodes to render: community tables + bridges connected to them.
     nodes_to_render: set[str] = set(community_tables)
@@ -792,8 +824,7 @@ def render_community_html(
     # Build the subgraph as a regular nx.Graph (undirected) to keep pyvis happy.
     sub = table_g.subgraph(nodes_to_render).copy()
     color_for_community = _community_color(community_index)
-
-    use_physics = sub.number_of_nodes() <= auto_no_physics_threshold
+    positions = _compute_static_positions(sub)
 
     net = Network(
         height="900px", width="100%",
@@ -818,9 +849,13 @@ def render_community_html(
             title_lines.append("Role: BRIDGE (high-degree dimension/shared lookup)")
         if is_zc:
             title_lines.append("Type: ZC lookup")
+        x, y = positions.get(node, (0.0, 0.0))
+        # `physics=False` + `fixed=True` together pin the node to (x, y).
+        # Without `fixed=True`, vis.js still nudges nodes during interaction.
         net.add_node(
             node, label=label, color=color, shape=shape, size=size,
             title="\n".join(title_lines),
+            x=x, y=y, physics=False, fixed=True,
         )
 
     for u, v, attrs in sub.edges(data=True):
@@ -828,8 +863,8 @@ def render_community_html(
         width = min(1 + w / 2, 8)
         net.add_edge(u, v, value=w, width=width, title=f"co-occurrences: {w}")
 
-    if not use_physics:
-        net.toggle_physics(False)
+    # Disable the simulation globally so the canvas does not "settle" on load.
+    net.toggle_physics(False)
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -840,12 +875,15 @@ def render_community_html(
 def render_overview_html(
     table_g, communities: list[set], bridge_tables: set[str],
     output_path: str | Path,
-    auto_no_physics_threshold: int = 200,
 ) -> str:
     """Render the FULL table graph, colored by community. Useful as an overview.
 
     For corpora with many tables this will be dense. Per-community HTMLs are
     a better daily-driver; this is the "see the whole landscape" view.
+
+    Layout is pre-computed with networkx so densely-connected nodes
+    (community members) end up near each other in space, giving a
+    community-centric visual without animation.
     """
     from pyvis.network import Network
 
@@ -859,7 +897,8 @@ def render_overview_html(
         node_to_color[node] = _BRIDGE_COLOR
 
     fallback = "#cccccc"
-    use_physics = table_g.number_of_nodes() <= auto_no_physics_threshold
+    # Larger pixel scale for the overview since it has more nodes to spread out.
+    positions = _compute_static_positions(table_g, scale=2000.0)
 
     net = Network(
         height="900px", width="100%",
@@ -876,12 +915,14 @@ def render_overview_html(
             title_lines.append("Role: BRIDGE")
         if is_zc:
             title_lines.append("Type: ZC lookup")
+        x, y = positions.get(node, (0.0, 0.0))
         net.add_node(
             node, label=label,
             color=node_to_color.get(node, fallback),
             shape="diamond" if is_bridge else ("box" if is_zc else "dot"),
             size=18 if is_bridge else (15 if is_zc else 25),
             title="\n".join(title_lines),
+            x=x, y=y, physics=False, fixed=True,
         )
 
     for u, v, attrs in table_g.edges(data=True):
@@ -889,8 +930,7 @@ def render_overview_html(
         net.add_edge(u, v, value=w, width=min(1 + w / 2, 8),
                      title=f"co-occurrences: {w}")
 
-    if not use_physics:
-        net.toggle_physics(False)
+    net.toggle_physics(False)
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)

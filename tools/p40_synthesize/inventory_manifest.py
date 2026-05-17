@@ -8,14 +8,14 @@ extract_zc_values.sql) to just the tables your views actually touch.
 
 Notebook usage:
 
-    from tools.inventory_manifest.batch import build_inventory_manifest
+    from tools.p40_synthesize.inventory_manifest import build_inventory_manifest
     build_inventory_manifest(
         corpus_path='/lakehouse/default/Files/outputs/corpus.jsonl',
         output_dir='/lakehouse/default/Files/outputs/inventory',
     )
 
 CLI:
-    python -m tools.inventory_manifest.batch <corpus.jsonl> [-o out_dir]
+    python -m tools.p40_synthesize.inventory_manifest <corpus.jsonl> [-o out_dir]
 
 Outputs (written to `output_dir`):
   - used_tables.txt           -- newline-separated bare table names
@@ -26,6 +26,17 @@ Outputs (written to `output_dir`):
                                    ('TABLE_B'),
                                    ...
   - zc_tables_values_clause.sql -- same shape, ZC tables only
+
+Historical note
+---------------
+This module was previously `tools.inventory_manifest.batch` ("Tool 15
+-- inventory manifest"). It was renamed to `tools.p40_synthesize.inventory_manifest`
+as part of the 2026-05 codebase restructure (see `tools/PHASES.md`)
+which placed steward-artifact generators under p40_synthesize.
+
+It cuts the upstream SSMS metadata extracts from "scan everything in
+CLARITY" to "scan only what your views touch" -- typically a 10-100x
+reduction in result-set size and runtime.
 """
 
 from __future__ import annotations

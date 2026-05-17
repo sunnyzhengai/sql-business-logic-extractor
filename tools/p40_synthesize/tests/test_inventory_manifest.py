@@ -1,11 +1,11 @@
-"""Tests for tools/inventory_manifest."""
+"""Tests for tools/p40_synthesize/inventory_manifest.py."""
 
 import csv
 import json
 from pathlib import Path
 
 from tools.p10_extract.batch import extract_corpus
-from tools.inventory_manifest.batch import build_inventory_manifest
+from tools.p40_synthesize.inventory_manifest import build_inventory_manifest
 
 
 def _seed_views(views_dir: Path) -> None:

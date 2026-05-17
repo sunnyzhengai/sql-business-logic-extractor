@@ -1,7 +1,9 @@
-"""Dim-table classifier.
+"""Dim-table classifier (shared utility).
 
 Loads a list of dimension/lookup table names from a config file and
-exposes `is_dim(table_name) -> bool` for the comparison tool.
+exposes `is_dim(table_name) -> bool` -- used by any phase that needs
+to distinguish "decorative" (dimension/lookup) tables from
+"cohort-shaping" (fact) tables.
 
 Format (one entry per line):
   - Bare names:       PATIENT
@@ -11,6 +13,28 @@ Format (one entry per line):
 
 Matching is case-insensitive. Schema/database qualifiers are stripped
 before matching: `Clarity.dbo.PATIENT` -> `PATIENT`.
+
+Historical note
+---------------
+This module was previously `tools.view_shape_compare.dim_filter`. It
+moved to `tools.shared.dim_filter` as part of the 2026-05 codebase
+restructure (see `tools/PHASES.md`) when the rest of
+`tools/view_shape_compare/` was deleted -- its comparison logic was
+superseded by the graph-based community detection in `p30_analyze/`.
+
+Cross-phase utilities live in `tools/shared/`, which is what makes
+this module's new home. The actively-used parts of `view_shape_compare`
+(this file) were preserved; the superseded pieces (`batch.py`,
+`clusters.py`, `features.py`) were deleted -- git history preserves
+them at the pre-restructure commit if ever needed for reference.
+
+Note: in the longer term, `p30_analyze/` may make this module
+obsolete entirely -- the graph topology auto-derives dimension vs
+fact classification from degree percentiles (see
+`tools/diagnostics/validate_graph_pivot.py::detect_bridge_tables`),
+without needing a config file. Keeping `dim_filter` available for
+backwards-compatibility with `cohort_extract` and for cases where
+a user-curated dim list is preferred over the auto-detected one.
 """
 
 from __future__ import annotations

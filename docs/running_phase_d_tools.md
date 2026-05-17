@@ -129,52 +129,29 @@ Useful when sanity-checking a specific complex view (e.g., one with deeply neste
 
 ---
 
-## 5. Compare view shapes (table + join similarity)
+## 5. Compare view shapes  (REMOVED -- see `validate_graph_pivot`)
 
-After you've built `corpus.jsonl`, find views that share table+join structure:
+The `view_shape_compare` tool was removed in the 2026-05 restructure (Phase 1e). Its pairwise-comparison approach was superseded by graph-based community detection in `tools/diagnostics/validate_graph_pivot.py`, which:
 
-### Fabric notebook
+- Builds a unified graph from the entire corpus (not view-by-view pairs).
+- Runs Louvain community detection to find groups of structurally-related views.
+- Auto-detects bridge tables (dimensions / shared lookups) by degree percentile rather than via a hand-curated `dim_tables.txt`.
+- Emits per-community HTMLs, a primary-community-per-view assignment, and a cross-domain-views finding.
+
+To run the new approach:
 
 ```python
-from tools.view_shape_compare.batch import compare_view_shapes
+from tools.diagnostics.validate_graph_pivot import run_validation
 
-compare_view_shapes(
+run_validation(
     corpus_path='/lakehouse/default/Files/outputs/corpus.jsonl',
-    output_dir='/lakehouse/default/Files/outputs/view_shapes',
+    output_dir='/lakehouse/default/Files/outputs/graph_pivot_validation',
 )
 ```
 
-### CLI
+Outputs: `graph.html` (overview), `communities/community_NN_*.html` (per-community drill-downs + index.html), `communities.md` (per-community summary + shared dimensions + cross-domain views), `validation_report.md` (verdict + recommendation).
 
-```bash
-python -m tools.view_shape_compare.batch /path/to/corpus.jsonl -o /path/to/view_shapes
-```
-
-### Outputs (in `output_dir`)
-
-Two JSON files. Tables/joins are aggregated across **all scopes** (main + CTEs + subqueries), so CTE-internal facts contribute to the comparison.
-
-**`pairs.json`** — one entry per (view A, view B) pair with a finding. Each entry is a side-by-side diff:
-
-```jsonc
-{
-  "view_a": "v_x", "view_b": "v_y",
-  "flags": ["dim_extension"],            // multiple flags can apply
-  "fact_tables":  { "shared": [...], "only_a": [...], "only_b": [...] },
-  "dim_tables":   { "shared": [...], "only_a": [...], "only_b": [...] },
-  "fact_joins":   { "shared": [...], "only_a": [...], "only_b": [...] },
-  "all_joins":    { "shared": [...], "only_a": [...], "only_b": [...] },
-  "drivers":      { "a": "ENCOUNTER", "b": "ENCOUNTER", "same": true },
-  "scopes_a": [{ "id": "cte:C1", "kind": "cte", "fact_tables": [...], ... }, ...],
-  "scopes_b": [...]
-}
-```
-
-Pairs are sorted by triage priority: `table_identical` → `dim_extension` → `same_facts_different_joins` → `join_subset` → `fact_subset/superset` → `fact_overlap` → `same_driver`.
-
-**`features.json`** — per-view shape data. For each view: aggregate fact/dim tables, joins, plus the per-scope decomposition. Use this for side-by-side reference when triaging a pair.
-
-Dim-table noise (PATIENT, `ZC_*`, `CLARITY_*`) is filtered via `data/dictionaries/dim_tables.txt`. Edit that file to grow the list when false positives surface. Use `--dim-filter /custom/path.txt` to override.
+The `dim_filter` utility (config-driven dim classifier) is preserved at `tools.shared.dim_filter` for use by tools that need a user-curated dim list rather than auto-detection (e.g., `cohort_extract`).
 
 ## 6. Render each view as a chain of datasets
 
@@ -228,7 +205,7 @@ A typical CTE view renders as:
     - `PCPProviderName`: Provider Name
 ```
 
-CTE-scope filters stay in their CTE — they do NOT pollute downstream datasets. This is the same scope-correctness that powers `view_shape_compare`.
+CTE-scope filters stay in their CTE — they do NOT pollute downstream datasets. This is the same scope-correctness that powers the graph-pivot validation diagnostic.
 
 ## 7. Render each scope as a cohort (population-level governance)
 

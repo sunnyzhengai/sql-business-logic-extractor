@@ -26,9 +26,8 @@ restructure (see `tools/PHASES.md`) which placed steward-artifact
 generators under p40_synthesize. The pure-function renderer lives at
 `tools.p40_synthesize.cohort_render` (formerly `tools.cohort_extract.render`).
 
-The `view_shape_compare.dim_filter` dependency below is still in its
-pre-restructure location; it will migrate (or be replaced) in a later
-phase. Importing it from the legacy path works today.
+As of Phase 1e of the restructure, the `dim_filter` dependency lives
+at `tools.shared.dim_filter` (formerly `tools.view_shape_compare.dim_filter`).
 """
 
 from __future__ import annotations
@@ -38,7 +37,7 @@ import json
 import sys
 from pathlib import Path
 
-from tools.view_shape_compare.dim_filter import (
+from tools.shared.dim_filter import (
     DEFAULT_DIM_FILTER_PATH,
     DimFilter,
     load_default_dim_filter,

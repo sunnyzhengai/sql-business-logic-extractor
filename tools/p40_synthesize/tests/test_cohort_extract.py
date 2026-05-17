@@ -24,7 +24,7 @@ from tools.p40_synthesize.cohort_render import (
     view_to_cohorts,
 )
 from tools.p10_extract.batch import extract_corpus
-from tools.view_shape_compare.dim_filter import DimFilter
+from tools.shared.dim_filter import DimFilter
 
 
 # ---------- pure-function units ------------------------------------------

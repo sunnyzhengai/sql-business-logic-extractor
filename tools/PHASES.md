@@ -260,7 +260,7 @@ phase folders happens in subsequent restructure phases. Status legend:
 | `term_extraction/`                | `p20_index/` (lexical) + maybe `p40_synthesize/` | Pending migration     |
 | `graph_explore/`                  | split: `p20_index/` (build) + `p50_present/` (render) | Pending migration     |
 | `similarity/`                     | superseded by `p30_analyze/`; archive likely    | Pending decision      |
-| `view_shape_compare/`             | superseded by `p30_analyze/`; archive likely    | Pending decision      |
+| `view_shape_compare/`             | split: `dim_filter.py` -> `tools/shared/`; rest deleted (superseded by `p30_analyze/`, git history retained) | **Done** (Phase 1e)   |
 | `cohort_extract/`                 | `p40_synthesize/`                              | Pending migration     |
 | `inventory_manifest/`             | `p40_synthesize/`                              | Pending migration     |
 | `report_description_generator/`   | `p40_synthesize/`                              | Pending evaluation    |

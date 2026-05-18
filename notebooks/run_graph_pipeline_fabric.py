@@ -120,13 +120,16 @@ print("Imports OK -- pipeline modules resolved.")
 # %% [Cell 4: Step 1 -- parse SQL files into corpus.jsonl]
 #
 # Produces /lakehouse/default/Files/outputs/corpus.jsonl, which every
-# downstream step consumes. Skip this cell if you already have a corpus.jsonl
-# from a previous run (the file format is stable across phases of the restructure).
+# downstream step consumes. SKIP THIS CELL if you already have a
+# corpus.jsonl from a previous run -- the file format is stable across
+# phases of the restructure, so old corpora work with the new code.
 
 extract_corpus(
     input_dir='/lakehouse/default/Files/views',
     output_path='/lakehouse/default/Files/outputs/corpus.jsonl',
-    schema_path='/lakehouse/default/Files/schemas/clarity_schema.json',  # set to None if you don't have one
+    schema_path=None,   # optional: pass a path to clarity_schema.json for column
+                        # business-domain enrichment. Safe to leave as None;
+                        # everything downstream works without it.
 )
 # Watch /lakehouse/default/Files/outputs/corpus_progress.txt mid-run for
 # a per-view timing log (tail-able from the Fabric file viewer).

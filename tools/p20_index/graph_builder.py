@@ -169,7 +169,13 @@ def _add_scope_to_graph(g, view_name: str, view_id: str, scope: dict,
     # We collect the set of bare table names seen in this scope. The same set is
     # used downstream to build co-occurrence edges (every pair of tables seen
     # together in one scope contributes a co-occurrence).
+    #
+    # `first_table` preserves the order from `reads_from_tables` so the JOIN
+    # edges we emit below have a consistent left-side (the FROM-clause table,
+    # by convention). This is what `tools.p30_analyze.view_membership.view_driver_table`
+    # relies on to identify a view's "driver" table.
     scope_table_set: set[str] = set()
+    first_table: str | None = None
 
     for table_name in scope.get("reads_from_tables") or []:
         bare = bare_table_name(table_name)
@@ -189,6 +195,8 @@ def _add_scope_to_graph(g, view_name: str, view_id: str, scope: dict,
         g.add_edge(scope_node_id, table_node_id,
                     relation="READS_FROM_TABLE", view=view_name, scope=scope_raw_id)
         scope_table_set.add(bare)
+        if first_table is None:
+            first_table = bare   # preserves reads_from_tables order
 
     # ----- JOIN edges (table -> table) -----
     # The corpus gives us right_table per join but not the left table explicitly.
@@ -197,7 +205,7 @@ def _add_scope_to_graph(g, view_name: str, view_id: str, scope: dict,
     # this is enough: we connect right_table to the FIRST table we saw in the
     # scope (typically the FROM-clause table), and we also add a co-occurrence
     # edge to every other table in scope further down.
-    from_table = next(iter(scope_table_set), None)  # arbitrary "first" element
+    from_table = first_table  # deterministic: first entry in reads_from_tables
 
     for join in scope.get("joins") or []:
         right = bare_table_name(join.get("right_table") or "")

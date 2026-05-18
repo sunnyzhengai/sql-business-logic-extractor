@@ -42,6 +42,9 @@ def write_communities_markdown(
     view_to_spans: dict[str, list[int]],
     excluded_infrastructure_views: list[str],
     output_path: str | Path,
+    view_strength: dict[str, dict[int, float]] | None = None,
+    view_to_driver: dict[str, str | None] | None = None,
+    strength_threshold: float = 0.5,
 ) -> str:
     """Write the per-community summary to a markdown file.
 
@@ -61,6 +64,17 @@ def write_communities_markdown(
     excluded_infrastructure_views : list of view names filtered out by
         tools.shared.view_filter; reported for transparency
     output_path : str or Path
+    view_strength : (optional) map view_name -> {community_idx -> fraction}
+        from `p30_analyze.view_membership.compute_view_membership_strength`.
+        When provided, per-community sections split primary views into
+        STRONG and WEAK members. None falls back to a single "Primary
+        views" list (pre-Phase-3a behavior).
+    view_to_driver : (optional) map view_name -> driver-table label or
+        None. From `p30_analyze.view_membership.view_driver_table`.
+        Used in the weak-members list to annotate each weak view with
+        the table that actually drives it.
+    strength_threshold : fraction. Views with primary-community
+        membership >= threshold are STRONG; below are WEAK. Default 0.5.
 
     Returns
     -------
@@ -158,12 +172,80 @@ def write_communities_markdown(
         else:
             lines.append("- _(none)_")
         lines.append("")
-        lines.append(f"### Primary views ({len(analysis['primary_views'])})")
-        for v in analysis["primary_views"]:
-            lines.append(f"- `{v}`")
-        lines.append("")
+
+        # If membership-strength data was provided, split into strong / weak.
+        # Otherwise fall back to a single flat "Primary views" list (pre-3a).
+        if view_strength is not None:
+            _write_primary_views_split(
+                lines, community_index, analysis["primary_views"],
+                view_strength, view_to_driver, strength_threshold,
+            )
+        else:
+            lines.append(f"### Primary views ({len(analysis['primary_views'])})")
+            for v in analysis["primary_views"]:
+                lines.append(f"- `{v}`")
+            lines.append("")
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines), encoding="utf-8")
     return str(out)
+
+
+def _write_primary_views_split(
+    lines: list[str],
+    community_index: int,
+    primary_views: list[str],
+    view_strength: dict[str, dict[int, float]],
+    view_to_driver: dict[str, str | None] | None,
+    strength_threshold: float,
+) -> None:
+    """Append "Strong members" + "Weak members" subsections to `lines`.
+
+    Strong = primary-community membership fraction >= threshold.
+    Weak   = primary-community membership fraction < threshold.
+
+    For each weak view, the line includes:
+      - the membership fraction (e.g., "1/4 tables here = 25%")
+      - the view's driver table label, if known -- this is the key
+        outlier-detection signal: "primary is claims, but driver is PATIENT"
+
+    Modifies `lines` in place (appends; doesn't replace).
+    """
+    strong: list[tuple[str, float]] = []
+    weak: list[tuple[str, float]] = []
+    for v in primary_views:
+        strengths = view_strength.get(v, {})
+        primary_fraction = strengths.get(community_index, 0.0)
+        if primary_fraction >= strength_threshold:
+            strong.append((v, primary_fraction))
+        else:
+            weak.append((v, primary_fraction))
+    # Sort: strong descending by fraction (most "in" the community first);
+    #       weak ascending (most outlier-y first).
+    strong.sort(key=lambda pair: pair[1], reverse=True)
+    weak.sort(key=lambda pair: pair[1])
+
+    lines.append(f"### Strong members ({len(strong)})  -- "
+                  f"primary-community membership >= {int(strength_threshold * 100)}%")
+    if strong:
+        for view_name, frac in strong:
+            lines.append(f"- `{view_name}`  ({frac:.0%} of its tables here)")
+    else:
+        lines.append("- _(none)_")
+    lines.append("")
+
+    lines.append(f"### Weak members ({len(weak)})  -- "
+                  f"only some tables here; primary may be misleading")
+    if weak:
+        lines.append("These views are formally in this community (their primary)")
+        lines.append("but only a small fraction of their tables actually fall here.")
+        lines.append("Often the view is driven by a non-community table; review.")
+        lines.append("")
+        for view_name, frac in weak:
+            driver = (view_to_driver or {}).get(view_name)
+            driver_note = f"  driver: `{driver}`" if driver else "  driver: _(unknown)_"
+            lines.append(f"- `{view_name}`  ({frac:.0%} here);{driver_note}")
+    else:
+        lines.append("- _(none -- all primary views are strong members)_")
+    lines.append("")

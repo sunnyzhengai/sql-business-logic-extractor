@@ -252,36 +252,48 @@ def render_overview_html(
 def render_communities_index_html(
     community_html_files: list[tuple[int, str, str, int, int]],
     output_path: str | Path,
+    view_html_files: dict[int, list[tuple[str, str]]] | None = None,
 ) -> str:
     """Write a small index.html listing all per-community HTMLs.
 
     `community_html_files` is a list of tuples:
         (community_index, top_table_label, html_filename, n_tables, n_views)
 
-    The index is a single-page table with a colored swatch per
-    community, the top table's name, sizes, and a link to open the
-    per-community HTML. Style is inline so the file works offline
-    without external CSS.
+    `view_html_files` (optional, added Phase 3a) is a per-community map:
+        community_index -> [(view_name, html_filename), ...]
+        sorted in the order they should appear (typically: strong members
+        first by descending strength, then weak members).
+        When provided, each community row gets an expandable
+        `<details>` block listing every member view with its
+        per-view HTML link. When None, the original compact view (just
+        the community-level row, no view links) is preserved.
+
+    Style is inline so the file works offline without external CSS.
     """
     parts: list[str] = []
     parts.append("<!doctype html><html><head><meta charset='utf-8'>")
     parts.append("<title>Graph-pivot communities</title>")
     parts.append("<style>")
     parts.append("body { font-family: -apple-system, system-ui, sans-serif; "
-                 "max-width: 800px; margin: 40px auto; padding: 0 20px; }")
+                 "max-width: 900px; margin: 40px auto; padding: 0 20px; }")
     parts.append("h1 { color: #333; }")
     parts.append("table { border-collapse: collapse; width: 100%; margin: 20px 0; }")
     parts.append("th, td { text-align: left; padding: 8px 12px; "
-                 "border-bottom: 1px solid #ddd; }")
+                 "border-bottom: 1px solid #ddd; vertical-align: top; }")
     parts.append("th { background: #f4f4f4; }")
     parts.append("a { color: #1f77b4; text-decoration: none; }")
     parts.append("a:hover { text-decoration: underline; }")
     parts.append(".color-swatch { display: inline-block; width: 14px; height: 14px; "
                  "border-radius: 3px; vertical-align: middle; margin-right: 6px; }")
+    parts.append("details summary { cursor: pointer; color: #555; }")
+    parts.append(".view-list { margin: 8px 0 0 16px; padding: 0; list-style: none; "
+                 "font-size: 0.95em; }")
+    parts.append(".view-list li { margin: 4px 0; }")
     parts.append("</style></head><body>")
     parts.append("<h1>Graph-pivot communities</h1>")
     parts.append("<p>Click a community to see its interactive graph. Bridge tables "
-                 "(dimensions / shared lookups) are shown in muted gray.</p>")
+                 "(dimensions / shared lookups) are shown in muted gray. Expand a "
+                 "row's <em>member views</em> to drill into any single view's subgraph.</p>")
     parts.append("<table><thead><tr><th>#</th><th>Top table</th><th>Tables</th>"
                  "<th>Member views</th><th>Open</th></tr></thead><tbody>")
     for community_index, top_table, fname, n_tables, n_views in community_html_files:
@@ -291,7 +303,22 @@ def render_communities_index_html(
                      f"{community_index}</td>")
         parts.append(f"<td><code>{top_table}</code></td>")
         parts.append(f"<td>{n_tables}</td>")
-        parts.append(f"<td>{n_views}</td>")
+
+        # Member-views cell -- either an expandable <details> with view links,
+        # or just the count if no per-view HTMLs are provided.
+        if view_html_files is not None:
+            views_for_community = view_html_files.get(community_index, [])
+            parts.append("<td>")
+            parts.append(f"<details><summary>{n_views} views</summary>")
+            parts.append("<ul class='view-list'>")
+            for view_name, view_fname in views_for_community:
+                parts.append(f"<li><a href='{view_fname}'><code>{view_name}</code></a></li>")
+            parts.append("</ul>")
+            parts.append("</details>")
+            parts.append("</td>")
+        else:
+            parts.append(f"<td>{n_views}</td>")
+
         parts.append(f"<td><a href='{fname}'>open &rarr;</a></td>")
         parts.append("</tr>")
     parts.append("</tbody></table></body></html>")

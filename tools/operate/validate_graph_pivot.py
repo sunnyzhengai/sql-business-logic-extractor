@@ -101,6 +101,12 @@ from tools.p30_analyze.community_analysis import analyze_community
 from tools.p30_analyze.primary_community import assign_views_to_communities
 from tools.p30_analyze.projection import extract_table_projection
 
+# Per-view membership strength + driver detection (Phase 3a).
+from tools.p30_analyze.view_membership import (
+    compute_view_membership_strength,
+    view_driver_table,
+)
+
 # Synthesis (markdown) lives in p40_synthesize (Phase 2d).
 from tools.p40_synthesize.community_summary import write_communities_markdown
 
@@ -112,6 +118,9 @@ from tools.p50_present.community_html import (
     render_overview_html,
     safe_filename as _safe_filename,
 )
+
+# Per-view HTML rendering added Phase 3a.
+from tools.p50_present.view_html import render_view_html, view_html_filename
 
 
 def write_validation_report(
@@ -281,10 +290,24 @@ def run_validation(
     print(f"      Found {len(communities)} communities, "
           f"sizes (top 10): {sorted([len(c) for c in communities], reverse=True)[:10]}")
 
-    print("[7/8] Assigning views to primary communities + finding cross-domain views...")
+    print("[7/8] Assigning views to primary communities + computing membership strength...")
     community_to_primary, view_to_spans = assign_views_to_communities(g, communities)
     cross_domain = [v for v, spans in view_to_spans.items() if len(spans) > 1]
     print(f"      Cross-domain views: {len(cross_domain)}")
+
+    # Phase 3a: per-view membership strength + driver-table detection.
+    # Used downstream by both the markdown summary (strong/weak split) and
+    # the per-view HTMLs (driver gets a starred shape).
+    view_strength = compute_view_membership_strength(g, communities)
+    # Driver detection -- only do it for views that have a primary community,
+    # since those are the ones we'll render and report on.
+    views_to_describe = set(view_to_spans.keys())
+    view_to_driver = {v: view_driver_table(g, v) for v in views_to_describe}
+    n_weak = sum(
+        1 for v, strengths in view_strength.items()
+        if strengths and max(strengths.values()) < 0.5
+    )
+    print(f"      Weak members (< 50% of tables in primary community): {n_weak}")
 
     # Per-community analysis using primary-view assignments only.
     analyses = []
@@ -309,8 +332,49 @@ def run_validation(
             community_index, top_label, fname,
             analysis["n_tables"], analysis["n_primary_views"],
         ))
-    index_html = render_communities_index_html(community_html_files,
-                                                  communities_dir / "index.html")
+
+    # Phase 3a: per-view HTMLs (one per view, colored by community membership,
+    # driver table highlighted). Indexed under communities_dir/views/.
+    views_dir = communities_dir / "views"
+    views_dir.mkdir(parents=True, exist_ok=True)
+    # Build the per-community list of (view_name, html_filename) tuples for
+    # the index page. Order within each community: strong members first
+    # (descending by strength), then weak (ascending by strength).
+    view_html_files_by_community: dict[int, list[tuple[str, str]]] = {}
+    for community_index, primary_set in community_to_primary.items():
+        # Order primary views: strong first (high to low fraction),
+        # then weak (low to high) -- weak members surface at the bottom.
+        scored = [
+            (v, view_strength.get(v, {}).get(community_index, 0.0))
+            for v in primary_set
+        ]
+        strong = sorted([(v, f) for v, f in scored if f >= 0.5],
+                         key=lambda kv: kv[1], reverse=True)
+        weak = sorted([(v, f) for v, f in scored if f < 0.5],
+                       key=lambda kv: kv[1])
+        ordered = [v for v, _ in strong + weak]
+        # Render each view's HTML; record its filename for the index.
+        files_for_this_community: list[tuple[str, str]] = []
+        for view_name in ordered:
+            fname = view_html_filename(view_name)
+            render_view_html(
+                g=g,
+                view_name=view_name,
+                communities=communities,
+                bridge_tables=bridge_nodes,
+                output_path=views_dir / fname,
+                driver_label=view_to_driver.get(view_name),
+            )
+            # The index lives one level above views/, so its links are
+            # relative paths.
+            files_for_this_community.append((view_name, f"views/{fname}"))
+        view_html_files_by_community[community_index] = files_for_this_community
+
+    index_html = render_communities_index_html(
+        community_html_files,
+        communities_dir / "index.html",
+        view_html_files=view_html_files_by_community,
+    )
     overview_html = render_overview_html(table_g, communities, bridge_nodes,
                                             output_dir / "graph.html")
 
@@ -333,6 +397,9 @@ def run_validation(
         view_to_spans=view_to_spans,
         excluded_infrastructure_views=excluded_views,
         output_path=output_dir / "communities.md",
+        # Phase 3a: strength + driver -> strong / weak split per community.
+        view_strength=view_strength,
+        view_to_driver=view_to_driver,
     )
 
     report_md = write_validation_report(

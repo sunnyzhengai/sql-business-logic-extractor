@@ -8,8 +8,6 @@ Consumes
 --------
 - The unified graph from p20_index.
 - The lexical index from p20_index.
-- (Optionally) prior steward decisions / synonyms / intentional-
-  divergence records from p70_feedback.
 
 Produces
 --------

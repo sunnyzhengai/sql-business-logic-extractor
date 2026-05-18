@@ -10,8 +10,6 @@ Consumes
 - p30_analyze findings (communities, primary-community assignments,
   cross-domain spans, variance findings, naming collisions).
 - Parts of corpus.jsonl for filter / cohort / English-render details.
-- Optional: prior steward decisions (to suppress already-ratified
-  findings) from p70_feedback.
 
 Produces
 --------

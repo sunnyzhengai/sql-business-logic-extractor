@@ -51,7 +51,7 @@ This is the substrate for the destination architecture:
 
 ## The pipeline (tools/)
 
-The pipeline has **seven phases**. Phase folders are named `pN0_<purpose>`
+The pipeline has **five phases**. Phase folders are named `pN0_<purpose>`
 so the file-tree ordering reveals the pipeline order at a glance.
 
 ```
@@ -61,14 +61,18 @@ p30_analyze     graph           →  community detection, primary-community
                                     assignments, similarity findings
 p40_synthesize  analysis        →  steward-ready markdown artifacts
 p50_present     synthesized     →  interactive HTML, visualizations, deck slides
-p60_hitl        human input     →  structured annotation records
-p70_feedback    annotations     →  updated graph state for next analyze pass
 ```
 
 A `shared/` folder holds cross-phase utilities (parsing helpers,
-schemas, file I/O). A `diagnostics/` folder holds inspection and
-triage tools (not part of the pipeline -- e.g., validation experiments,
-sanity checkers).
+schemas, file I/O). An `operate/` folder holds operations work
+(parser dev, performance audits, inventory generation, pipeline
+validation) -- not part of the pipeline but used by BI devs and
+admins running the system.
+
+Ratification of definitions is **not** part of this codebase --
+stewards do that in Collibra (or whichever catalog the org runs).
+Our pipeline ends at producing evidence packs for the steward
+conversation; Collibra owns the decision record.
 
 For details on each phase, see `tools/PHASES.md`.
 

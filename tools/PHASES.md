@@ -1,7 +1,7 @@
 # Pipeline phases
 
 The pipeline turns raw SQL views into steward-ready governance artifacts
-in seven phases. Each phase lives in a `pN0_<purpose>/` folder under
+in five phases. Each phase lives in a `pN0_<purpose>/` folder under
 `tools/`. The numeric prefix orders them in the file tree; gaps of 10
 leave room for inserted phases without renumbering.
 
@@ -9,6 +9,11 @@ This document is the second thing to read when navigating cold (after
 `ARCHITECTURE.md` at the repo root). For each phase: what it consumes,
 what it produces, which scripts to read first, and what existing
 legacy code (if any) it will absorb.
+
+**Ratification is not in this codebase.** Stewards ratify definitions
+in Collibra (or whichever catalog the org runs). Our pipeline produces
+the evidence packs that steward meetings consume; Collibra owns the
+decision record. This is why there is no p60/p70.
 
 ---
 
@@ -19,44 +24,39 @@ legacy code (if any) it will absorb.
                        │
                        ▼
     ┌─────────────────────────────────────────┐
-    │  p10_extract    SQL  ─►  corpus.jsonl   │
+    │  p10_extract    SQL  ─►  corpus.jsonl   │   CATALOG
     └─────────────────────────────────────────┘
                        │
                        ▼
     ┌─────────────────────────────────────────┐
-    │  p20_index      corpus.jsonl  ─►  graph │
+    │  p20_index      corpus.jsonl  ─►  graph │   CATALOG
     │                                 + lex_idx│
     └─────────────────────────────────────────┘
                        │
                        ▼
     ┌─────────────────────────────────────────┐
-    │  p30_analyze    graph  ─►  findings     │
+    │  p30_analyze    graph  ─►  findings     │   GOVERN
     └─────────────────────────────────────────┘
                        │
                        ▼
     ┌─────────────────────────────────────────┐
-    │  p40_synthesize findings ─► markdown    │
+    │  p40_synthesize findings ─► markdown    │   GOVERN
     │                              artifacts   │
     └─────────────────────────────────────────┘
                        │
                        ▼
     ┌─────────────────────────────────────────┐
-    │  p50_present    artifacts ─► HTML, viz  │
+    │  p50_present    artifacts ─► HTML, viz  │   VISUALIZE
     └─────────────────────────────────────────┘
                        │
                        ▼
-    ┌─────────────────────────────────────────┐
-    │  p60_hitl       human input  ─►         │
-    │                  annotation records      │
-    └─────────────────────────────────────────┘
-                       │
-                       ▼
-    ┌─────────────────────────────────────────┐
-    │  p70_feedback   annotations  ─►         │
-    │                  updated graph state     │
-    │                  (loops back to p30)     │
-    └─────────────────────────────────────────┘
+              (hand to stewards;
+              they ratify in Collibra)
 ```
+
+Three conceptual layers (CATALOG → GOVERN → VISUALIZE) running
+across the five phases. A separate `operate/` sidecar (parser dev,
+performance audits, inventory generation) supports all three.
 
 ---
 
@@ -104,8 +104,7 @@ extraction pieces of `term_extraction/`.
 
 ## p30_analyze  -- graph to findings
 
-**Consumes:** The graph + lexical index from p20_index. Optionally,
-prior steward decisions / synonyms from p70_feedback.
+**Consumes:** The graph + lexical index from p20_index.
 
 **Produces:**
 - Community assignments (Louvain on the table projection,
@@ -181,51 +180,6 @@ is a working prototype.
 - Layouts pre-computed with networkx (kamada_kawai / spring_layout),
   frozen (physics=off, fixed=true) -- instant, deterministic, no animation.
 - Bridge tables shown in muted gray across all renders.
-
----
-
-## p60_hitl  -- capture human-in-the-loop annotations
-
-**Consumes:** p40 artifacts (humans read these and produce decisions).
-
-**Produces:**
-- `bi_dev_annotations.jsonl` -- BI-dev review (confirm / reject / enrich)
-- `steward_decisions.jsonl` -- ratification outcomes
-- `intentional_divergences.jsonl` -- view pairs that look similar but
-  are intentionally different
-- `synonyms.jsonl` -- same-concept-different-names mappings
-
-**Read first:** `schemas.py`.
-
-**Existing tools to absorb here:** none -- this is new work.
-
-**Design notes:**
-- Append-only JSONL. Editing history is preserved as superseded records,
-  never in-place edits.
-- Every record carries author identity + timestamp.
-- Premature on day one but the schema must go in early so feedback can
-  accumulate from the first steward meeting.
-
----
-
-## p70_feedback  -- apply annotations back into the analysis
-
-**Consumes:** p60 annotation records.
-
-**Produces:** Updated graph state for the next p30 run:
-- Suppressed view-pair comparisons (intentional divergences).
-- Promoted canonical definitions.
-- Synonym-aware lexical matching.
-
-**Read first:** `apply.py`.
-
-**Existing tools to absorb here:** none -- this is new work.
-
-**Design notes:**
-- Idempotent. Applying the same annotations twice yields the same state.
-- Annotation records are the source of truth; the graph state is derived.
-- Decisions can be revoked: a later record with `status='revoked'`
-  reverses an earlier ratification.
 
 ---
 

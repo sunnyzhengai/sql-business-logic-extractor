@@ -270,7 +270,7 @@ phase folders happens in subsequent restructure phases. Status legend:
 | `technical_logic_extractor/`      | likely superseded                              | Pending evaluation    |
 | `similar_logic_grouper/`          | split: `fingerprint.py` -> `tools/shared/`; batch.py deleted (the same finding is produced by `p30_analyze` from the unified graph) | **Done** (Phase 1g)   |
 | `auto_propose_rule/`              | possibly `p10_extract/`                        | Pending evaluation    |
-| `comment_audit/`                  | possibly `p10_extract/` or diagnostics         | Pending evaluation    |
+| `comment_audit/`                  | deleted (one-off analysis whose findings were absorbed into Tools 3/4 long ago; git history retained) | **Done** (Phase 1j)   |
 | `preflight_check/`                | `diagnostics/`                                 | Pending evaluation    |
 | `timing_audit/`                   | `diagnostics/` or `shared/`                    | Pending evaluation    |
 | `diagnostics/`                    | stays at `tools/diagnostics/`                  | Stable                |

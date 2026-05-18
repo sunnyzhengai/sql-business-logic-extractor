@@ -101,98 +101,10 @@ SAMPLE_VIEW_INPATIENT = {
 # when build_graph was promoted from this file to p20_index).
 
 
-class TestTableProjection(unittest.TestCase):
-    """The undirected weighted projection used for community detection."""
-
-    def test_projection_contains_only_table_nodes(self):
-        from tools.operate.validate_graph_pivot import (
-            build_graph, extract_table_projection,
-        )
-        g = build_graph([SAMPLE_VIEW_CLINIC, SAMPLE_VIEW_INPATIENT])
-        table_g = extract_table_projection(g)
-        for node, attrs in table_g.nodes(data=True):
-            self.assertEqual(attrs.get("ntype"), "table",
-                              f"Projection should contain only tables, found {attrs}")
-
-    def test_projection_aggregates_weights(self):
-        """If PATIENT and ZC_DX_TYPE co-occur in BOTH views, the edge weight is 2."""
-        from tools.operate.validate_graph_pivot import (
-            build_graph, extract_table_projection,
-        )
-        g = build_graph([SAMPLE_VIEW_CLINIC, SAMPLE_VIEW_INPATIENT])
-        table_g = extract_table_projection(g)
-        weight = table_g["table::PATIENT"]["table::ZC_DX_TYPE"].get("weight")
-        self.assertEqual(weight, 2,
-                          "Edge weight should equal the number of views in which "
-                          "two tables co-occur (here: 2 views)")
-
-
-class TestCommunityDetection(unittest.TestCase):
-    """Louvain results on the projection graph."""
-
-    def test_communities_partition_all_tables(self):
-        """Every table should belong to exactly one community."""
-        from tools.operate.validate_graph_pivot import (
-            build_graph, extract_table_projection, detect_table_communities,
-        )
-        g = build_graph([SAMPLE_VIEW_CLINIC, SAMPLE_VIEW_INPATIENT])
-        table_g = extract_table_projection(g)
-        communities = detect_table_communities(table_g)
-        # The union of all communities should equal the set of table nodes.
-        union = set()
-        for community in communities:
-            union |= community
-        all_tables = set(table_g.nodes)
-        self.assertEqual(union, all_tables)
-
-
-# NOTE: infrastructure-view filtering is tested in
-# tools.shared.tests.test_view_filter (moved there in Phase 2a).
-# The end-to-end test below exercises the filter via run_validation.
-
-
-class TestBridgeDetection(unittest.TestCase):
-    """Tables with very high degree should be classified as bridges."""
-
-    def test_high_degree_table_is_flagged_as_bridge(self):
-        """A constructed graph where PATIENT connects to all other tables
-        should classify PATIENT as a bridge."""
-        import networkx as nx
-        from tools.operate.validate_graph_pivot import detect_bridge_tables
-
-        g = nx.Graph()
-        g.add_node("table::PATIENT", ntype="table", label="PATIENT")
-        for i in range(10):
-            g.add_node(f"table::T{i}", ntype="table", label=f"T{i}")
-            g.add_edge("table::PATIENT", f"table::T{i}", weight=1)
-        # T0..T9 don't connect to each other; PATIENT is the only hub.
-        bridges = detect_bridge_tables(g, percentile=90.0)
-        self.assertIn("table::PATIENT", bridges)
-
-
-class TestPrimaryCommunityAssignment(unittest.TestCase):
-    """Each view should be assigned to exactly one primary community."""
-
-    def test_view_with_tables_in_two_communities_has_one_primary(self):
-        from tools.operate.validate_graph_pivot import (
-            build_graph, assign_views_to_communities,
-        )
-        g = build_graph([SAMPLE_VIEW_CLINIC])
-        # Manually construct two communities: one containing PATIENT+PAT_ENC,
-        # one containing PAT_ENC_DX+ZC_DX_TYPE. The view touches both, but
-        # should be assigned a single primary.
-        communities = [
-            {"table::PATIENT", "table::PAT_ENC"},
-            {"table::PAT_ENC_DX", "table::ZC_DX_TYPE"},
-        ]
-        primary, spans = assign_views_to_communities(g, communities)
-        # Exactly one community should claim VW_CLINIC_DX as primary.
-        primary_count = sum(
-            1 for views in primary.values() if "VW_CLINIC_DX" in views
-        )
-        self.assertEqual(primary_count, 1)
-        # And the spans list should record that it touches both.
-        self.assertEqual(spans["VW_CLINIC_DX"], [0, 1])
+# NOTE: analysis tests (projection, bridges, communities,
+# primary-community) live in tools.p30_analyze.tests.test_p30_analyze
+# (moved there in Phase 2c). The end-to-end orchestration test below
+# exercises them all together via run_validation.
 
 
 class TestEndToEndOrchestration(unittest.TestCase):

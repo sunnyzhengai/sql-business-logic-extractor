@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tool 13 -- dataset extractor batch driver.
+"""Dataset extractor entry-point.
 
 Reads a v3 corpus.jsonl, walks each view's scope tree, and emits two
 files describing each view as a chain of datasets (one per scope):
@@ -11,14 +11,22 @@ files describing each view as a chain of datasets (one per scope):
 
 Notebook usage:
 
-    from tools.dataset_extract.batch import extract_datasets
+    from tools.p40_synthesize.dataset_extract import extract_datasets
     extract_datasets(
         corpus_path='/lakehouse/default/Files/outputs/corpus.jsonl',
         output_dir='/lakehouse/default/Files/outputs/datasets',
     )
 
 CLI:
-    python -m tools.dataset_extract.batch <corpus.jsonl> [-o out_dir]
+    python -m tools.p40_synthesize.dataset_extract <corpus.jsonl> [-o out_dir]
+
+Historical note
+---------------
+This module was previously `tools.dataset_extract.batch` ("Tool 13 --
+dataset extractor"). It was renamed to `tools.p40_synthesize.dataset_extract`
+as part of the 2026-05 codebase restructure (see `tools/PHASES.md`).
+The pure-function renderer lives at `tools.p40_synthesize.dataset_render`
+(formerly `tools.dataset_extract.render`).
 """
 
 from __future__ import annotations
@@ -28,7 +36,11 @@ import json
 import sys
 from pathlib import Path
 
-from .render import (
+# Relative import: dataset_render.py lives next to this file inside
+# p40_synthesize. Renamed from the original `render.py` so the file name
+# is descriptive at the phase-folder level (matches the cohort_extract /
+# cohort_render pairing pattern).
+from .dataset_render import (
     datasets_to_json_dict,
     datasets_to_markdown,
     view_to_datasets,

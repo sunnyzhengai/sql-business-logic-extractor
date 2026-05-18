@@ -1,4 +1,21 @@
-"""Render scope tree as a chain of datasets (pure functions, no IO)."""
+"""Render scope tree as a chain of datasets (pure functions, no IO).
+
+For each scope (CTE / derived / subquery / main), produce a "dataset"
+record: name (humanized scope id), kind, base_datasets (upstream scope
+ids), reads_tables, data_columns (with English from business_description),
+and filters (with English translations). The result is a per-view
+dataflow chain readable by stewards or BI devs.
+
+Historical note
+---------------
+This module was previously `tools.dataset_extract.render`. It was
+renamed to `tools.p40_synthesize.dataset_render` as part of the
+2026-05 codebase restructure (see `tools/PHASES.md`). The rename --
+from generic `render.py` to the more specific `dataset_render.py` --
+is so each file at the p40_synthesize root has a descriptive name when
+sitting next to peers like `cohort_render.py`. The entry-point lives at
+`tools.p40_synthesize.dataset_extract` (formerly `tools.dataset_extract.batch`).
+"""
 
 from __future__ import annotations
 

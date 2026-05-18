@@ -265,7 +265,7 @@ phase folders happens in subsequent restructure phases. Status legend:
 | `inventory_manifest/`             | `p40_synthesize/`                              | Pending migration     |
 | `report_description_generator/`   | `p40_synthesize/`                              | Pending evaluation    |
 | `column_lineage_extractor/`       | `p20_index/`                                   | Pending evaluation    |
-| `dataset_extract/`                | TBD                                            | Pending evaluation    |
+| `dataset_extract/`                | `p40_synthesize/dataset_extract.py` + `dataset_render.py` (per-view dataflow chains, same pattern as cohort_extract) | **Done** (Phase 1i)   |
 | `business_logic_extractor/`       | likely superseded                              | Pending evaluation    |
 | `technical_logic_extractor/`      | likely superseded                              | Pending evaluation    |
 | `similar_logic_grouper/`          | split: `fingerprint.py` -> `tools/shared/`; batch.py deleted (the same finding is produced by `p30_analyze` from the unified graph) | **Done** (Phase 1g)   |

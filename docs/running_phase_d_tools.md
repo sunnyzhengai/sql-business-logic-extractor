@@ -160,7 +160,7 @@ After you've built `corpus.jsonl`, render each view's CTE / subquery / main scop
 ### Fabric notebook
 
 ```python
-from tools.dataset_extract.batch import extract_datasets
+from tools.p40_synthesize.dataset_extract import extract_datasets
 
 extract_datasets(
     corpus_path='/lakehouse/default/Files/outputs/corpus.jsonl',
@@ -171,7 +171,7 @@ extract_datasets(
 ### CLI
 
 ```bash
-python -m tools.dataset_extract.batch /path/to/corpus.jsonl -o /path/to/datasets
+python -m tools.p40_synthesize.dataset_extract /path/to/corpus.jsonl -o /path/to/datasets
 ```
 
 ### Outputs (in `output_dir`)

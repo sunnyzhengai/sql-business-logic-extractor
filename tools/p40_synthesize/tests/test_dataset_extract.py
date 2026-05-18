@@ -9,8 +9,8 @@ CLARITY_SER.
 import json
 from pathlib import Path
 
-from tools.dataset_extract.batch import extract_datasets
-from tools.dataset_extract.render import (
+from tools.p40_synthesize.dataset_extract import extract_datasets
+from tools.p40_synthesize.dataset_render import (
     Dataset,
     datasets_to_json_dict,
     datasets_to_markdown,

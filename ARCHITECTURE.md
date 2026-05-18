@@ -78,6 +78,83 @@ For details on each phase, see `tools/PHASES.md`.
 
 ---
 
+## What this delivers (deliverables by audience)
+
+The five-phase pipeline organizes into **three conceptual layers**,
+plus an `operate/` sidecar. Each layer produces specific artifacts
+for specific audiences:
+
+### Layer 1 -- CATALOG: "what does this view do?"
+**Audience:** BI developers, analysts, anyone trying to understand a
+specific existing SQL view.
+
+**Artifacts:**
+- `corpus.jsonl` -- structured per-view parse (one JSON object per view)
+  from `p10_extract`. Source of truth for everything downstream.
+- Lexical term records (`terms.json` + `terms.csv`) from
+  `p20_index/term_extraction`. Per-column lexical anchors used by
+  search and by p30 analysis.
+- Per-view cohort definitions (`cohorts.json` + `cohorts.md`) from
+  `p40_synthesize/cohort_extract`. *"What population does this view
+  define? In plain English."*
+- Per-view dataset chains (`datasets.json` + `datasets.md`) from
+  `p40_synthesize/dataset_extract`. *"Scope-by-scope dataflow with
+  English column descriptions."*
+- The unified networkx graph (in-memory) from `p20_index/graph_builder`.
+  The cross-view index built ON TOP of corpus.jsonl.
+
+The legacy 4-tool product line (Tools 1-4 -- column lineage, technical
+logic, business logic, report description) is also part of CATALOG,
+serving the same audience. It runs alongside (not inside) the pipeline
+and parses SQL via `sql_logic_extractor/`.
+
+### Layer 2 -- GOVERN: "what's going on across all our views?"
+**Audience:** Data stewards, governance team, IT leadership.
+
+**Artifacts:**
+- Community findings (`communities.md` + per-community HTMLs) from
+  `p30_analyze` -> `p50_present`. *"Which views cluster into subject
+  areas? Which are cross-domain?"*
+- Variance findings (*planned*) from `p30_analyze` -> `p40_synthesize`.
+  *"How many distinct definitions of 'pregnant patient' exist?"*
+- Term disagreement findings (*planned*). *"Same name, different
+  meaning across views -- which need to be renamed?"*
+- Per-community steward packets (*planned*) from `p40_synthesize`.
+  *"What do we discuss in this 30-minute steward session?"*
+- Recruitment lists (*planned*). *"Which BI developers wrote the
+  variants? Which should be in the steward conversation?"*
+
+These outputs are evidence packs. Stewards consume them, then ratify
+the canonical definitions IN COLLIBRA -- not in this codebase.
+
+### Layer 3 -- VISUALIZE: "show me the picture"
+**Audience:** Everyone, but different visuals for different audiences.
+
+**Artifacts** from `p50_present` (+ `operate/validate_graph_pivot`):
+- Full-corpus graph (`graph.html`) -- the governance-leverage overview.
+- Per-community drill-down HTMLs -- focused subject-area views.
+- (Planned) Side-by-side overlay -- multiple views' subgraphs aligned
+  on shared anchors. The steward-meeting artifact.
+- (Planned) Static slide-ready images for exec decks.
+
+All HTML is self-contained (CDN-free) so it works offline on locked-down
+healthcare laptops.
+
+### Operate sidecar: "is the pipeline healthy?"
+**Audience:** BI devs and admins running the system; parser developers.
+
+**Artifacts** in `tools/operate/`:
+- Parse-health triage: `preflight_check.py`, `diagnose_parse_failure.py`
+- Parser maintenance: `auto_propose_rule.py` (+ hypotheses bank)
+- Performance audits: `timing_audit.py`
+- Inventory + manifests: `inventory_manifest.py` (used tables / ZC / columns)
+- Pipeline validation: `validate_graph_pivot.py`, `check_zc_lookups.py`
+
+These do not participate in the pipeline. They run on-demand to keep
+the system healthy.
+
+---
+
 ## Reading order for a new contributor
 
 1. **This file** (`ARCHITECTURE.md`) -- top-level orientation.

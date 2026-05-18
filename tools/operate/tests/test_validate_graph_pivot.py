@@ -90,21 +90,10 @@ SAMPLE_VIEW_INPATIENT = {
 }
 
 
-class TestCorpusLoading(unittest.TestCase):
-    """Header and view parsing from a corpus.jsonl file."""
-
-    def test_load_corpus_separates_header_and_views(self):
-        from tools.operate.validate_graph_pivot import load_corpus
-        with tempfile.TemporaryDirectory() as d:
-            corpus_path = Path(d) / "corpus.jsonl"
-            with corpus_path.open("w", encoding="utf-8") as f:
-                f.write(json.dumps({"schema_version": 3, "n_views": 2}) + "\n")
-                f.write(json.dumps(SAMPLE_VIEW_CLINIC) + "\n")
-                f.write(json.dumps(SAMPLE_VIEW_INPATIENT) + "\n")
-            header, views = load_corpus(corpus_path)
-        self.assertEqual(header.get("n_views"), 2)
-        self.assertEqual(len(views), 2)
-        self.assertEqual(views[0]["view_name"], "VW_CLINIC_DX")
+# NOTE: corpus loading is tested in tools.shared.tests.test_corpus_io
+# (moved there in Phase 2a). The `load_corpus` function lives in
+# tools.shared.corpus_io and is imported here for the end-to-end test
+# below.
 
 
 class TestGraphConstruction(unittest.TestCase):
@@ -204,46 +193,9 @@ class TestCommunityDetection(unittest.TestCase):
         self.assertEqual(union, all_tables)
 
 
-class TestInfrastructureViewFiltering(unittest.TestCase):
-    """Views matching infrastructure patterns should be excluded."""
-
-    def test_collibra_in_name_is_filtered(self):
-        from tools.operate.validate_graph_pivot import filter_business_views
-        views = [
-            SAMPLE_VIEW_CLINIC,
-            {"view_name": "VW_COLLIBRA_INGEST", "scopes": []},
-        ]
-        kept, excluded = filter_business_views(views)
-        self.assertEqual(len(kept), 1)
-        self.assertEqual(kept[0]["view_name"], "VW_CLINIC_DX")
-        self.assertEqual(excluded, ["VW_COLLIBRA_INGEST"])
-
-    def test_views_reading_from_sys_schema_are_filtered(self):
-        from tools.operate.validate_graph_pivot import filter_business_views
-        views = [
-            {
-                "view_name": "VW_TABLE_INVENTORY",
-                "scopes": [{
-                    "id": "main", "kind": "main",
-                    "reads_from_tables": ["sys.tables"],
-                    "joins": [], "reads_from_scopes": [],
-                    "columns": [], "filters": [],
-                }],
-            },
-        ]
-        kept, excluded = filter_business_views(views)
-        self.assertEqual(len(kept), 0)
-        self.assertEqual(excluded, ["VW_TABLE_INVENTORY"])
-
-    def test_custom_exclude_patterns_override_default(self):
-        from tools.operate.validate_graph_pivot import filter_business_views
-        views = [
-            SAMPLE_VIEW_CLINIC,           # name: VW_CLINIC_DX -- shouldn't match
-            {"view_name": "VW_FOO", "scopes": []},
-        ]
-        kept, excluded = filter_business_views(views, name_patterns=["foo"])
-        self.assertEqual(len(kept), 1)
-        self.assertEqual(excluded, ["VW_FOO"])
+# NOTE: infrastructure-view filtering is tested in
+# tools.shared.tests.test_view_filter (moved there in Phase 2a).
+# The end-to-end test below exercises the filter via run_validation.
 
 
 class TestBridgeDetection(unittest.TestCase):

@@ -84,131 +84,24 @@ The output directory will be created if it doesn't exist.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Iterable
 
-
-# ============================================================================
-# SECTION 1 -- Corpus loading
-# ============================================================================
-#
-# corpus.jsonl is a JSON-lines file (each line is one JSON object). The first
-# line is a HEADER object describing the schema version and number of views.
-# Every subsequent line is one ViewV1 dict.
-
-
-def load_corpus(corpus_path: str | Path) -> tuple[dict, list[dict]]:
-    """Read a corpus.jsonl file and split it into (header, list-of-views).
-
-    The header is the first line and contains metadata about the corpus
-    (schema version, view count). We do not strictly need it for graph
-    construction, but it's useful for the validation report.
-
-    Returns
-    -------
-    header  : dict  -- the first-line metadata object
-    views   : list  -- one ViewV1 dict per remaining line
-    """
-    path = Path(corpus_path)
-    header: dict = {}
-    views: list[dict] = []
-
-    # Open with UTF-8 because corpora may contain SSMS-exported text. Python's
-    # default `open()` mode is text mode, which gives us strings back.
-    with path.open(encoding="utf-8") as f:
-        first_line = f.readline().strip()
-        if first_line:
-            # The header line is regular JSON; loads() parses a JSON string.
-            header = json.loads(first_line)
-
-        for line in f:
-            line = line.strip()
-            if not line:
-                # Skip blank lines defensively; jsonl files shouldn't have them
-                # but real-world files sometimes do.
-                continue
-            views.append(json.loads(line))
-
-    return header, views
-
-
-# ============================================================================
-# SECTION 1B -- Infrastructure-view filtering
-# ============================================================================
-#
-# Views that exist purely to extract metadata for catalogs (Collibra, Atlas,
-# Purview, ...) join to dozens of tables to harvest schema/usage info. They
-# are not business logic. If we leave them in, they pollute the community
-# detection by connecting tables that have no business-domain relationship.
-
-
-# Default substrings (case-insensitive) that mark an infrastructure view.
-# Users can append more via the --exclude-pattern CLI argument.
-DEFAULT_INFRASTRUCTURE_PATTERNS: tuple[str, ...] = (
-    "collibra",
-    "metadata",
-    "catalog",
-    "ingest",
+# Shared utilities (extracted from this file in Phase 2a of the
+# 2026-05 restructure -- see Historical note in each module).
+from tools.shared.corpus_io import load_corpus
+from tools.shared.table_names import (
+    bare_table_name,
+    is_cte_or_scope_reference,
+    is_zc_table,
 )
-
-# System-schema prefixes -- any view that reads from one of these is almost
-# certainly infrastructure. We match on the SQL-qualified source name.
-SYSTEM_SCHEMA_PREFIXES: tuple[str, ...] = (
-    "sys.",
-    "information_schema.",
-    "INFORMATION_SCHEMA.",
+from tools.shared.view_filter import (
+    DEFAULT_INFRASTRUCTURE_PATTERNS,
+    filter_business_views,
+    is_infrastructure_view,
 )
-
-
-def is_infrastructure_view(view: dict, name_patterns: Iterable[str]) -> bool:
-    """Return True if a view looks like metadata/catalog infrastructure.
-
-    Two heuristics:
-      1. View name contains one of the configured substring patterns
-         (case-insensitive match).
-      2. Any scope of the view reads from a system schema (sys.*, etc.).
-
-    These are HEURISTICS. They will both miss some infrastructure views and
-    occasionally catch a legitimate business view. The CLI lets users add
-    or remove patterns to tune for their corpus.
-    """
-    name_lower = (view.get("view_name") or "").lower()
-    for pat in name_patterns:
-        if pat and pat.lower() in name_lower:
-            return True
-
-    for scope in view.get("scopes") or []:
-        for table_name in scope.get("reads_from_tables") or []:
-            t_lower = (table_name or "").lower()
-            for prefix in SYSTEM_SCHEMA_PREFIXES:
-                if t_lower.startswith(prefix.lower()):
-                    return True
-    return False
-
-
-def filter_business_views(views: list[dict],
-                            name_patterns: Iterable[str] | None = None,
-                            ) -> tuple[list[dict], list[str]]:
-    """Split a view list into (business_views, excluded_view_names).
-
-    The excluded list is reported in validation_report.md so the user can
-    verify nothing important was filtered out by accident.
-    """
-    if name_patterns is None:
-        name_patterns = DEFAULT_INFRASTRUCTURE_PATTERNS
-    patterns = list(name_patterns)
-
-    kept: list[dict] = []
-    excluded: list[str] = []
-    for v in views:
-        if is_infrastructure_view(v, patterns):
-            excluded.append(v.get("view_name") or "?")
-        else:
-            kept.append(v)
-    return kept, excluded
 
 
 # ============================================================================
@@ -219,41 +112,9 @@ def filter_business_views(views: list[dict],
 # strings (e.g., "table::PATIENT", "view::VW_FOO") to ensure uniqueness across
 # multiple views being merged into the same graph. Tables are GLOBAL: one node
 # represents PATIENT regardless of how many views touch it.
-
-
-def _bare_table_name(qualified_name: str) -> str:
-    """Strip schema/database prefixes from a fully-qualified table name.
-
-    Examples:
-        EPIC.PATIENT     -> PATIENT
-        Clarity.dbo.ZC_X -> ZC_X
-        PATIENT          -> PATIENT
-        cte:foo          -> cte:foo   (no change; we filter these out elsewhere)
-    """
-    if not qualified_name:
-        return ""
-    # rsplit splits from the right; "Clarity.dbo.X".rsplit(".", 1) -> ["Clarity.dbo", "X"]
-    # We take the last segment regardless of how many dots there were.
-    return qualified_name.split(".")[-1].strip()
-
-
-def _is_zc_table(bare_name: str) -> bool:
-    """Heuristic: ZC_* tables are Epic code-lookup tables (decorative).
-
-    These tables are 'leaves' in the join graph -- nothing joins from them
-    onward. They contribute attributes (status labels, category names) without
-    shaping the cohort. We tag them so we can visually distinguish them.
-    """
-    return bare_name.upper().startswith("ZC_")
-
-
-def _is_cte_or_scope_reference(name: str) -> bool:
-    """Detect scope references that should NOT be treated as table nodes.
-
-    The corpus uses prefixes like 'cte:X' or 'derived:Y' for non-table scopes.
-    A real table name will never contain a colon, so this is a safe filter.
-    """
-    return ":" in (name or "")
+#
+# Helpers `bare_table_name`, `is_zc_table`, and `is_cte_or_scope_reference`
+# live in `tools.shared.table_names` (extracted in Phase 2a of the restructure).
 
 
 def build_graph(views: Iterable[dict]):
@@ -342,8 +203,8 @@ def _add_scope_to_graph(g, view_name: str, view_id: str, scope: dict,
     scope_table_set: set[str] = set()
 
     for table_name in scope.get("reads_from_tables") or []:
-        bare = _bare_table_name(table_name)
-        if not bare or _is_cte_or_scope_reference(bare):
+        bare = bare_table_name(table_name)
+        if not bare or is_cte_or_scope_reference(bare):
             # Skip CTE/scope references -- they're handled by REFERENCES_SCOPE below.
             continue
         if bare in scope_names_in_view:
@@ -370,8 +231,8 @@ def _add_scope_to_graph(g, view_name: str, view_id: str, scope: dict,
     from_table = next(iter(scope_table_set), None)  # arbitrary "first" element
 
     for join in scope.get("joins") or []:
-        right = _bare_table_name(join.get("right_table") or "")
-        if not right or _is_cte_or_scope_reference(right):
+        right = bare_table_name(join.get("right_table") or "")
+        if not right or is_cte_or_scope_reference(right):
             continue
         if right in scope_names_in_view:
             # Joining to a CTE/scope by bare name (the corpus drops the
@@ -436,8 +297,8 @@ def _add_scope_to_graph(g, view_name: str, view_id: str, scope: dict,
             if len(parts) != 2:
                 continue
             tbl, _ref_col = parts
-            bare = _bare_table_name(tbl)
-            if not bare or _is_cte_or_scope_reference(bare):
+            bare = bare_table_name(tbl)
+            if not bare or is_cte_or_scope_reference(bare):
                 continue
             table_id = _ensure_table_node(g, bare)
             g.add_edge(col_node_id, table_id,
@@ -468,7 +329,7 @@ def _ensure_table_node(g, bare_table: str) -> str:
     """
     table_id = f"table::{bare_table}"
     if table_id not in g:
-        is_zc = _is_zc_table(bare_table)
+        is_zc = is_zc_table(bare_table)
         g.add_node(
             table_id,
             ntype="table",

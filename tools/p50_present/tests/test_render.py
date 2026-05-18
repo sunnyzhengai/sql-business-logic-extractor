@@ -79,9 +79,9 @@ class TestRender(unittest.TestCase):
         # Build a graph using p20_index, then render with p50_present.
         # This is the natural cross-phase test: p50_present consumes graphs
         # produced by p20_index.
-        from tools.p20_index.graph_builder import build_view_graph
+        from tools.p20_index.graph_builder import build_graph
         from tools.p50_present.render import render_pyvis
-        g = build_view_graph(SAMPLE_VIEW_A)
+        g = build_graph([SAMPLE_VIEW_A])
         with tempfile.TemporaryDirectory() as d:
             out = Path(d) / "view.html"
             render_pyvis(g, out)
@@ -90,9 +90,9 @@ class TestRender(unittest.TestCase):
             self.assertIn("VW_PATIENT_COVERAGE", txt)
 
     def test_export_graphml_writes_xml(self):
-        from tools.p20_index.graph_builder import build_view_graph
+        from tools.p20_index.graph_builder import build_graph
         from tools.p50_present.render import export_graphml
-        g = build_view_graph(SAMPLE_VIEW_A)
+        g = build_graph([SAMPLE_VIEW_A])
         with tempfile.TemporaryDirectory() as d:
             out = Path(d) / "view.graphml"
             export_graphml(g, out)

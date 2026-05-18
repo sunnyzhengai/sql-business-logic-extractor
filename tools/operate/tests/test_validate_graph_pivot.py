@@ -96,56 +96,9 @@ SAMPLE_VIEW_INPATIENT = {
 # below.
 
 
-class TestGraphConstruction(unittest.TestCase):
-    """Schema invariants on the built graph."""
-
-    def test_build_graph_produces_all_node_types(self):
-        from tools.operate.validate_graph_pivot import build_graph
-        g = build_graph([SAMPLE_VIEW_CLINIC, SAMPLE_VIEW_INPATIENT])
-        node_types = {attrs.get("ntype") for _, attrs in g.nodes(data=True)}
-        self.assertIn("view", node_types)
-        self.assertIn("scope", node_types)
-        self.assertIn("table", node_types)
-        self.assertIn("column", node_types)
-
-    def test_table_nodes_are_global_across_views(self):
-        """PATIENT should be a single node referenced by both views."""
-        from tools.operate.validate_graph_pivot import build_graph
-        g = build_graph([SAMPLE_VIEW_CLINIC, SAMPLE_VIEW_INPATIENT])
-        patient_nodes = [n for n, a in g.nodes(data=True)
-                          if a.get("ntype") == "table" and a.get("label") == "PATIENT"]
-        self.assertEqual(len(patient_nodes), 1,
-                          "PATIENT should be a single GLOBAL node, not duplicated per view")
-
-    def test_zc_tables_are_flagged(self):
-        from tools.operate.validate_graph_pivot import build_graph
-        g = build_graph([SAMPLE_VIEW_CLINIC])
-        zc_nodes = [a for _, a in g.nodes(data=True)
-                     if a.get("ntype") == "table" and a.get("is_zc")]
-        self.assertEqual(len(zc_nodes), 1)
-        self.assertEqual(zc_nodes[0]["label"], "ZC_DX_TYPE")
-
-    def test_join_edges_carry_view_and_scope_provenance(self):
-        """Each JOIN edge must record which view and scope produced it."""
-        from tools.operate.validate_graph_pivot import build_graph
-        g = build_graph([SAMPLE_VIEW_CLINIC])
-        join_edges = [(u, v, a) for u, v, a in g.edges(data=True)
-                        if a.get("relation") == "JOIN"]
-        self.assertGreater(len(join_edges), 0)
-        for u, v, attrs in join_edges:
-            self.assertEqual(attrs.get("view"), "VW_CLINIC_DX")
-            self.assertEqual(attrs.get("scope"), "main")
-            self.assertIn("join_type", attrs)
-
-    def test_co_occurrence_edges_link_all_table_pairs_in_scope(self):
-        """Within one scope, every pair of tables should have a CO_OCCURS edge."""
-        from tools.operate.validate_graph_pivot import build_graph
-        g = build_graph([SAMPLE_VIEW_CLINIC])
-        co_edges = [(u, v) for u, v, a in g.edges(data=True)
-                     if a.get("relation") == "CO_OCCURS_IN_SCOPE"]
-        # The clinic view has 4 tables: PATIENT, PAT_ENC, PAT_ENC_DX, ZC_DX_TYPE.
-        # That's C(4,2) = 6 unordered pairs, expressed as 6 directed edges.
-        self.assertEqual(len(co_edges), 6)
+# NOTE: graph-construction tests live in
+# tools.p20_index.tests.test_graph_builder (moved there in Phase 2b
+# when build_graph was promoted from this file to p20_index).
 
 
 class TestTableProjection(unittest.TestCase):

@@ -17,3 +17,6 @@ graphify-out/graph.html
 .env
 .env.*
 
+
+# local samples and scratch notes (not source of truth)
+my_notes/

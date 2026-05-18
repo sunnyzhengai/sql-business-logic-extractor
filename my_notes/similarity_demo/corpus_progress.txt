@@ -1,6 +1,0 @@
-# extract_corpus started at 2026-05-09 14:03:28
-# input_dir: /Users/admin/sql-logic-extractor/my_notes/similarity_demo/views
-# 2 view(s) to process
-[1/2] BI_COMPLEX  (0.1s)  scopes=7 main_cols=19 inv=45
-[2/2] V_ACTIVE_MEMBERS  (0.0s)  scopes=2 main_cols=1 inv=49
-# finished at 2026-05-09 14:03:28 after 0.1s

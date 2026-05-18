@@ -1,5 +1,0 @@
-# extract_corpus started at 2026-05-07 09:22:22
-# input_dir: /Users/admin/sql-logic-extractor/my_notes/bi_complex_sample/views_input
-# 1 view(s) to process
-[1/1] BI_COMPLEX  (0.1s)  scopes=7 main_cols=19 inv=45
-# finished at 2026-05-07 09:22:22 after 0.1s

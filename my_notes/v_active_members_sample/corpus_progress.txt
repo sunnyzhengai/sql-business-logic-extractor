@@ -1,5 +1,0 @@
-# extract_corpus started at 2026-05-07 10:06:31
-# input_dir: /Users/admin/sql-logic-extractor/my_notes/v_active_members_sample/views_input
-# 1 view(s) to process
-[1/1] V_ACTIVE_MEMBERS  (0.1s)  scopes=2 main_cols=1 inv=49
-# finished at 2026-05-07 10:06:31 after 0.1s

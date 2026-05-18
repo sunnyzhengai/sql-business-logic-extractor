@@ -44,7 +44,7 @@ for mod in list(sys.modules):
     if mod.startswith('sql_logic_extractor') or mod.startswith('tools'):
         del sys.modules[mod]
 
-from tools.timing_audit.batch import audit_timing
+from tools.operate.timing_audit import audit_timing
 audit_timing(
     input_dir='/lakehouse/default/Files/views',
     output_csv='/lakehouse/default/Files/outputs/timing_audit.csv',

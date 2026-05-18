@@ -1,0 +1,13 @@
+-- Paste between INSERT INTO @TableList (TABLE_NAME) VALUES and ;
+    ('REFERRAL'),
+    ('REFERRAL_BED_DAY'),
+    ('REFERRAL_HIST'),
+    ('REFERRAL_HISTORY'),
+    ('RFL_HX_ACT'),
+    ('RFL_HX_ITEM_CHANGE'),
+    ('RFL_HX_NEW_VAL'),
+    ('V_CCHP_AuthHeader_Fact'),
+    ('V_CCHP_UMAuthorizationHistory_Fact'),
+    ('V_CCHP_UMAuthorizationRequestStatusHistory_Fact'),
+    ('V_CCHP_UMAuthorizationRequest_Fact'),
+    ('V_CCHP_UMAuthorization_Fact')

@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "n_views": 2,
+  "views": [
+    {
+      "view_name": "BI_COMPLEX",
+      "driver": "V_CCHP_AuthHeader_Fact",
+      "all_tables": [
+        "REFERRAL",
+        "REFERRAL_BED_DAY",
+        "REFERRAL_HIST",
+        "REFERRAL_HISTORY",
+        "RFL_HX_ACT",
+        "RFL_HX_ITEM_CHANGE",
+        "RFL_HX_NEW_VAL",
+        "V_CCHP_AuthHeader_Fact",
+        "V_CCHP_UMAuthorizationHistory_Fact",
+        "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+        "V_CCHP_UMAuthorizationRequest_Fact",
+        "V_CCHP_UMAuthorization_Fact"
+      ],
+      "joined_set": [
+        "REFERRAL",
+        "REFERRAL_BED_DAY",
+        "REFERRAL_HIST",
+        "REFERRAL_HISTORY",
+        "RFL_HX_ACT",
+        "RFL_HX_ITEM_CHANGE",
+        "RFL_HX_NEW_VAL",
+        "V_CCHP_UMAuthorizationHistory_Fact",
+        "V_CCHP_UMAuthorizationRequestStatusHistory_Fact",
+        "V_CCHP_UMAuthorizationRequest_Fact",
+        "V_CCHP_UMAuthorization_Fact"
+      ],
+      "join_types": [
+        {
+          "table": "REFERRAL",
+          "type": "INNER"
+        },
+        {
+          "table": "REFERRAL_HISTORY",
+          "type": "INNER"
+        },
+        {
+          "table": "RFL_HX_ACT",
+          "type": "INNER"
+        },
+        {
+          "table": "RFL_HX_ITEM_CHANGE",
+          "type": "INNER"
+        },
+        {
+          "table": "RFL_HX_NEW_VAL",
+          "type": "INNER"
+        },
+        {
+          "table": "V_CCHP_UMAuthorizationHistory_Fact",
+          "type": "INNER"
+        },
+        {
+          "table": "V_CCHP_UMAuthorization_Fact",
+          "type": "INNER"
+        }
+      ],
+      "n_projections": 17,
+      "projections": [
+        "src:RFL_HX_ACT.ACTION_DTTM",
+        "src:RFL_HX_ITEM_CHANGE.ITEM_CHANGE",
+        "src:RFL_HX_NEW_VAL.NEW_VALUE_EXTERNAL",
+        "src:V_CCHP_AuthHeader_Fact.Coverageid",
+        "src:V_CCHP_AuthHeader_Fact.EntryDate",
+        "src:V_CCHP_AuthHeader_Fact.ReferralPriority",
+        "src:V_CCHP_AuthHeader_Fact.ReferralProviderId",
+        "src:V_CCHP_AuthHeader_Fact.Referralid",
+        "src:V_CCHP_AuthHeader_Fact.ReferringProviderId",
+        "src:V_CCHP_AuthHeader_Fact.StartDate",
+        "src:V_CCHP_UMAuthorizationHistory_Fact.CHANGED_DTTM",
+        "src:V_CCHP_UMAuthorizationHistory_Fact.UM_DENIED_RSN",
+        "src:V_CCHP_UMAuthorizationRequest_Fact.AUG_RECEIVED_DTTM",
+        "src:V_CCHP_UMAuthorizationRequest_Fact.AUTH_REQUEST_ID",
+        "src:V_CCHP_UMAuthorizationRequest_Fact.LOB_ID",
+        "src:V_CCHP_UMAuthorizationRequest_Fact.RFL_TYPE_C",
+        "src:V_CCHP_UMAuthorization_Fact.UM_AUTH_REQUEST_ID"
+      ],
+      "n_filters": 8,
+      "filters": [
+        "((RFLHIC.ITEM_CHANGE = 18007 AND NOT RFLHNV.NEW_VAL IS NULL) OR (RFLHIC.ITEM_CHANGE = 18003 AND RFLHNV.NEW_VAL = 1640000010) OR (RFLHIC.ITEM_CHANGE = 50 AND RFLHNV.NEW_VAL = '5') OR (RFLHIC.ITEM_CHANGE = 2081 AND RFLHNV.NEW_VAL = '2') OR (RFLHIC.ITEM_CHANGE = 2080 AND NOT RFLHNV.NEW_VAL IS NULL))",
+        "0 = 0",
+        "EXISTS(SELECT 1 FROM Clarity.dbo.REFERRAL_HIST AS RFLH WHERE RFLH.REFERRAL_ID = RFL.Referralid AND RFLH.NEW_RFL_STATUS_C = 5 UNION ALL SELECT 1 FROM Clarity.dbo.REFERRAL_BED_DAY AS RFLBD WHERE RFL.Referralid = RFLBD.REFERRAL_ID AND RFLBD.BED_DAY_STATUS_C = 2)",
+        "EXISTS(SELECT 1 FROM CookClarity.Reporting.V_CCHP_UMAuthorizationRequestStatusHistory_Fact AS aughx WHERE aughx.AUTH_REQUEST_ID = aug.AUTH_REQUEST_ID AND aughx.UM_STATUS_C = 5)",
+        "RFLBD.BED_DAY_STATUS_C = 2",
+        "RFLH.NEW_RFL_STATUS_C = 5",
+        "RFLHIC.ITEM_CHANGE IN (50, 18007, 18003, 2081, 2080)",
+        "authx.UM_STATUS = 'Denied' OR (authx.UM_STATUS = 'Pending Review' AND authx.UM_PENDING_RSN = 'HP Request for Information')"
+      ]
+    },
+    {
+      "view_name": "V_ACTIVE_MEMBERS",
+      "driver": "COVERAGE",
+      "all_tables": [
+        "CLARITY_EPP",
+        "CLARITY_LOB",
+        "CLARITY_LOC",
+        "CLARITY_SER",
+        "COVERAGE",
+        "COVERAGE_MEMBER_LIST",
+        "CVG_LOC_PCP",
+        "CVG_SUBSCR_ADDR",
+        "PATIENT",
+        "PLAN_GRP_BEN_PLAN",
+        "VALID_PATIENT",
+        "ZC_SUBSC_RACE",
+        "ZC_TAX_STATE"
+      ],
+      "joined_set": [
+        "CLARITY_EPP",
+        "CLARITY_LOB",
+        "CLARITY_LOC",
+        "CLARITY_SER",
+        "COVERAGE_MEMBER_LIST",
+        "CVG_LOC_PCP",
+        "CVG_SUBSCR_ADDR",
+        "PATIENT",
+        "PLAN_GRP_BEN_PLAN",
+        "VALID_PATIENT",
+        "ZC_SUBSC_RACE",
+        "ZC_TAX_STATE"
+      ],
+      "join_types": [
+        {
+          "table": "CLARITY_EPP",
+          "type": "INNER"
+        },
+        {
+          "table": "CLARITY_LOB",
+          "type": "INNER"
+        },
+        {
+          "table": "CLARITY_LOC",
+          "type": "LEFT"
+        },
+        {
+          "table": "CLARITY_SER",
+          "type": "LEFT"
+        },
+        {
+          "table": "COVERAGE_MEMBER_LIST",
+          "type": "INNER"
+        },
+        {
+          "table": "CVG_LOC_PCP",
+          "type": "LEFT"
+        },
+        {
+          "table": "CVG_SUBSCR_ADDR",
+          "type": "LEFT"
+        },
+        {
+          "table": "PATIENT",
+          "type": "INNER"
+        },
+        {
+          "table": "PLAN_GRP_BEN_PLAN",
+          "type": "INNER"
+        },
+        {
+          "table": "VALID_PATIENT",
+          "type": "INNER"
+        },
+        {
+          "table": "ZC_SUBSC_RACE",
+          "type": "LEFT"
+        },
+        {
+          "table": "ZC_TAX_STATE",
+          "type": "LEFT"
+        }
+      ],
+      "n_projections": 1,
+      "projections": [
+        "star"
+      ],
+      "n_filters": 7,
+      "filters": [
+        "(CVGEPT.MEM_EFF_TO_DATE >= GETDATE() OR CVGEPT.MEM_EFF_TO_DATE IS NULL) AND CVG.COVERAGE_TYPE_C = 2 AND CVGEPT.MEM_COVERED_YN = 'Y' AND CVGEPT.MEM_EFF_FROM_DATE <= GETDATE()",
+        "(CVGLOCSER.DELETED_FLAG_YN = 'N' OR CVGLOCSER.DELETED_FLAG_YN IS NULL) AND (CVGLOCSER.TERM_DATE >= GETDATE() OR CVGLOCSER.TERM_DATE IS NULL) AND CVGLOCSER.EFF_DATE <= GETDATE()",
+        "(PGEPP.BEN_PLAN_TERM_DT >= GETDATE() OR PGEPP.BEN_PLAN_TERM_DT IS NULL) AND PGEPP.BEN_PLAN_EFF_DATE <= GETDATE()",
+        "CSA.LINE = 1",
+        "CSA2.LINE = 2",
+        "EPTV.IS_VALID_PAT_YN = 'Y'",
+        "[ROW] = 1"
+      ]
+    }
+  ]
+}

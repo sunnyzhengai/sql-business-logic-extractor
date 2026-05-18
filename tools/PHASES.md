@@ -236,11 +236,19 @@ Utilities used across multiple phases: schema dataclasses, file I/O,
 table-name helpers, color palettes. Code that does NOT belong here:
 phase-specific logic (each phase owns its analysis/rendering/synthesis).
 
-### `diagnostics/`
-Sanity-check and triage tools. NOT part of the pipeline. Includes:
+### `operate/`
+Operations layer -- parser dev, diagnostics, system-health, admin tools.
+NOT part of the pipeline. Sidecar to all three pipeline layers
+(catalog / govern / visualize). Includes:
+- `preflight_check.py` -- triage parse health across a corpus
+- `diagnose_parse_failure.py` -- structured parse-failure report for one view
+- `auto_propose_rule.py` (+ `auto_propose_rule_hypotheses.py`) -- propose
+  parsing-rule additions for failing views
+- `timing_audit.py` -- identify slow/timeout views during resolve
+- `inventory_manifest.py` -- emit used-table / used-ZC / used-column
+  manifests to narrow downstream SSMS extracts
 - `validate_graph_pivot.py` -- validation experiment for the graph pivot
 - `check_zc_lookups.py` -- triage missing ZC inline annotations
-- `check_similarity.py` -- triage unexpectedly large/small clusters
 
 ---
 
@@ -262,18 +270,18 @@ phase folders happens in subsequent restructure phases. Status legend:
 | `similarity/`                     | deleted (superseded by graph approach in `tools/diagnostics/validate_graph_pivot.py`, git history retained); `tools/diagnostics/check_similarity.py` deleted too (its only purpose was triaging similarity output) | **Done** (Phase 1f)   |
 | `view_shape_compare/`             | split: `dim_filter.py` -> `tools/shared/`; rest deleted (superseded by `p30_analyze/`, git history retained) | **Done** (Phase 1e)   |
 | `cohort_extract/`                 | `p40_synthesize/`                              | Pending migration     |
-| `inventory_manifest/`             | `p40_synthesize/`                              | Pending migration     |
+| `inventory_manifest/`             | `tools/operate/inventory_manifest.py` (re-classified as ops in Phase 1k; audience is BI devs running the system, not stewards) | **Done** (Phase 1c, re-homed Phase 1k) |
 | `report_description_generator/`   | `p40_synthesize/`                              | Pending evaluation    |
 | `column_lineage_extractor/`       | `p20_index/`                                   | Pending evaluation    |
 | `dataset_extract/`                | `p40_synthesize/dataset_extract.py` + `dataset_render.py` (per-view dataflow chains, same pattern as cohort_extract) | **Done** (Phase 1i)   |
 | `business_logic_extractor/`       | likely superseded                              | Pending evaluation    |
 | `technical_logic_extractor/`      | likely superseded                              | Pending evaluation    |
 | `similar_logic_grouper/`          | split: `fingerprint.py` -> `tools/shared/`; batch.py deleted (the same finding is produced by `p30_analyze` from the unified graph) | **Done** (Phase 1g)   |
-| `auto_propose_rule/`              | possibly `p10_extract/`                        | Pending evaluation    |
+| `auto_propose_rule/`              | `tools/operate/auto_propose_rule.py` + `auto_propose_rule_hypotheses.py` (parser-dev tool) | **Done** (Phase 1k)   |
 | `comment_audit/`                  | deleted (one-off analysis whose findings were absorbed into Tools 3/4 long ago; git history retained) | **Done** (Phase 1j)   |
-| `preflight_check/`                | `diagnostics/`                                 | Pending evaluation    |
-| `timing_audit/`                   | `diagnostics/` or `shared/`                    | Pending evaluation    |
-| `diagnostics/`                    | stays at `tools/diagnostics/`                  | Stable                |
-| `batch_all.py` (file)             | TBD                                            | Pending evaluation    |
-| `diagnose_parse_failure.py` (file)| `diagnostics/`                                 | Pending evaluation    |
-| `tests/`                          | stays at `tools/tests/`                        | Stable                |
+| `preflight_check/`                | `tools/operate/preflight_check.py` (parser-health triage) | **Done** (Phase 1k)   |
+| `timing_audit/`                   | `tools/operate/timing_audit.py` (resolver-timing audit) | **Done** (Phase 1k)   |
+| `diagnostics/` (folder)           | renamed to `tools/operate/` -- broader scope (parser dev + admin, not just diagnosis) | **Done** (Phase 1k)   |
+| `batch_all.py` (file)             | stays at `tools/batch_all.py` (orchestrator for the 4-tool commercial product line) | Stable                |
+| `diagnose_parse_failure.py` (file)| `tools/operate/diagnose_parse_failure.py` (parse-failure triage) | **Done** (Phase 1k)   |
+| `tests/`                          | stays at `tools/tests/` (top-level integration tests) | Stable                |

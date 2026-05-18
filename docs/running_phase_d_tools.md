@@ -141,7 +141,7 @@ The `view_shape_compare` tool was removed in the 2026-05 restructure (Phase 1e).
 To run the new approach:
 
 ```python
-from tools.diagnostics.validate_graph_pivot import run_validation
+from tools.operate.validate_graph_pivot import run_validation
 
 run_validation(
     corpus_path='/lakehouse/default/Files/outputs/corpus.jsonl',

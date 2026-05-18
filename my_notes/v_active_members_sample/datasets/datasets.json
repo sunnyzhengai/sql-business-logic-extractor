@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "n_views": 1,
+  "n_skipped": 0,
+  "views": [
+    {
+      "view_name": "V_ACTIVE_MEMBERS",
+      "datasets": [
+        {
+          "scope_id": "main",
+          "name": "Main query (view output)",
+          "kind": "main",
+          "base_datasets": [
+            "Active Members"
+          ],
+          "base_tables": [],
+          "data_columns": [
+            {
+              "name": "*",
+              "english": "all rows",
+              "column_type": "star"
+            }
+          ],
+          "filters": [
+            {
+              "expression": "[ROW] = 1",
+              "english": "Row = 1",
+              "kind": "where"
+            }
+          ]
+        },
+        {
+          "scope_id": "cte:ActiveMembers",
+          "name": "Active Members",
+          "kind": "cte",
+          "base_datasets": [],
+          "base_tables": [
+            "COVERAGE",
+            "COVERAGE_MEMBER_LIST",
+            "PLAN_GRP_BEN_PLAN",
+            "CLARITY_EPP",
+            "CLARITY_LOB",
+            "PATIENT",
+            "VALID_PATIENT",
+            "CVG_LOC_PCP",
+            "CLARITY_LOC",
+            "CLARITY_SER",
+            "ZC_SUBSC_RACE",
+            "CVG_SUBSCR_ADDR",
+            "ZC_TAX_STATE"
+          ],
+          "data_columns": [
+            {
+              "name": "ID",
+              "english": "Patient Identifier",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Coverage ID",
+              "english": "Coverage Identifier",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Name",
+              "english": "Subscriber Name",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Member ID",
+              "english": "Mem Number",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Coverage Effective Date - 400",
+              "english": "Convert of [DataType, Coverage Eff Date]",
+              "column_type": "calculated"
+            },
+            {
+              "name": "Coverage Term Date 410",
+              "english": "Convert of [DataType, Coverage Term Date]",
+              "column_type": "calculated"
+            },
+            {
+              "name": "Member Effective From Date 320",
+              "english": "Convert of [DataType, Mem Eff From Date]",
+              "column_type": "calculated"
+            },
+            {
+              "name": "Member Effective Term Date 330",
+              "english": "Convert of [DataType, Mem Eff To Date]",
+              "column_type": "calculated"
+            },
+            {
+              "name": "LOB",
+              "english": "Lob Name",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Plan Name",
+              "english": "Benefit Plan Name",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "PCP",
+              "english": "Provider Name",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Location Name",
+              "english": "Location Name",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Birth Date",
+              "english": "Subscriber Birthdate",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "ROW",
+              "english": "row number, for same Patient Identifier, ordered by Mem Eff From Date, first non-null of (Mem Eff To Date, '29991231')",
+              "column_type": "window"
+            },
+            {
+              "name": "Race",
+              "english": "Subscriber Race",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Member Address 1",
+              "english": "Subscriber Address",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Member Address 2",
+              "english": "Subscriber Address",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Member City",
+              "english": "Dot of [Placeholder, SUBSCR_CITY]",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Member State",
+              "english": "Tax State",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Member Zip Code",
+              "english": "Subscriber ZIP Code",
+              "column_type": "passthrough"
+            },
+            {
+              "name": "Coverage Line",
+              "english": "Line",
+              "column_type": "passthrough"
+            }
+          ],
+          "filters": [
+            {
+              "expression": "CVGEPT.COVERAGE_ID = CVG.COVERAGE_ID AND CVG.COVERAGE_TYPE_C = 2 /* Managed Care */ AND /* AND CVG.CVG_EFF_DT <= SYSDATETIME() */ /* AND (CVG.CVG_TERM_DT >= SYSDATETIME() OR CVG.CVG_TERM_DT IS NULL) */ CVGEPT.MEM_COVERED_YN = 'Y' AND CVGEPT.MEM_EFF_FROM_DATE <= GETDATE() AND (CVGEPT.MEM_EFF_TO_DATE >= GETDATE() OR CVGEPT.MEM_EFF_TO_DATE IS NULL)",
+              "english": "Coverage Identifier = Coverage Identifier and Coverage Type C = 2 and Mem Covered Yn = 'Y' and Mem Eff From Date <= today and Mem Eff To Date >= today or Mem Eff To Date is null",
+              "kind": "join_on"
+            },
+            {
+              "expression": "PGEPP.PLAN_GRP_ID = CVG.PLAN_GRP_ID AND PGEPP.BEN_PLAN_EFF_DATE <= GETDATE() AND (PGEPP.BEN_PLAN_TERM_DT >= GETDATE() OR PGEPP.BEN_PLAN_TERM_DT IS NULL)",
+              "english": "Plan Grp Identifier = Plan Grp Identifier and Benefit Plan Eff Date <= today and Benefit Plan Term Date >= today or Benefit Plan Term Date is null",
+              "kind": "join_on"
+            },
+            {
+              "expression": "EPTV.PAT_ID = CVGEPT.PAT_ID AND EPTV.IS_VALID_PAT_YN = 'Y'",
+              "english": "Patient Identifier = Patient Identifier and Is Valid Patient Yn = 'Y'",
+              "kind": "join_on"
+            },
+            {
+              "expression": "CVGLOCSER.COVERAGE_ID = CVG.COVERAGE_ID AND CVGLOCSER.MEMBER_ID = CVGEPT.PAT_ID AND CVGLOCSER.EFF_DATE <= GETDATE() AND (CVGLOCSER.TERM_DATE >= GETDATE() OR CVGLOCSER.TERM_DATE IS NULL) AND (CVGLOCSER.DELETED_FLAG_YN = 'N' OR CVGLOCSER.DELETED_FLAG_YN IS NULL)",
+              "english": "Coverage Identifier = Coverage Identifier and Member Identifier = Patient Identifier and Eff Date <= today and Term Date >= today or Term Date is null and Deleted Flag Yn = 'N' or Deleted Flag Yn is null",
+              "kind": "join_on"
+            },
+            {
+              "expression": "CSA.CVG_ID = CVG.COVERAGE_ID AND CSA.LINE = 1",
+              "english": "Coverage Identifier = Coverage Identifier and Line = 1",
+              "kind": "join_on"
+            },
+            {
+              "expression": "CSA2.CVG_ID = CVG.COVERAGE_ID AND CSA2.LINE = 2",
+              "english": "Coverage Identifier = Coverage Identifier and Line = 2",
+              "kind": "join_on"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

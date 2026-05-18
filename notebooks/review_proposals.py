@@ -1,6 +1,6 @@
 """Fabric notebook helper -- review and group rule proposals.
 
-Run this AFTER `tools.auto_propose_rule.batch.propose_rules` has written
+Run this AFTER `tools.operate.auto_propose_rule.propose_rules` has written
 the proposal markdown files. It buckets the proposals into "hypothesis
 fired" (cheap wins, ready to promote) vs "needs human investigation",
 and groups the human-investigation cases by their failing-line snippet

@@ -1,0 +1,4 @@
+-- Paste between INSERT INTO @TableList (TABLE_NAME) VALUES and ;
+    ('ZC_BED_DAY_STATUS'),
+    ('ZC_NEW_RFL_STATUS'),
+    ('ZC_UM_STATUS')

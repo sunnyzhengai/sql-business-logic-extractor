@@ -1,0 +1,4 @@
+zc_table,code,name
+ZC_COVERAGE_TYPE,1,Self Pay
+ZC_COVERAGE_TYPE,2,Managed Care
+ZC_COVERAGE_TYPE,3,Medicare

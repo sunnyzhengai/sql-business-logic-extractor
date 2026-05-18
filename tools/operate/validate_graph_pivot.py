@@ -1,69 +1,36 @@
-"""Validation experiment for the graph-pivot architecture decision.
+"""Graph-pivot validation orchestrator (ops sidecar to the pipeline).
 
-Background
-----------
-We have been debating whether to pivot the codebase away from per-view JSON
-clusters and toward a unified GRAPH representation of the entire corpus. In a
-graph, tables/columns become nodes, joins become edges, and similar views
-naturally cluster together as densely-connected communities in the graph.
+This module wires the pipeline phases (p10_extract -> p20_index ->
+p30_analyze -> p40_synthesize -> p50_present) together to produce a
+*validation experiment*: load a corpus, build the graph, run analysis,
+emit artifacts, and write a PASS / INCONCLUSIVE / REVIEW NEEDED verdict.
 
-The hypothesis we are testing here is:
-
-  When we build a single graph from all views, and apply a community-
-  detection algorithm (Louvain), the resulting communities should
-  correspond to RECOGNIZABLE healthcare-BI subject areas (Epic modules:
-  inpatient, clinic, claims, etc.).
-
-If that hypothesis holds, we commit to the graph pivot. If it does not,
-we revisit the architecture before changing the codebase.
+It is NOT itself a pipeline phase. It lives in `tools/operate/` because
+its audience is BI devs and admins answering "is the pipeline producing
+sensible output on this corpus?" -- not stewards making governance
+decisions. The validation experiment was the artifact that got the
+graph-pivot architecture decision made (PASS verdict on the user's
+real 130-view corpus in May 2026).
 
 What this script does
 ---------------------
-1. Reads a corpus.jsonl file (one view per JSON line; first line is a header).
-2. Builds a typed networkx graph from the corpus:
-     - View nodes, Scope nodes (main / cte / subquery), Table nodes, Column nodes
-     - JOIN edges between tables, with view + scope provenance attached
-     - Containment edges (View -> Scope, Scope -> Column, etc.)
-3. Derives a "table co-occurrence" projection: a smaller, undirected graph in
-   which two tables are connected if they appear in the same scope of any view.
-   Edge weights = number of co-appearances. This projection is what we run
-   community detection on, because:
-     - It is small (tables, not all 1000s of columns).
-     - It captures the cohort-shape information we care about.
-     - It is the natural input to Louvain (which expects an undirected weighted graph).
-4. Runs Louvain community detection on the table projection.
-5. Emits these artifacts in the output directory:
-     - communities/community_NN_<top-table>.html  -- one interactive HTML per
-                                   community, showing that community's tables
-                                   plus bridge tables in muted gray for context
-     - communities/index.html   -- linkable index of all per-community HTMLs
-     - communities.md           -- per-community summary: primary member views,
-                                   top tables, leaf tables, bridge tables.
-                                   PLUS a Shared Dimensions section and
-                                   a Cross-Domain Views section
-     - validation_report.md     -- summary verdict: does the community structure
-                                   look healthcare-meaningful? Confidence level.
-                                   Recommendation: pivot, revise, or revisit.
+1. Loads corpus.jsonl                              (tools.shared.corpus_io)
+2. Filters infrastructure views                    (tools.shared.view_filter)
+3. Builds the unified typed graph                  (tools.p20_index.graph_builder)
+4. Extracts the table-projection subgraph          (tools.p30_analyze.projection)
+5. Detects bridge tables; projects them out        (tools.p30_analyze.bridges)
+6. Runs Louvain community detection                (tools.p30_analyze.communities)
+7. Assigns views to primary communities + spans    (tools.p30_analyze.primary_community)
+8. Summarizes each community                        (tools.p30_analyze.community_analysis)
+9. Writes per-community HTML + overview + index    (tools.p50_present.community_html)
+10. Writes the steward-style markdown summary       (tools.p40_synthesize.community_summary)
+11. Writes the validation report (verdict + recs)  (this module, write_validation_report)
 
-Refinements layered on top of the initial validation:
-
-  * BRIDGE-TABLE DETECTION. Dimension/lookup tables like PATIENT, CLARITY_SER,
-    CLARITY_DEP appear in nearly every view and connect everything in the graph,
-    distorting community detection. We DON'T hard-code a dimension list -- we
-    let the graph reveal them: tables in the top N percent by degree are
-    classified as BRIDGES and excluded from community detection (but kept in
-    the rendered graph and reported separately).
-
-  * INFRASTRUCTURE-VIEW EXCLUSION. Views that extract metadata for cataloging
-    (Collibra, Atlas) are infrastructure, not business logic. We exclude views
-    whose name matches default patterns (collibra/metadata/catalog/ingest) or
-    which read from sys.* / INFORMATION_SCHEMA system schemas. Override via
-    --exclude-pattern on the CLI.
-
-  * PRIMARY COMMUNITY PER VIEW. A view is assigned to ONE primary community
-    (the one containing the most of its tables). Views that span multiple
-    communities are reported separately as Cross-Domain Views -- a finding
-    in their own right, not noise.
+The orchestrator (`run_validation`) does steps 1-11 in order. The
+verdict logic (`write_validation_report`) is the only piece of unique
+"diagnostic" code that stays here -- it's specific to this operational
+question ("is the pivot justified?"), not part of the production
+pipeline.
 
 How to run
 ----------
@@ -71,41 +38,60 @@ From the repo root, on a small local sample:
     python -m tools.operate.validate_graph_pivot \\
         my_notes/bi_complex_sample/corpus.jsonl /tmp/graph_pivot_validation
 
-Or in a Fabric notebook, against the real 130-view corpus:
+In a Fabric notebook, against a real corpus:
     from tools.operate.validate_graph_pivot import run_validation
     run_validation(
         corpus_path="/lakehouse/default/Files/corpus/corpus.jsonl",
         output_dir="/lakehouse/default/Files/graph_pivot_validation",
     )
 
-The output directory will be created if it doesn't exist.
+Output artifacts (in `output_dir`):
+  - graph.html                                 corpus overview, colored by community
+  - communities/community_NN_<top>.html        per-community focused HTMLs
+  - communities/index.html                     linking page for the above
+  - communities.md                             per-community steward-readable markdown
+  - validation_report.md                       PASS / INCONCLUSIVE / REVIEW NEEDED verdict
+
+Historical note
+---------------
+Before Phase 2 of the 2026-05 restructure, this file was monolithic
+(~1100 lines): graph construction, projection, bridges, communities,
+primary-community, community-analysis, HTML renderers, and the
+markdown writer were all defined inline. Each piece was extracted
+to its production home over Phases 2a-2d:
+
+  Phase 2a  shared/{corpus_io, table_names, view_filter}
+  Phase 2b  p20_index/graph_builder (replacing graph_explore-era code)
+  Phase 2c  p30_analyze/{projection, bridges, communities,
+                         primary_community, community_analysis}
+  Phase 2d  p40_synthesize/community_summary
+            p50_present/community_html
+
+After Phase 2e (docstring polish, this commit), the orchestrator is
+~290 lines (down from ~1110): module docstring, imports, the verdict
+writer, run_validation, and the CLI. Each piece of pipeline work it
+calls is tested in its own phase folder; the only test here is the
+end-to-end TestEndToEndOrchestration that exercises the full chain.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
-from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Iterable
 
-# Shared utilities (extracted from this file in Phase 2a of the
-# 2026-05 restructure -- see Historical note in each module).
+# Shared utilities (extracted from this file in Phase 2a of the restructure).
 from tools.shared.corpus_io import load_corpus
 from tools.shared.view_filter import (
     DEFAULT_INFRASTRUCTURE_PATTERNS,
     filter_business_views,
-    is_infrastructure_view,
 )
 
-# Graph construction moved to p20_index in Phase 2b of the restructure.
-# This module orchestrates the validation experiment by calling into
-# the production graph builder; it no longer defines the graph itself.
+# Graph construction lives in p20_index (Phase 2b).
 from tools.p20_index.graph_builder import build_graph
 
-# Analysis layer moved to p30_analyze in Phase 2c of the restructure.
-# The orchestrator calls into each module; the validation diagnostic
-# now consumes the production analysis code rather than defining it.
+# Analysis layer lives in p30_analyze (Phase 2c).
 from tools.p30_analyze.bridges import (
     detect_bridge_tables,
     project_without_bridges,
@@ -115,7 +101,7 @@ from tools.p30_analyze.community_analysis import analyze_community
 from tools.p30_analyze.primary_community import assign_views_to_communities
 from tools.p30_analyze.projection import extract_table_projection
 
-# Markdown community-summary writer moved to p40_synthesize in Phase 2d.
+# Synthesis (markdown) lives in p40_synthesize (Phase 2d).
 from tools.p40_synthesize.community_summary import write_communities_markdown
 
 # Community HTML renderers moved to p50_present in Phase 2d. _safe_filename

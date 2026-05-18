@@ -25,12 +25,18 @@ Notebook lives in your Fabric workspace; attach the lakehouse where you
 put the views + the cloned repo so paths under /lakehouse/default/Files/
 resolve.
 
-Expected lakehouse layout:
+Expected lakehouse layout (REPO_ROOT directly under Files/):
     /lakehouse/default/Files/
+        tools/                              <- this repo's tools/ folder
+        sql_logic_extractor/                <- this repo's parser engine
+        data/                               <- this repo's data/
         views/                              <- drop your .sql view files here
         schemas/clarity_schema.json         <- optional, from csv_to_schema.py
-        sql-business-logic-extractor/       <- the unzipped repo (see Cell 2)
         outputs/                            <- generated artifacts land here
+
+If you uploaded the repo as a wrapped folder (e.g., the GitHub ZIP
+unzips to `sql-business-logic-extractor-main/`), see Cell 3 for how to
+adjust REPO_ROOT to point at the wrapping folder instead.
 """
 
 
@@ -50,29 +56,48 @@ Expected lakehouse layout:
 #   1. Open https://github.com/sunnyzhengai/sql-business-logic-extractor
 #   2. Click "Code" -> "Download ZIP"
 #   3. Unzip locally
-#   4. In Fabric Lakehouse Files explorer: upload the WHOLE folder,
-#      renamed to `sql-business-logic-extractor` to match the path below.
+#   4. In Fabric Lakehouse Files explorer: upload the contents.
+#
+# Two layouts are common:
+#
+#   (a) Repo CONTENTS at the lakehouse Files/ root -- tools/, sql_logic_extractor/,
+#       data/, etc. sit directly under /lakehouse/default/Files/. This is what
+#       the notebook uses by default (simpler; no extra path segment).
+#
+#   (b) Repo wrapped in a subfolder -- if you uploaded the ZIP-unzipped folder
+#       as-is, it may sit at /lakehouse/default/Files/sql-business-logic-extractor/
+#       (or .../sql-business-logic-extractor-main/ if you didn't rename it).
+#       In that case, change REPO_ROOT in Cell 3 to include the subfolder.
+#
+# This cell lists what's at the Files/ root so you can see which layout you have.
 
 import os
 
-REPO_ROOT = '/lakehouse/default/Files/sql-business-logic-extractor'
+LAKEHOUSE_FILES = '/lakehouse/default/Files'
+print(f"Contents of {LAKEHOUSE_FILES}:")
+for name in sorted(os.listdir(LAKEHOUSE_FILES)):
+    marker = " (DIR)" if os.path.isdir(f"{LAKEHOUSE_FILES}/{name}") else ""
+    print(f"  {name}{marker}")
 
-print(f"Repo present?           {os.path.isdir(REPO_ROOT)}")
-print(f"  tools/                  ? {os.path.isdir(REPO_ROOT + '/tools')}")
-print(f"  tools/p10_extract/      ? {os.path.isdir(REPO_ROOT + '/tools/p10_extract')}")
-print(f"  tools/p20_index/        ? {os.path.isdir(REPO_ROOT + '/tools/p20_index')}")
-print(f"  tools/p30_analyze/      ? {os.path.isdir(REPO_ROOT + '/tools/p30_analyze')}")
-print(f"  tools/p40_synthesize/   ? {os.path.isdir(REPO_ROOT + '/tools/p40_synthesize')}")
-print(f"  tools/p50_present/      ? {os.path.isdir(REPO_ROOT + '/tools/p50_present')}")
-print(f"  tools/shared/           ? {os.path.isdir(REPO_ROOT + '/tools/shared')}")
-print(f"  tools/operate/          ? {os.path.isdir(REPO_ROOT + '/tools/operate')}")
+# Quick diagnostic: do we see `tools` at the root, or only nested in a wrapper folder?
+direct = os.path.isdir(f"{LAKEHOUSE_FILES}/tools")
+wrapped = os.path.isdir(f"{LAKEHOUSE_FILES}/sql-business-logic-extractor/tools")
+print()
+print(f"tools/ at Files/ root?               {direct}    <- layout (a)")
+print(f"tools/ at .../sql-business-logic-extractor/? {wrapped}    <- layout (b)")
 
 
 # %% [Cell 3: add the repo to sys.path so imports work]
 
 import sys
 
-REPO_ROOT = '/lakehouse/default/Files/sql-business-logic-extractor'
+# Default: layout (a) -- repo contents at the lakehouse Files/ root.
+REPO_ROOT = '/lakehouse/default/Files'
+
+# If you have layout (b) instead (repo wrapped in a subfolder), use one of:
+# REPO_ROOT = '/lakehouse/default/Files/sql-business-logic-extractor'
+# REPO_ROOT = '/lakehouse/default/Files/sql-business-logic-extractor-main'
+
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 

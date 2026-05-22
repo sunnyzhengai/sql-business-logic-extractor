@@ -96,6 +96,10 @@ from tools.p30_analyze.bridges import (
     detect_bridge_tables,
     project_without_bridges,
 )
+from tools.p30_analyze.column_variance import (
+    analyze_column_variance,
+    count_reconciliation_candidates,
+)
 from tools.p30_analyze.communities import detect_table_communities
 from tools.p30_analyze.community_analysis import analyze_community
 from tools.p30_analyze.primary_community import assign_views_to_communities
@@ -304,6 +308,14 @@ def run_validation(
     # Phase 3b: also compute view->tables map for Option B rendering
     # (view nodes embedded in each community HTML with click-to-highlight).
     tables_per_view = view_to_tables(g)
+    # Phase 3e-i: per-community column-variance analysis. Identifies
+    # (column_name, source_tables) groups with >= 2 distinct fingerprints
+    # across the community's primary views -- the modeling team's
+    # reconciliation candidates. Stashed here; rendered into the
+    # community modeling spec in Phase 3e-iii.
+    column_variance = analyze_column_variance(views, community_to_primary)
+    n_reconciliation = count_reconciliation_candidates(column_variance)
+    print(f"      Reconciliation candidates (columns with multi-definition variance): {n_reconciliation}")
     # Driver detection -- only do it for views that have a primary community,
     # since those are the ones we'll render and report on.
     views_to_describe = set(view_to_spans.keys())

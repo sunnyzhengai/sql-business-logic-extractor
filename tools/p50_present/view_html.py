@@ -32,6 +32,7 @@ from pathlib import Path
 from tools.p50_present.community_html import (
     BRIDGE_COLOR,
     community_color,
+    inject_legend,
     inject_subgraph_isolation_script,
     _compute_static_positions,
     _safe_filename,
@@ -200,6 +201,9 @@ def render_view_html(
     out.parent.mkdir(parents=True, exist_ok=True)
     net.write_html(str(out), notebook=False)
     inject_subgraph_isolation_script(out)
+    # Per-view HTML: the driver table is shown as a star, so the
+    # legend includes the driver row.
+    inject_legend(out, show_driver=True)
     return str(out)
 
 

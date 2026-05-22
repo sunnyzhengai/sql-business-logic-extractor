@@ -148,6 +148,87 @@ class TestSubgraphIsolationInjection(unittest.TestCase):
             self.assertEqual(content.count("subgraph-isolation-injected"), 1)
 
 
+class TestLegendAndSidebarInjection(unittest.TestCase):
+    """Phase 3d: legend + sidebar injection."""
+
+    def test_community_html_has_legend_and_sidebar(self):
+        from tools.p20_index.graph_builder import build_graph
+        from tools.p30_analyze.projection import extract_table_projection
+        from tools.p30_analyze.view_membership import view_to_tables
+        from tools.p50_present.community_html import render_community_html
+
+        g = build_graph([SAMPLE_VIEW_A])
+        table_g = extract_table_projection(g)
+        community_tables = set(table_g.nodes) - {"table::PATIENT"}
+        bridges = {"table::PATIENT"}
+
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "community.html"
+            render_community_html(
+                table_g, 0, community_tables, bridges, out,
+                primary_views=["VW_PATIENT_COVERAGE"],
+                view_to_tables_map=view_to_tables(g),
+            )
+            content = out.read_text(encoding="utf-8")
+            # Legend injection marker present.
+            self.assertIn("legend-injected", content)
+            # Legend contents (heading + a row label).
+            self.assertIn("<h4>Legend</h4>", content)
+            self.assertIn("Bridge", content)
+            # Sidebar injection marker + the view item with its node id.
+            self.assertIn("views-sidebar-injected", content)
+            self.assertIn('class="view-item"', content)
+            self.assertIn('data-node-id="view::VW_PATIENT_COVERAGE"', content)
+
+    def test_view_html_has_legend_with_driver_row(self):
+        from tools.p20_index.graph_builder import build_graph
+        from tools.p50_present.view_html import render_view_html
+
+        g = build_graph([SAMPLE_VIEW_A])
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "view.html"
+            render_view_html(
+                g=g,
+                view_name="VW_PATIENT_COVERAGE",
+                communities=[set(n for n in g.nodes if g.nodes[n].get("ntype") == "table")],
+                bridge_tables=set(),
+                output_path=out,
+                driver_label="PATIENT",
+            )
+            content = out.read_text(encoding="utf-8")
+            self.assertIn("legend-injected", content)
+            # Per-view legend includes the driver star.
+            self.assertIn("Driver", content)
+
+    def test_injection_is_idempotent_per_marker(self):
+        """Re-running legend + sidebar injection shouldn't duplicate them."""
+        from tools.p20_index.graph_builder import build_graph
+        from tools.p30_analyze.projection import extract_table_projection
+        from tools.p30_analyze.view_membership import view_to_tables
+        from tools.p50_present.community_html import (
+            render_community_html,
+            inject_legend,
+            inject_views_sidebar,
+        )
+
+        g = build_graph([SAMPLE_VIEW_A])
+        table_g = extract_table_projection(g)
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "community.html"
+            render_community_html(
+                table_g, 0, set(table_g.nodes), set(), out,
+                primary_views=["VW_PATIENT_COVERAGE"],
+                view_to_tables_map=view_to_tables(g),
+            )
+            inject_legend(out)  # call again
+            inject_views_sidebar(
+                out, [("VW_PATIENT_COVERAGE", "view::VW_PATIENT_COVERAGE")],
+            )
+            content = out.read_text(encoding="utf-8")
+            self.assertEqual(content.count("legend-injected"), 1)
+            self.assertEqual(content.count("views-sidebar-injected"), 1)
+
+
 class TestCommunityHtmlWithViewNodes(unittest.TestCase):
     """Phase 3b: view nodes embedded in community HTML."""
 

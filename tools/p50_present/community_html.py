@@ -184,6 +184,235 @@ _ISOLATION_SCRIPT = """
 """
 
 
+# Marker for the legend overlay (idempotence check).
+_LEGEND_MARKER = "<!-- legend-injected -->"
+
+# Marker for the views sidebar (idempotence check).
+_SIDEBAR_MARKER = "<!-- views-sidebar-injected -->"
+
+
+def _legend_html(show_driver: bool = False) -> str:
+    """Return the HTML for a small fixed-position legend overlay.
+
+    Top-right corner of the canvas. Lists each shape/color with its
+    meaning. `show_driver=True` adds the "star = driver" row (used by
+    per-view HTMLs, which mark the driver table; community HTMLs don't
+    have driver stars so omit that row).
+    """
+    items = []
+    items.append(
+        '<div class="legend-row">'
+        '<span class="swatch hex"></span>View</div>'
+    )
+    items.append(
+        '<div class="legend-row">'
+        '<span class="swatch dot"></span>Table (cohort-shaping)</div>'
+    )
+    items.append(
+        '<div class="legend-row">'
+        '<span class="swatch box"></span>ZC lookup</div>'
+    )
+    items.append(
+        '<div class="legend-row">'
+        '<span class="swatch diamond"></span>Bridge (dimension)</div>'
+    )
+    if show_driver:
+        items.append(
+            '<div class="legend-row">'
+            '<span class="swatch star"></span>Driver (FROM-clause table)</div>'
+        )
+    items.append('<div class="legend-row legend-line">'
+                  '<span class="swatch solid-line"></span>tables co-occur</div>')
+    items.append('<div class="legend-row legend-line">'
+                  '<span class="swatch dashed-line"></span>view uses table</div>')
+
+    return _LEGEND_MARKER + """
+<style>
+.legend {
+  position: fixed; top: 10px; right: 10px;
+  background: #ffffffe6; border: 1px solid #ccc; border-radius: 6px;
+  padding: 10px 12px; font-family: -apple-system, system-ui, sans-serif;
+  font-size: 12px; z-index: 1000; min-width: 200px;
+}
+.legend h4 { margin: 0 0 6px 0; font-size: 13px; }
+.legend-row { display: flex; align-items: center; margin: 3px 0; gap: 8px; }
+.legend .swatch { display: inline-block; width: 14px; height: 14px; flex-shrink: 0; }
+.legend .hex {
+  width: 12px; height: 14px; background: """ + VIEW_NODE_COLOR + """;
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+}
+.legend .dot {
+  border-radius: 50%; background: #2ca02c;
+}
+.legend .box { background: #2ca02c; }
+.legend .diamond {
+  width: 12px; height: 12px; background: """ + BRIDGE_COLOR + """;
+  transform: rotate(45deg);
+}
+.legend .star {
+  width: 14px; height: 14px; background: #ffd700;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+.legend .solid-line {
+  width: 18px; height: 0; border-top: 2px solid #888;
+}
+.legend .dashed-line {
+  width: 18px; height: 0; border-top: 2px dashed #888;
+}
+</style>
+<div class="legend">
+  <h4>Legend</h4>
+  """ + "\n  ".join(items) + """
+</div>
+"""
+
+
+def inject_legend(html_path: str | Path, show_driver: bool = False) -> None:
+    """Inject a small fixed-position legend overlay into the HTML.
+
+    Top-right corner. Lists shapes/colors with their meanings. Pass
+    `show_driver=True` for per-view HTMLs that mark the driver table
+    with a star. Idempotent.
+    """
+    p = Path(html_path)
+    text = p.read_text(encoding="utf-8")
+    if _LEGEND_MARKER in text:
+        return
+    legend = _legend_html(show_driver=show_driver)
+    if "</body>" in text:
+        text = text.replace("</body>", legend + "\n</body>", 1)
+    else:
+        text = text + legend
+    p.write_text(text, encoding="utf-8")
+
+
+def inject_views_sidebar(
+    html_path: str | Path,
+    view_items: list[tuple[str, str]],
+    sidebar_title: str = "Views in this community",
+) -> None:
+    """Inject a left-side panel listing each view with click-to-select.
+
+    `view_items` is a list of (display_label, node_id) tuples. Clicking
+    an item programmatically selects the matching graph node (which
+    triggers the subgraph-isolation handler from
+    inject_subgraph_isolation_script). Clicking a graph node
+    reciprocally highlights the matching sidebar item.
+
+    Layout: turns the body into a flex container with the sidebar
+    pinned to the left edge (260px wide) and the graph canvas filling
+    the rest of the width. The pyvis canvas stays unchanged structurally;
+    we just put it inside a wrapper.
+
+    Idempotent.
+    """
+    p = Path(html_path)
+    text = p.read_text(encoding="utf-8")
+    if _SIDEBAR_MARKER in text:
+        return
+
+    # The sidebar HTML + the CSS that makes the body a flex layout, plus
+    # the JS that bridges sidebar clicks <-> graph selection.
+    items_html = "\n".join(
+        f'    <li class="view-item" data-node-id="{node_id}">'
+        f'<code>{label}</code></li>'
+        for label, node_id in view_items
+    )
+
+    sidebar_block = _SIDEBAR_MARKER + """
+<style>
+body.sidebar-layout { display: flex; flex-direction: row;
+  margin: 0; padding: 0; height: 100vh; }
+.views-sidebar {
+  width: 260px; flex-shrink: 0; background: #f7f7f8;
+  border-right: 1px solid #ddd; padding: 16px;
+  overflow-y: auto;
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 13px;
+}
+.views-sidebar h3 { font-size: 14px; margin: 0 0 10px 0; color: #444; }
+.views-sidebar ul { list-style: none; padding: 0; margin: 0; }
+.views-sidebar .view-item {
+  padding: 6px 8px; margin: 2px 0; cursor: pointer;
+  border-radius: 4px; transition: background 0.15s;
+}
+.views-sidebar .view-item:hover { background: #e8e8ec; }
+.views-sidebar .view-item.active {
+  background: """ + VIEW_NODE_COLOR + """;
+  font-weight: 600;
+}
+.views-sidebar .view-item code { font-size: 12px; }
+.graph-area { flex-grow: 1; height: 100vh; overflow: hidden; }
+.graph-area #mynetwork { width: 100% !important; height: 100vh !important; }
+</style>
+<script>
+(function () {
+  // Bridge sidebar <-> graph. Runs after pyvis declares `network`.
+  function ready() {
+    if (typeof network === "undefined") {
+      setTimeout(ready, 50);
+      return;
+    }
+
+    // Sidebar click -> graph selectNode (triggers the isolation script too).
+    document.querySelectorAll('.views-sidebar .view-item').forEach(function (item) {
+      item.addEventListener('click', function () {
+        var nodeId = this.getAttribute('data-node-id');
+        network.selectNodes([nodeId]);
+        // selectNodes() doesn't fire the selectNode event; fire it manually.
+        network.emit('selectNode', { nodes: [nodeId], edges: [] });
+      });
+    });
+
+    // Graph selectNode -> highlight matching sidebar item.
+    network.on('selectNode', function (params) {
+      document.querySelectorAll('.views-sidebar .view-item.active')
+        .forEach(function (item) { item.classList.remove('active'); });
+      if (!params.nodes || params.nodes.length === 0) return;
+      var selectedId = params.nodes[0];
+      var match = document.querySelector(
+        '.views-sidebar .view-item[data-node-id="' + selectedId + '"]'
+      );
+      if (match) {
+        match.classList.add('active');
+        // Scroll the sidebar so the active item is visible.
+        match.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+
+    network.on('deselectNode', function () {
+      document.querySelectorAll('.views-sidebar .view-item.active')
+        .forEach(function (item) { item.classList.remove('active'); });
+    });
+  }
+  ready();
+})();
+</script>
+"""
+
+    # Restructure the body to add the sidebar.
+    sidebar_div = (
+        '<div class="views-sidebar">\n'
+        f'  <h3>{sidebar_title}</h3>\n'
+        f'  <ul>\n{items_html}\n  </ul>\n'
+        '</div>\n'
+    )
+
+    # Wrap pyvis's existing body content in a flex layout with the sidebar
+    # added to the left. Heuristic: pyvis puts everything inside <body>...
+    # so we replace the body open tag to add the class + sidebar before
+    # the existing content.
+    text = text.replace(
+        "<body>",
+        f'<body class="sidebar-layout">\n{sidebar_div}<div class="graph-area">',
+        1,
+    )
+    # Close the graph-area wrapper before </body>.
+    text = text.replace("</body>", "</div>\n" + sidebar_block + "\n</body>", 1)
+
+    p.write_text(text, encoding="utf-8")
+
+
 def inject_subgraph_isolation_script(html_path: str | Path) -> None:
     """Inject the two-way subgraph-isolation JS into a pyvis-generated HTML.
 
@@ -279,6 +508,25 @@ def render_community_html(
 
     positions = _compute_static_positions(sub)
 
+    # Phase 3d: pull view nodes out of the layout's "mixed with tables"
+    # placement and put them in their own column on the LEFT of the
+    # canvas, so they don't visually overlap with table nodes.
+    # Tables stay where the layout placed them.
+    if show_views:
+        view_node_ids = [f"view::{v}" for v in primary_views]
+        n_views = len(view_node_ids)
+        if n_views > 0:
+            view_x = -1300   # far left of the table region (positions are roughly [-1000, 1000])
+            # Spread the views vertically. Single view = center; many = stretch.
+            if n_views == 1:
+                view_ys = [0.0]
+            else:
+                y_top, y_bottom = -800, 800
+                step = (y_bottom - y_top) / (n_views - 1)
+                view_ys = [y_top + step * i for i in range(n_views)]
+            for view_node_id, y in zip(view_node_ids, view_ys):
+                positions[view_node_id] = (view_x, y)
+
     net = Network(
         height="900px", width="100%",
         directed=False, notebook=False,
@@ -355,6 +603,16 @@ def render_community_html(
     out.parent.mkdir(parents=True, exist_ok=True)
     net.write_html(str(out), notebook=False)
     inject_subgraph_isolation_script(out)
+    # Phase 3d: legend (top-right) + sidebar (left, with the view list)
+    # when views are present. Community HTMLs don't have a driver star,
+    # so show_driver=False.
+    inject_legend(out, show_driver=False)
+    if show_views and primary_views:
+        view_items = [(v, f"view::{v}") for v in primary_views]
+        inject_views_sidebar(
+            out, view_items,
+            sidebar_title=f"Views (community {community_index})",
+        )
     return str(out)
 
 
@@ -424,6 +682,10 @@ def render_overview_html(
     out.parent.mkdir(parents=True, exist_ok=True)
     net.write_html(str(out), notebook=False)
     inject_subgraph_isolation_script(out)
+    # Phase 3d: legend (top-right). The overview HTML doesn't carry
+    # a per-community sidebar (too many views in the full corpus to
+    # list usefully); the legend alone is the relevant addition.
+    inject_legend(out, show_driver=False)
     return str(out)
 
 

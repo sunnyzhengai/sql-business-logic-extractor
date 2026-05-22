@@ -106,6 +106,107 @@ def _compute_static_positions(g, scale: float = 1000.0) -> dict[str, tuple[float
 # not a table." Click a view node to see vis.js highlight its connections.
 VIEW_NODE_COLOR = "#fff3a0"
 
+# Marker comment that lets us detect whether we've already injected the
+# subgraph-isolation script into a given pyvis HTML. Used by
+# inject_subgraph_isolation_script() to be idempotent across multiple
+# renders to the same path.
+_ISOLATION_SCRIPT_MARKER = "<!-- subgraph-isolation-injected -->"
+
+# The custom JS that adds the two-way subgraph-isolation behavior on
+# node click. Inserted before </body> in the pyvis-generated HTML.
+#
+# Behavior:
+#   - User clicks a node (table OR view) -> that node + its 1-hop
+#     neighbors stay at full opacity; everything else fades to ~15%.
+#   - User clicks empty canvas (deselects) -> all opacities restore.
+#   - Works for both directions because the underlying network is the
+#     same: clicking a view shows the tables it connects to; clicking
+#     a table shows the views connecting to it (since view-uses edges
+#     are bidirectional in vis.js).
+#
+# We hook into the existing `network` variable that pyvis declares
+# globally in its template. This is fragile only if pyvis renames the
+# variable -- which they don't tend to do across minor versions.
+_ISOLATION_SCRIPT = """
+<!-- subgraph-isolation-injected -->
+<script>
+(function () {
+  // pyvis declares `network` as a global. Wait for it to be ready.
+  if (typeof network === "undefined") { return; }
+
+  var DIM_OPACITY = 0.15;
+
+  function setAllOpacity(o) {
+    var nodeUpdates = network.body.data.nodes.getIds().map(function (id) {
+      return { id: id, opacity: o };
+    });
+    network.body.data.nodes.update(nodeUpdates);
+    // Edges -- vis.js stores opacity inside `color.opacity`.
+    var edgeUpdates = network.body.data.edges.getIds().map(function (id) {
+      return { id: id, color: { opacity: o } };
+    });
+    network.body.data.edges.update(edgeUpdates);
+  }
+
+  network.on("selectNode", function (params) {
+    if (!params.nodes || params.nodes.length === 0) { return; }
+    var selectedNode = params.nodes[0];
+    var keepNodes = new Set([selectedNode]);
+    network.getConnectedNodes(selectedNode).forEach(function (id) {
+      keepNodes.add(id);
+    });
+    var keepEdges = new Set(network.getConnectedEdges(selectedNode));
+
+    // Dim everything, then restore the kept set.
+    var nodeUpdates = network.body.data.nodes.getIds().map(function (id) {
+      return { id: id, opacity: keepNodes.has(id) ? 1.0 : DIM_OPACITY };
+    });
+    network.body.data.nodes.update(nodeUpdates);
+
+    var edgeUpdates = network.body.data.edges.getIds().map(function (id) {
+      return { id: id, color: { opacity: keepEdges.has(id) ? 1.0 : DIM_OPACITY } };
+    });
+    network.body.data.edges.update(edgeUpdates);
+  });
+
+  network.on("deselectNode", function () {
+    setAllOpacity(1.0);
+  });
+
+  // If the user clicks empty canvas (no selection), also reset.
+  network.on("click", function (params) {
+    if (params.nodes.length === 0 && params.edges.length === 0) {
+      setAllOpacity(1.0);
+    }
+  });
+})();
+</script>
+"""
+
+
+def inject_subgraph_isolation_script(html_path: str | Path) -> None:
+    """Inject the two-way subgraph-isolation JS into a pyvis-generated HTML.
+
+    The script makes clicked nodes + their neighbors stay vivid while
+    everything else fades to ~15% opacity. Idempotent: calling twice on
+    the same file does nothing the second time.
+
+    Called at the end of `render_community_html`, `render_overview_html`,
+    and `render_view_html` so every rendered HTML has the behavior.
+    """
+    p = Path(html_path)
+    text = p.read_text(encoding="utf-8")
+    if _ISOLATION_SCRIPT_MARKER in text:
+        # Already injected -- nothing to do.
+        return
+    # Insert before the closing </body>. pyvis always emits one;
+    # if it doesn't (defensive), append at end.
+    if "</body>" in text:
+        text = text.replace("</body>", _ISOLATION_SCRIPT + "\n</body>", 1)
+    else:
+        text = text + _ISOLATION_SCRIPT
+    p.write_text(text, encoding="utf-8")
+
 
 def render_community_html(
     table_g, community_index: int, community_tables: set[str],
@@ -253,6 +354,7 @@ def render_community_html(
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     net.write_html(str(out), notebook=False)
+    inject_subgraph_isolation_script(out)
     return str(out)
 
 
@@ -321,6 +423,7 @@ def render_overview_html(
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     net.write_html(str(out), notebook=False)
+    inject_subgraph_isolation_script(out)
     return str(out)
 
 

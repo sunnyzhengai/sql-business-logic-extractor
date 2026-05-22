@@ -101,6 +101,53 @@ class TestRender(unittest.TestCase):
             self.assertIn("<graphml", txt)
 
 
+class TestSubgraphIsolationInjection(unittest.TestCase):
+    """Phase 3c: the JS-injection helper that gives every rendered HTML
+    two-way click-to-isolate behavior."""
+
+    def test_injection_adds_script_marker(self):
+        from tools.p20_index.graph_builder import build_graph
+        from tools.p30_analyze.projection import extract_table_projection
+        from tools.p50_present.community_html import render_community_html
+
+        g = build_graph([SAMPLE_VIEW_A])
+        table_g = extract_table_projection(g)
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "community.html"
+            render_community_html(
+                table_g, 0, set(table_g.nodes), set(), out,
+            )
+            content = out.read_text(encoding="utf-8")
+            # The injection helper drops a marker comment + the JS itself.
+            self.assertIn("subgraph-isolation-injected", content)
+            # The script should hook into the global `network` variable
+            # that pyvis declares.
+            self.assertIn("network.on(\"selectNode\"", content)
+            self.assertIn("network.on(\"deselectNode\"", content)
+
+    def test_injection_is_idempotent(self):
+        """Calling inject_subgraph_isolation_script twice on the same
+        file should not double-insert the script."""
+        from tools.p20_index.graph_builder import build_graph
+        from tools.p30_analyze.projection import extract_table_projection
+        from tools.p50_present.community_html import (
+            render_community_html, inject_subgraph_isolation_script,
+        )
+
+        g = build_graph([SAMPLE_VIEW_A])
+        table_g = extract_table_projection(g)
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "community.html"
+            render_community_html(
+                table_g, 0, set(table_g.nodes), set(), out,
+            )
+            # Already injected once by render_community_html. Call again
+            # and verify the marker only appears once.
+            inject_subgraph_isolation_script(out)
+            content = out.read_text(encoding="utf-8")
+            self.assertEqual(content.count("subgraph-isolation-injected"), 1)
+
+
 class TestCommunityHtmlWithViewNodes(unittest.TestCase):
     """Phase 3b: view nodes embedded in community HTML."""
 

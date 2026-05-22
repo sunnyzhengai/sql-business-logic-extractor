@@ -120,6 +120,8 @@ from tools.p30_analyze.view_membership import (
 
 # Synthesis (markdown) lives in p40_synthesize (Phase 2d).
 from tools.p40_synthesize.community_summary import write_communities_markdown
+# Per-community modeling spec generator (Phase 3e-iii).
+from tools.p40_synthesize.community_modeling_spec import write_community_modeling_spec
 
 # Community HTML renderers moved to p50_present in Phase 2d. _safe_filename
 # is exposed publicly there (renamed `safe_filename`) for the orchestrator.
@@ -445,15 +447,44 @@ def run_validation(
         output_path=output_dir / "validation_report.md",
     )
 
+    # Phase 3e-iii: per-community modeling specs. One markdown per
+    # community, the handoff artifact for the data modeling team.
+    specs_dir = output_dir / "modeling_specs"
+    specs_dir.mkdir(parents=True, exist_ok=True)
+    spec_paths: list[str] = []
+    for community_index, analysis in enumerate(analyses):
+        top_label = (analysis["top_tables"][0][0]
+                     if analysis["top_tables"]
+                     else f"community_{community_index}")
+        safe = _safe_filename(top_label)
+        fname = f"community_{community_index:02d}_{safe}.md"
+        spec_path = write_community_modeling_spec(
+            community_index=community_index,
+            top_table=top_label,
+            analysis=analysis,
+            column_variance=column_variance.get(community_index, []),
+            join_paths=join_paths.get(community_index, []),
+            filter_patterns=filter_patterns.get(community_index, []),
+            view_strength=view_strength,
+            view_to_driver=view_to_driver,
+            view_to_spans=view_to_spans,
+            bridge_table_labels=bridge_labels,
+            bridge_to_neighbor_communities=bridge_to_neighbor_communities,
+            output_path=specs_dir / fname,
+        )
+        spec_paths.append(spec_path)
+
     print(f"      graph.html (overview)     -> {overview_html}")
     print(f"      communities/index.html    -> {index_html}")
     print(f"      communities.md            -> {communities_md}")
+    print(f"      modeling_specs/           -> {specs_dir} ({len(spec_paths)} spec(s))")
     print(f"      validation_report.md      -> {report_md}")
 
     return {
         "graph_html": overview_html,
         "communities_index_html": index_html,
         "communities_md": communities_md,
+        "modeling_specs": spec_paths,
         "validation_report": report_md,
         "n_views_total": len(all_views),
         "n_views_business": len(views),

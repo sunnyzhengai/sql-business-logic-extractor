@@ -101,47 +101,115 @@ def _compute_static_positions(g, scale: float = 1000.0) -> dict[str, tuple[float
     return {node: (float(x) * scale, float(y) * scale) for node, (x, y) in raw.items()}
 
 
+# Color for view nodes (Phase 3b): pale yellow -- stands out from any
+# community color in the palette, and visually marks "this is a VIEW,
+# not a table." Click a view node to see vis.js highlight its connections.
+VIEW_NODE_COLOR = "#fff3a0"
+
+
 def render_community_html(
     table_g, community_index: int, community_tables: set[str],
     bridge_tables: set[str], output_path: str | Path,
+    primary_views: list[str] | None = None,
+    view_to_tables_map: dict[str, set[str]] | None = None,
 ) -> str:
     """Render ONE community as interactive HTML, with bridges shown muted.
 
     Each per-community HTML contains:
       - All tables in this community (colored with the community color)
       - All bridge tables connected to any community-table (muted gray)
-      - Edges between any pair of the above
+      - Edges between any pair of the above (the co-occurrence subgraph)
+      - (Phase 3b) View nodes for each view whose PRIMARY community is
+        this one, with edges from view-node to each table the view
+        touches. Click a view node to highlight its subgraph.
 
     The layout is pre-computed with networkx and frozen (physics=off,
     fixed=true on every node). This gives stewards an instant, readable,
     non-animated view -- the previous behavior animated even small
     graphs for several seconds, which was distracting.
 
+    Parameters
+    ----------
+    table_g            : table-projection graph (nx.Graph)
+    community_index    : index into the communities list (drives color)
+    community_tables   : set of node IDs in this community
+    bridge_tables      : set of bridge-table node IDs (muted)
+    output_path        : where to write the HTML
+    primary_views      : (Phase 3b) list of view names whose PRIMARY
+                         community is this one. None disables view nodes
+                         (preserves pre-3b rendering for callers that
+                         haven't opted in).
+    view_to_tables_map : (Phase 3b) {view_name -> set of table node IDs}.
+                         Used to draw edges from each view-node to the
+                         tables it touches. None disables view nodes.
+
     Returns the path written.
     """
     from pyvis.network import Network
+    import networkx as nx
 
-    # Collect the nodes to render: community tables + bridges connected to them.
-    nodes_to_render: set[str] = set(community_tables)
+    # Collect the table nodes to render: community tables + bridges connected to them.
+    table_nodes_to_render: set[str] = set(community_tables)
     for ct in community_tables:
         if ct not in table_g:
             continue
         for neighbor in table_g.neighbors(ct):
             if neighbor in bridge_tables:
-                nodes_to_render.add(neighbor)
+                table_nodes_to_render.add(neighbor)
 
     # Build the subgraph as a regular nx.Graph (undirected) to keep pyvis happy.
-    sub = table_g.subgraph(nodes_to_render).copy()
+    sub = table_g.subgraph(table_nodes_to_render).copy()
     color_for_community = community_color(community_index)
+
+    # Phase 3b: add view nodes + view->table edges to the same nx.Graph
+    # so the layout positions them sensibly alongside the tables.
+    show_views = primary_views is not None and view_to_tables_map is not None
+    if show_views:
+        for view_name in primary_views:
+            view_node_id = f"view::{view_name}"
+            # Each view is one node in the layout graph. We give it the
+            # view name as its label so pyvis renders it visibly.
+            sub.add_node(view_node_id, ntype="view", label=view_name)
+            # Connect the view to every table it touches that's also in
+            # our render set (community tables + relevant bridges).
+            for table_id in view_to_tables_map.get(view_name, set()):
+                if table_id in table_nodes_to_render:
+                    sub.add_edge(view_node_id, table_id, relation="VIEW_USES")
+
     positions = _compute_static_positions(sub)
 
     net = Network(
         height="900px", width="100%",
         directed=False, notebook=False,
         cdn_resources="in_line",
+        # selectConnectedEdges + hover lets vis.js highlight neighbors
+        # when a node is clicked. The user picks a view name -> the
+        # subgraph of that view's tables stays vivid while everything
+        # else dims.
+        select_menu=show_views,
     )
 
+    # Render each node. View nodes get a distinct shape (hexagon) and
+    # the VIEW_NODE_COLOR; tables keep their existing visual treatment.
     for node, attrs in sub.nodes(data=True):
+        ntype = attrs.get("ntype")
+        label = attrs.get("label", str(node))
+        x, y = positions.get(node, (0.0, 0.0))
+
+        if ntype == "view":
+            title_lines = [
+                f"View: {label}",
+                "Click to highlight this view's tables.",
+            ]
+            net.add_node(
+                node, label=label, color=VIEW_NODE_COLOR,
+                shape="hexagon", size=20,
+                title="\n".join(title_lines),
+                x=x, y=y, physics=False, fixed=True,
+            )
+            continue
+
+        # Table node (existing behavior).
         is_zc = attrs.get("is_zc", False)
         is_bridge = node in bridge_tables
         if is_bridge:
@@ -152,25 +220,32 @@ def render_community_html(
             color = color_for_community
             shape = "box" if is_zc else "dot"
             size = 15 if is_zc else 25
-        label = attrs.get("label", str(node))
         title_lines = [f"Table: {label}"]
         if is_bridge:
             title_lines.append("Role: BRIDGE (high-degree dimension/shared lookup)")
         if is_zc:
             title_lines.append("Type: ZC lookup")
-        x, y = positions.get(node, (0.0, 0.0))
-        # `physics=False` + `fixed=True` together pin the node to (x, y).
-        # Without `fixed=True`, vis.js still nudges nodes during interaction.
         net.add_node(
             node, label=label, color=color, shape=shape, size=size,
             title="\n".join(title_lines),
             x=x, y=y, physics=False, fixed=True,
         )
 
+    # Render edges. Co-occurrence edges (between tables) keep their
+    # weight-based width. VIEW_USES edges (Phase 3b) are dashed + thin
+    # so they don't visually dominate the table-to-table relationships.
     for u, v, attrs in sub.edges(data=True):
-        w = attrs.get("weight", 1)
-        width = min(1 + w / 2, 8)
-        net.add_edge(u, v, value=w, width=width, title=f"co-occurrences: {w}")
+        relation = attrs.get("relation")
+        if relation == "VIEW_USES":
+            net.add_edge(
+                u, v, width=1, color={"color": "#cccccc"}, dashes=True,
+                title="view uses this table",
+            )
+        else:
+            w = attrs.get("weight", 1)
+            width = min(1 + w / 2, 8)
+            net.add_edge(u, v, value=w, width=width,
+                         title=f"co-occurrences: {w}")
 
     # Disable the simulation globally so the canvas does not "settle" on load.
     net.toggle_physics(False)

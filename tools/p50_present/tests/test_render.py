@@ -101,5 +101,59 @@ class TestRender(unittest.TestCase):
             self.assertIn("<graphml", txt)
 
 
+class TestCommunityHtmlWithViewNodes(unittest.TestCase):
+    """Phase 3b: view nodes embedded in community HTML."""
+
+    def test_community_html_includes_view_node_when_views_supplied(self):
+        """When primary_views + view_to_tables_map are passed,
+        the rendered HTML should contain the view name as a node label."""
+        from tools.p20_index.graph_builder import build_graph
+        from tools.p30_analyze.projection import extract_table_projection
+        from tools.p30_analyze.view_membership import view_to_tables
+        from tools.p50_present.community_html import render_community_html
+
+        g = build_graph([SAMPLE_VIEW_A])
+        table_g = extract_table_projection(g)
+        community_tables = {n for n in table_g.nodes if "PATIENT" not in n}
+        # PATIENT becomes a bridge so it's shown but not in any community.
+        bridges = {"table::PATIENT"}
+
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "community.html"
+            render_community_html(
+                table_g, community_index=0,
+                community_tables=community_tables, bridge_tables=bridges,
+                output_path=out,
+                primary_views=["VW_PATIENT_COVERAGE"],
+                view_to_tables_map=view_to_tables(g),
+            )
+            content = out.read_text(encoding="utf-8")
+            # The view name should appear as a node label in the rendered HTML.
+            self.assertIn("VW_PATIENT_COVERAGE", content)
+
+    def test_community_html_without_view_args_preserves_old_behavior(self):
+        """When primary_views / view_to_tables_map are NOT passed,
+        the community HTML renders as before (no view nodes)."""
+        from tools.p20_index.graph_builder import build_graph
+        from tools.p30_analyze.projection import extract_table_projection
+        from tools.p50_present.community_html import render_community_html
+
+        g = build_graph([SAMPLE_VIEW_A])
+        table_g = extract_table_projection(g)
+        community_tables = set(table_g.nodes)
+        bridges: set[str] = set()
+
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "community.html"
+            render_community_html(
+                table_g, 0, community_tables, bridges, out,
+            )
+            content = out.read_text(encoding="utf-8")
+            # File exists and has the usual table labels; view name shouldn't
+            # appear (since we didn't pass it).
+            self.assertTrue(out.is_file())
+            self.assertIn("PATIENT", content)
+
+
 if __name__ == "__main__":
     unittest.main()

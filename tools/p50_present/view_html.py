@@ -184,7 +184,13 @@ def render_view_html(
     for u, v, attrs in sub.edges(data=True):
         join_type = attrs.get("join_type", "JOIN")
         scope = attrs.get("scope", "main")
-        net.add_edge(u, v, label=join_type,
+        # Guard against bad corpus data where `join_type` got populated with
+        # a long SQL expression (e.g., a CASE WHEN column derivation). Such
+        # text overflows the canvas as a visible edge label. Use a short
+        # fixed label for the on-canvas text and keep the raw value in the
+        # tooltip for inspection.
+        canvas_label = join_type if join_type and len(join_type) <= 20 else "JOIN"
+        net.add_edge(u, v, label=canvas_label,
                      title=f"join_type: {join_type}\nscope: {scope}")
 
     net.toggle_physics(False)

@@ -38,6 +38,29 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 
+def view_to_tables(g) -> dict[str, set[str]]:
+    """Return {view_name -> set of table node IDs this view touches}.
+
+    Walks the graph's edges and collects every (view, table) pair seen
+    via READS_FROM_TABLE / JOIN / BELONGS_TO relations. Used both by
+    `compute_view_membership_strength` (internally) and by the
+    community renderer (to know which tables to connect a view-node to
+    when displaying clickable views inside a community HTML).
+    """
+    result: dict[str, set[str]] = defaultdict(set)
+    for u, v, attrs in g.edges(data=True):
+        relation = attrs.get("relation")
+        if relation not in ("READS_FROM_TABLE", "JOIN", "BELONGS_TO"):
+            continue
+        view_name = attrs.get("view")
+        if not view_name:
+            continue
+        for endpoint in (u, v):
+            if g.nodes[endpoint].get("ntype") == "table":
+                result[view_name].add(endpoint)
+    return result
+
+
 def compute_view_membership_strength(
     g, communities: list[set],
 ) -> dict[str, dict[int, float]]:
@@ -68,28 +91,12 @@ def compute_view_membership_strength(
             table_to_community[table_id] = community_index
 
     # For each view, collect the UNIQUE set of table node IDs it touches.
-    # We look at three edge relations to cover all ways a view can touch a
-    # table: READS_FROM_TABLE (FROM clause), JOIN (JOIN clauses), and
-    # BELONGS_TO (a column from this view references the table).
-    view_to_tables: dict[str, set[str]] = defaultdict(set)
-
-    for u, v, attrs in g.edges(data=True):
-        relation = attrs.get("relation")
-        if relation not in ("READS_FROM_TABLE", "JOIN", "BELONGS_TO"):
-            continue
-        view_name = attrs.get("view")
-        if not view_name:
-            continue
-        # For each of these edge types, one endpoint is a table. Add any
-        # endpoint that is a table node to the view's set.
-        for endpoint in (u, v):
-            attrs_endpoint = g.nodes[endpoint]
-            if attrs_endpoint.get("ntype") == "table":
-                view_to_tables[view_name].add(endpoint)
+    # Single source of truth: view_to_tables() in this module.
+    tables_per_view = view_to_tables(g)
 
     # Compute strength per (view, community).
     view_strength: dict[str, dict[int, float]] = {}
-    for view_name, tables in view_to_tables.items():
+    for view_name, tables in tables_per_view.items():
         # Exclude tables that are not in any community (bridges).
         non_bridge_tables = [t for t in tables if t in table_to_community]
         if not non_bridge_tables:

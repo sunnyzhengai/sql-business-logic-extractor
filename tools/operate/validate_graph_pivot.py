@@ -102,9 +102,11 @@ from tools.p30_analyze.primary_community import assign_views_to_communities
 from tools.p30_analyze.projection import extract_table_projection
 
 # Per-view membership strength + driver detection (Phase 3a).
+# view_to_tables added in Phase 3b as a shared helper.
 from tools.p30_analyze.view_membership import (
     compute_view_membership_strength,
     view_driver_table,
+    view_to_tables,
 )
 
 # Synthesis (markdown) lives in p40_synthesize (Phase 2d).
@@ -299,6 +301,9 @@ def run_validation(
     # Used downstream by both the markdown summary (strong/weak split) and
     # the per-view HTMLs (driver gets a starred shape).
     view_strength = compute_view_membership_strength(g, communities)
+    # Phase 3b: also compute view->tables map for Option B rendering
+    # (view nodes embedded in each community HTML with click-to-highlight).
+    tables_per_view = view_to_tables(g)
     # Driver detection -- only do it for views that have a primary community,
     # since those are the ones we'll render and report on.
     views_to_describe = set(view_to_spans.keys())
@@ -317,16 +322,22 @@ def run_validation(
         ))
 
     print("[8/8] Writing artifacts...")
-    # Per-community HTMLs
+    # Per-community HTMLs -- Phase 3b: each community HTML now includes
+    # view nodes (one per primary-member-view) that you can click to
+    # highlight the view's subgraph in place.
     community_html_files: list[tuple[int, str, str, int, int]] = []
     for community_index, (community_set, analysis) in enumerate(zip(communities, analyses)):
         # Name the per-community HTML after its top table (most connected within the community).
         top_label = analysis["top_tables"][0][0] if analysis["top_tables"] else f"community_{community_index}"
         safe = _safe_filename(top_label)
         fname = f"community_{community_index:02d}_{safe}.html"
+        # The list of views to embed: this community's primary views.
+        primary_views = sorted(community_to_primary.get(community_index, set()))
         render_community_html(
             table_g, community_index, community_set, bridge_nodes,
             communities_dir / fname,
+            primary_views=primary_views,
+            view_to_tables_map=tables_per_view,
         )
         community_html_files.append((
             community_index, top_label, fname,

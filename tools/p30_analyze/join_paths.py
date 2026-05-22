@@ -62,12 +62,12 @@ def analyze_join_paths(g, community_to_primary: dict[int, set[str]]) -> dict[int
 
     # Walk every JOIN edge in the graph. For each edge:
     #   key   = (community_idx, from_label, to_label)
-    #   data  = { "view_set": set of view names, "join_types": [...] }
-    # We collect join_types as a list so we can report the most-common
-    # variant per edge (some edges might be INNER in some views and LEFT
-    # in others -- a finding worth noting).
+    #   data  = { "view_set": set, "join_types": [...], "on_expressions": [...] }
+    # We collect join_types AND on_expressions as lists so we can report
+    # the most-common variant per edge (some edges might be INNER in some
+    # views and LEFT in others -- a finding worth noting; same for ON clauses).
     grouped: dict[tuple[int, str, str], dict] = defaultdict(
-        lambda: {"view_set": set(), "join_types": []}
+        lambda: {"view_set": set(), "join_types": [], "on_expressions": []}
     )
 
     for u, v, attrs in g.edges(data=True):
@@ -80,9 +80,12 @@ def analyze_join_paths(g, community_to_primary: dict[int, set[str]]) -> dict[int
         from_label = g.nodes[u].get("label", u)
         to_label = g.nodes[v].get("label", v)
         join_type = attrs.get("join_type") or "JOIN"
+        on_expression = attrs.get("on_expression") or ""
         key = (community_idx, from_label, to_label)
         grouped[key]["view_set"].add(view_name)
         grouped[key]["join_types"].append(join_type)
+        if on_expression:
+            grouped[key]["on_expressions"].append(on_expression)
 
     # Materialize per-community lists of join-edge records.
     result: dict[int, list[dict]] = {idx: [] for idx in community_to_primary}
@@ -93,11 +96,18 @@ def analyze_join_paths(g, community_to_primary: dict[int, set[str]]) -> dict[int
         join_type_counts = Counter(data["join_types"])
         most_common_type, _ = join_type_counts.most_common(1)[0]
         n_distinct_join_types = len(join_type_counts)
+        # Most-common ON expression -- empty string if none of the views
+        # carried one (some corpus extractors don't capture ON clauses).
+        on_expr_counts = Counter(data["on_expressions"])
+        most_common_on = on_expr_counts.most_common(1)[0][0] if on_expr_counts else ""
+        n_distinct_on_expressions = len(on_expr_counts)
         result.setdefault(community_idx, []).append({
             "from_table": from_label,
             "to_table": to_label,
             "join_type": most_common_type,
             "n_distinct_join_types": n_distinct_join_types,
+            "on_expression": most_common_on,
+            "n_distinct_on_expressions": n_distinct_on_expressions,
             "n_views": len(data["view_set"]),
             "views": sorted(data["view_set"]),
         })

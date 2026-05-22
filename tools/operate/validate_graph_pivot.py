@@ -102,6 +102,11 @@ from tools.p30_analyze.column_variance import (
 )
 from tools.p30_analyze.communities import detect_table_communities
 from tools.p30_analyze.community_analysis import analyze_community
+from tools.p30_analyze.filter_patterns import (
+    analyze_filter_patterns,
+    count_filter_patterns,
+)
+from tools.p30_analyze.join_paths import analyze_join_paths, count_join_edges
 from tools.p30_analyze.primary_community import assign_views_to_communities
 from tools.p30_analyze.projection import extract_table_projection
 
@@ -316,6 +321,13 @@ def run_validation(
     column_variance = analyze_column_variance(views, community_to_primary)
     n_reconciliation = count_reconciliation_candidates(column_variance)
     print(f"      Reconciliation candidates (columns with multi-definition variance): {n_reconciliation}")
+    # Phase 3e-ii: per-community common JOIN edges + filter patterns.
+    join_paths = analyze_join_paths(g, community_to_primary)
+    n_join_edges = count_join_edges(join_paths)
+    print(f"      Distinct JOIN edges across communities: {n_join_edges}")
+    filter_patterns = analyze_filter_patterns(views, community_to_primary)
+    n_common_filters = count_filter_patterns(filter_patterns, min_views=2)
+    print(f"      Common filters (>=2 views in a community): {n_common_filters}")
     # Driver detection -- only do it for views that have a primary community,
     # since those are the ones we'll render and report on.
     views_to_describe = set(view_to_spans.keys())

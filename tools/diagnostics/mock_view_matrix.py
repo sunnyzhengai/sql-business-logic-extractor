@@ -161,6 +161,40 @@ SHORT_NAMES = {
 
 
 # ---------------------------------------------------------------------------
+# Grain classification (Clarity-specific; production will read from the
+# Clarity metadata table that ships cardinality alongside the schema).
+# ---------------------------------------------------------------------------
+#
+# Two pieces of information per table:
+#
+#   "label"     -- short token printed in the table matrix's grain column.
+#                  "cohort"  -- matches the community's anchoring fact grain.
+#                  "dim"     -- conformed dimension or coarser fact;
+#                                join does not multiply rows.
+#                  "code"    -- code lookup (ZC_*); one row per code.
+#                  "↑ per X" -- grain expander: joining this table multiplies
+#                                rows relative to the cohort grain. The X
+#                                names the new grain ("measurement", "dx", ...).
+#
+#   "expander"  -- True iff this is a grain-expanding table relative to
+#                  the community cohort. Counted in the per-view footer.
+#
+# The community cohort grain for "Patient Access" is encounter (PAT_ENC).
+# All grain labels below are RELATIVE TO that cohort, not absolute.
+
+TABLE_GRAIN = {
+    "PATIENT":         {"label": "dim",                "expander": False},
+    "PAT_ENC":         {"label": "cohort",             "expander": False},
+    "PAT_PCP":         {"label": "dim",                "expander": False},
+    "PAT_ENC_DX":      {"label": "↑ per dx",           "expander": True},
+    "FLOWSHEET":       {"label": "↑ per measurement",  "expander": True},
+    "CLARITY_SER":     {"label": "dim",                "expander": False},
+    "CLARITY_DEP":     {"label": "dim",                "expander": False},
+    "ZC_APPT_STATUS":  {"label": "code",               "expander": False},
+}
+
+
+# ---------------------------------------------------------------------------
 # Matrix construction
 # ---------------------------------------------------------------------------
 
@@ -235,14 +269,26 @@ def _render_matrix_md(
     feature_col_label: str,
     alignment_scores: dict[str, float],
     dense_threshold: float = 0.5,
+    feature_grain: dict[str, dict] | None = None,
 ) -> str:
-    """Render one matrix to a pipe-table markdown block."""
+    """Render one matrix to a pipe-table markdown block.
+
+    feature_grain (optional): if provided, inserts a `grain` column
+    between the feature label and the view columns. Used only on the
+    table matrix -- filters and base columns have no grain semantics.
+    The dict maps feature -> {"label": str, "expander": bool}; an
+    additional footer row counts grain-expander joins per view.
+    """
     lines: list[str] = []
     lines.append(f"## {title}")
     lines.append("")
     lines.append(subtitle)
     lines.append("")
-    header_cells = [feature_col_label] + view_short_names + ["coverage"]
+    show_grain = feature_grain is not None
+    header_cells = [feature_col_label]
+    if show_grain:
+        header_cells.append("grain")
+    header_cells += view_short_names + ["coverage"]
     lines.append("| " + " | ".join(header_cells) + " |")
     lines.append("|" + "|".join(["---"] * len(header_cells)) + "|")
 
@@ -258,6 +304,15 @@ def _render_matrix_md(
         # community's common ground.
         feature_label = f"**{feature}**" if is_dense else feature
         row.append(feature_label)
+        if show_grain:
+            grain_info = feature_grain.get(feature, {})
+            grain_label = grain_info.get("label", "?")
+            # Bold the grain cell when it's an expander -- a visual flag
+            # for the modeler that joining this table changes row meaning.
+            if grain_info.get("expander"):
+                row.append(f"**{grain_label}**")
+            else:
+                row.append(grain_label)
         for short in view_short_names:
             row.append("✓" if membership[feature].get(short, False) else " ")
         coverage_cell = f"{n_hits}/{n_views}" + ("  ●" if is_dense else "")
@@ -266,11 +321,33 @@ def _render_matrix_md(
 
     # Alignment-score footer row.
     score_row = ["**alignment** (% of dense rows used)"]
+    if show_grain:
+        score_row.append("")
     for short in view_short_names:
         s = alignment_scores.get(short, 0.0)
         score_row.append(f"**{int(round(s * 100))}%**")
     score_row.append(f"_dense = ≥ {int(dense_threshold * 100)}% coverage; ● marks dense_")
     lines.append("| " + " | ".join(score_row) + " |")
+
+    # Grain-expander count footer (table matrix only).
+    if show_grain:
+        expander_features = [
+            f for f in feature_order
+            if feature_grain.get(f, {}).get("expander")
+        ]
+        expander_row = ["**grain-expanders joined**"]
+        expander_row.append("")
+        for short in view_short_names:
+            n_exp = sum(
+                1 for f in expander_features
+                if membership[f].get(short, False)
+            )
+            cell = f"**{n_exp}**" if n_exp > 0 else "0"
+            expander_row.append(cell)
+        expander_row.append(
+            "_count of tables joined whose grain is finer than the cohort_"
+        )
+        lines.append("| " + " | ".join(expander_row) + " |")
 
     return "\n".join(lines)
 
@@ -356,13 +433,20 @@ def main() -> int:
         subtitle=(
             "Which tables does each view touch? Includes tables used in "
             "any scope -- main, CTEs, subqueries. This is the substrate "
-            "that drove community detection, so we lead with it."
+            "that drove community detection, so we lead with it. The "
+            "`grain` column shows each table's row-cardinality relative "
+            "to the community cohort grain (encounter): `dim` and `code` "
+            "joins don't multiply rows; `↑ per X` joins do, and are flagged "
+            "as grain-expanders. Joining a grain-expander changes what an "
+            "output row means -- a strong signal the view wants its own "
+            "model rather than consolidation with cohort-grain peers."
         ),
         feature_order=table_order,
         membership=table_membership,
         view_short_names=view_short_names,
         feature_col_label="table",
         alignment_scores=table_scores,
+        feature_grain=TABLE_GRAIN,
     )
 
     # 2. FILTERS matrix (cohort definitions)
@@ -413,13 +497,13 @@ def main() -> int:
     legend_md = "\n".join(legend_lines)
 
     intro = (
-        "# Mock v2: Patient Access community -- feature matrix\n"
+        "# Mock v3: Patient Access community -- feature matrix with grain\n"
         "\n"
-        "Six synthetic views, ordered as the user described. R6 is the "
-        "intentional outlier (clinical-quality, not patient-access).\n"
+        "Six synthetic views. R6 is the intentional outlier "
+        "(clinical-quality, not patient-access).\n"
         "\n"
-        "Three matrices, ordered structural -> filters -> base columns "
-        "per the design review. Each shows:\n"
+        "Three matrices, ordered structural -> filters -> base columns. "
+        "Each shows:\n"
         "\n"
         "  - **rows** sorted by coverage descending. Dense rows "
         "(>= 50% coverage) are **bolded** and marked with a `●` in the "
@@ -428,6 +512,17 @@ def main() -> int:
         "  - an **`alignment`** footer row -- how much of the dense common "
         "ground each view participates in. Low alignment = structural "
         "outlier signal, quantified.\n"
+        "\n"
+        "**New in v3:** the table matrix has a **`grain`** column and a "
+        "**`grain-expanders joined`** footer. A grain-expander is a table "
+        "whose grain is finer than the community cohort grain (encounter, "
+        "for this community) -- joining it multiplies output rows and "
+        "changes what one row means. The Clarity prefix taxonomy is the "
+        "production-ready signal here; see "
+        "`wiki/concepts/clarity-table-families.md`. For this mock the "
+        "grain dict is hardcoded; in production it will read from the "
+        "Clarity metadata table that ships cardinality alongside the "
+        "schema.\n"
     )
 
     interpretation = (
@@ -436,25 +531,37 @@ def main() -> int:
         "\n"
         "Three independent axes of evidence (tables, filters, base columns).\n"
         "When all three say the same thing, the conclusion is strong; when\n"
-        "they disagree, it's a steward conversation.\n"
+        "they disagree, it's a steward conversation. The table matrix is\n"
+        "the determining axis -- if structure says no, no scoring of\n"
+        "filters or columns can rescue the pair. Filters are\n"
+        "parameterization evidence (push-down candidates for the unified\n"
+        "model), not similarity votes.\n"
         "\n"
-        "**Look at R6's alignment scores across the three matrices.** If R6\n"
-        "scores low on all three, it's a strong outlier signal. If it scores\n"
-        "low only on (say) columns but high on tables, that's a different\n"
-        "story -- the view shares structural shape but does something\n"
-        "unique with that shape.\n"
+        "**Look at R6's alignment scores across the three matrices** AND\n"
+        "**its grain-expander count.** R6 hits the encounter cohort\n"
+        "(PAT_ENC ✓) but pulls in two grain-expanders (FLOWSHEET, PAT_ENC_DX)\n"
+        "that nobody else uses. That's a separate diagnosis from low\n"
+        "alignment -- it says the view operates at a different grain than\n"
+        "the rest of the community. Consolidating R6 with R3/R4/R5 would\n"
+        "silently change what an output row means: encounters become\n"
+        "(encounter, measurement, dx) triples.\n"
         "\n"
-        "**Look at R4 vs R5.** If they score similarly on all three,\n"
-        "they're a near-twin pair -- candidate for consolidation into one\n"
-        "parameterized model.\n"
+        "**Look at R4 vs R5.** Similar alignment, zero grain-expanders --\n"
+        "they're a near-twin pair at the same grain. Strong consolidation\n"
+        "candidate.\n"
         "\n"
-        "**Look at R2 vs R3.** Yesterday's mock missed that they share\n"
-        "encounter-close logic because their OUTPUT column names differ\n"
-        "(`pct_closed_24h` vs `close_rate`). The base-column matrix now\n"
-        "shows them sharing `PAT_ENC.STATUS_C`, `PAT_ENC.ENC_DATE`,\n"
-        "`PAT_ENC.CLOSE_DATE`, `ZC_APPT_STATUS.STATUS_C` -- the underlying\n"
-        "data they actually touch. This is the semantic similarity that\n"
-        "surface-name comparison missed.\n"
+        "**Look at R2 vs R3.** v2 surfaced that they share encounter-close\n"
+        "base columns even though their output names differ (`pct_closed_24h`\n"
+        "vs `close_rate`). Both at encounter grain, both zero\n"
+        "grain-expanders. Same story confirmed by v3.\n"
+        "\n"
+        "**Look at R1.** Low alignment (40/0/23), zero grain-expanders --\n"
+        "but R1 doesn't touch PAT_ENC at all; it's at PAT_PCP grain. The\n"
+        "grain column shows PAT_PCP as `dim`, which is true relative to a\n"
+        "patient-grain cohort but obscures that R1's effective cohort is\n"
+        "*different* from this community's encounter cohort. R1 is a\n"
+        "different-cohort-grain outlier, while R6 is a finer-grain-extension\n"
+        "outlier. Different problems, different model recommendations.\n"
     )
 
     full = "\n".join([

@@ -1,6 +1,6 @@
-# Mock v3: Patient Access community -- feature matrix with grain
+# Mock v4: Patient Access community -- feature matrix with signed grain change
 
-Six synthetic views. R6 is the intentional outlier (clinical-quality, not patient-access).
+Six synthetic views. R6 (clinical-quality) and R1 (panel size) are the intentional outliers -- but for different reasons that the grain footer now distinguishes.
 
 Three matrices, ordered structural -> filters -> base columns. Each shows:
 
@@ -8,11 +8,11 @@ Three matrices, ordered structural -> filters -> base columns. Each shows:
   - a **`coverage`** column on the right -- how many views use that row.
   - an **`alignment`** footer row -- how much of the dense common ground each view participates in. Low alignment = structural outlier signal, quantified.
 
-**New in v3:** the table matrix has a **`grain`** column and a **`grain-expanders joined`** footer. A grain-expander is a table whose grain is finer than the community cohort grain (encounter, for this community) -- joining it multiplies output rows and changes what one row means. The Clarity prefix taxonomy is the production-ready signal here; see `wiki/concepts/clarity-table-families.md`. For this mock the grain dict is hardcoded; in production it will read from the Clarity metadata table that ships cardinality alongside the schema.
+**New in v4:** the table matrix has a **`grain`** column and a **`grain-changers joined`** footer that reports a signed integer per view. `+N` = N finer-grain joins relative to the community cohort grain (encounter); each one compounds row multiplication. `-N` = the view's anchor fact is N levels coarser than cohort -- it's at a different grain entirely (different question, different model). `0` = at cohort grain. The Clarity prefix taxonomy is the production-ready signal here; see `wiki/concepts/clarity-table-families.md`. For this mock the grain dict is hardcoded; in production it will read from the Clarity metadata table that ships cardinality alongside the schema.
 
 ## 1. Table matrix  (structural shape)
 
-Which tables does each view touch? Includes tables used in any scope -- main, CTEs, subqueries. This is the substrate that drove community detection, so we lead with it. The `grain` column shows each table's row-cardinality relative to the community cohort grain (encounter): `dim` and `code` joins don't multiply rows; `↑ per X` joins do, and are flagged as grain-expanders. Joining a grain-expander changes what an output row means -- a strong signal the view wants its own model rather than consolidation with cohort-grain peers.
+Which tables does each view touch? Includes tables used in any scope -- main, CTEs, subqueries. This is the substrate that drove community detection, so we lead with it. The `grain` column shows each table's row-cardinality relative to the community cohort grain (encounter): `dim` / `code` joins don't shift grain; `↑ per X` joins push the output finer; `↓ per Y` facts mean the view's anchor is coarser than cohort. The **grain-changers** footer reports a signed tally per view: +N = N finer-grain joins (each compounds row multiplication); -N = anchor N levels coarser than cohort. Zero means the view stays at cohort grain.
 
 | table | grain | R1 | R2 | R3 | R4 | R5 | R6 | coverage |
 |---|---|---|---|---|---|---|---|---|
@@ -21,11 +21,11 @@ Which tables does each view touch? Includes tables used in any scope -- main, CT
 | **CLARITY_SER** | dim | ✓ | ✓ |   | ✓ | ✓ |   | 4/6  ● |
 | **ZC_APPT_STATUS** | code |   | ✓ | ✓ | ✓ | ✓ |   | 4/6  ● |
 | **CLARITY_DEP** | dim |   |   | ✓ | ✓ | ✓ |   | 3/6  ● |
-| PAT_PCP | dim | ✓ | ✓ |   |   |   |   | 2/6 |
+| PAT_PCP | **↓ per patient** | ✓ | ✓ |   |   |   |   | 2/6 |
 | FLOWSHEET | **↑ per measurement** |   |   |   |   |   | ✓ | 1/6 |
 | PAT_ENC_DX | **↑ per dx** |   |   |   |   |   | ✓ | 1/6 |
 | **alignment** (% of dense rows used) |  | **40%** | **80%** | **80%** | **100%** | **100%** | **40%** | _dense = ≥ 50% coverage; ● marks dense_ |
-| **grain-expanders joined** |  | 0 | 0 | 0 | 0 | 0 | **2** | _count of tables joined whose grain is finer than the cohort_ |
+| **grain-changers joined** |  | **-1** | 0 | 0 | 0 | 0 | **+2** | _+N = N finer-grain joins; -N = anchor N levels coarser than cohort_ |
 
 ## 2. Filter / cohort matrix
 
@@ -99,31 +99,37 @@ filters or columns can rescue the pair. Filters are
 parameterization evidence (push-down candidates for the unified
 model), not similarity votes.
 
-**Look at R6's alignment scores across the three matrices** AND
-**its grain-expander count.** R6 hits the encounter cohort
-(PAT_ENC ✓) but pulls in two grain-expanders (FLOWSHEET, PAT_ENC_DX)
-that nobody else uses. That's a separate diagnosis from low
-alignment -- it says the view operates at a different grain than
-the rest of the community. Consolidating R6 with R3/R4/R5 would
-silently change what an output row means: encounters become
-(encounter, measurement, dx) triples.
+**Look at R6** -- alignment 40% in tables, grain-changers **+2**.
+R6 hits the encounter cohort (PAT_ENC ✓) but pulls in two
+grain-expanders (FLOWSHEET, PAT_ENC_DX) that nobody else uses.
+It operates at a *finer* grain than the rest. Consolidating R6
+with R3/R4/R5 would silently change what an output row means:
+encounters become (encounter, measurement, dx) triples.
 
-**Look at R4 vs R5.** Similar alignment, zero grain-expanders --
-they're a near-twin pair at the same grain. Strong consolidation
+**Look at R1** -- alignment 40% in tables, grain-changers **-1**.
+R1 doesn't touch PAT_ENC at all; its anchor is PAT_PCP
+(↓ per patient), one level coarser than cohort. R1 operates
+at a *different cohort grain* -- it's not 'an encounter view
+missing tables,' it's a panel-grain view from a different
+question family entirely.
+
+**Together, the +2 and -1 readings encode the asymmetric
+diagnoses.** R6 is a finer-grain extension that should split off
+into a measurement-grain or dx-grain model on top of the
+encounter-grain backbone. R1 is a different cohort that should
+live in its own patient-grain model. Both are outliers; they
+are NOT the same kind of outlier, and the unified model
+recommendation differs.
+
+**Look at R4 vs R5.** Similar alignment, both grain-changers = 0 --
+they're a near-twin pair at the cohort grain. Strong consolidation
 candidate.
 
-**Look at R2 vs R3.** v2 surfaced that they share encounter-close
-base columns even though their output names differ (`pct_closed_24h`
-vs `close_rate`). Both at encounter grain, both zero
-grain-expanders. Same story confirmed by v3.
-
-**Look at R1.** Low alignment (40/0/23), zero grain-expanders --
-but R1 doesn't touch PAT_ENC at all; it's at PAT_PCP grain. The
-grain column shows PAT_PCP as `dim`, which is true relative to a
-patient-grain cohort but obscures that R1's effective cohort is
-*different* from this community's encounter cohort. R1 is a
-different-cohort-grain outlier, while R6 is a finer-grain-extension
-outlier. Different problems, different model recommendations.
+**Look at R2 vs R3.** Both at cohort grain (R2's PAT_PCP join
+doesn't pull the output coarser because PAT_ENC dominates the
+join cardinality). v2 surfaced that they share encounter-close
+base columns even though their output names differ
+(`pct_closed_24h` vs `close_rate`). Same story confirmed here.
 
 
 ## Where the borrowed academic ideas would apply

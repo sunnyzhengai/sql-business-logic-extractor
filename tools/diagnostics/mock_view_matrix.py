@@ -165,33 +165,69 @@ SHORT_NAMES = {
 # Clarity metadata table that ships cardinality alongside the schema).
 # ---------------------------------------------------------------------------
 #
-# Two pieces of information per table:
+# Three pieces of information per table:
 #
 #   "label"     -- short token printed in the table matrix's grain column.
-#                  "cohort"  -- matches the community's anchoring fact grain.
-#                  "dim"     -- conformed dimension or coarser fact;
-#                                join does not multiply rows.
-#                  "code"    -- code lookup (ZC_*); one row per code.
-#                  "↑ per X" -- grain expander: joining this table multiplies
-#                                rows relative to the cohort grain. The X
-#                                names the new grain ("measurement", "dx", ...).
+#                  "cohort"          -- matches the community's anchoring fact grain.
+#                  "dim"             -- conformed dimension; join does not multiply.
+#                  "code"            -- code lookup (ZC_*); one row per code.
+#                  "↑ per X"         -- finer than cohort: joining multiplies rows
+#                                       to per-X grain (measurement, dx, ...).
+#                  "↓ per Y"         -- coarser than cohort: if this is the
+#                                       view's anchor (cohort table absent),
+#                                       the view operates at per-Y grain (patient).
 #
-#   "expander"  -- True iff this is a grain-expanding table relative to
-#                  the community cohort. Counted in the per-view footer.
+#   "category"  -- "fact" / "dim" / "code". Only facts carry a grain level;
+#                  dims and codes don't shift the output grain when joined
+#                  to a cohort-grain fact.
+#
+#   "level"     -- signed integer offset from cohort grain. 0 = cohort,
+#                  +1 = finer by one step, -1 = coarser by one step.
+#                  None for dims and codes.
 #
 # The community cohort grain for "Patient Access" is encounter (PAT_ENC).
 # All grain labels below are RELATIVE TO that cohort, not absolute.
 
 TABLE_GRAIN = {
-    "PATIENT":         {"label": "dim",                "expander": False},
-    "PAT_ENC":         {"label": "cohort",             "expander": False},
-    "PAT_PCP":         {"label": "dim",                "expander": False},
-    "PAT_ENC_DX":      {"label": "↑ per dx",           "expander": True},
-    "FLOWSHEET":       {"label": "↑ per measurement",  "expander": True},
-    "CLARITY_SER":     {"label": "dim",                "expander": False},
-    "CLARITY_DEP":     {"label": "dim",                "expander": False},
-    "ZC_APPT_STATUS":  {"label": "code",               "expander": False},
+    "PATIENT":         {"label": "dim",                "category": "dim",  "level": None},
+    "PAT_ENC":         {"label": "cohort",             "category": "fact", "level": 0},
+    "PAT_PCP":         {"label": "↓ per patient",      "category": "fact", "level": -1},
+    "PAT_ENC_DX":      {"label": "↑ per dx",           "category": "fact", "level": +1},
+    "FLOWSHEET":       {"label": "↑ per measurement",  "category": "fact", "level": +1},
+    "CLARITY_SER":     {"label": "dim",                "category": "dim",  "level": None},
+    "CLARITY_DEP":     {"label": "dim",                "category": "dim",  "level": None},
+    "ZC_APPT_STATUS":  {"label": "code",               "category": "code", "level": None},
 }
+
+
+def _view_grain_change(view_tables: list[str]) -> int:
+    """Compute the signed grain-change count for one view.
+
+    Walks the FACT tables this view joins (dims and codes don't shift
+    grain). The view's output grain is the FINEST fact level joined
+    (no GROUP BY assumed -- aggregation back up is the modeler's call).
+
+      - Output at cohort (level 0)         -> 0
+      - Output finer than cohort (level>0) -> +(count of finer-grain facts joined)
+      - Output coarser than cohort (level<0) -> the output level (e.g. -1)
+
+    The asymmetry is intentional. A finer-grain shift is *additive* (every
+    finer-grain join compounds row multiplication), so counting joins is
+    the right magnitude. A coarser-grain anchor is a *categorical*
+    different-cohort situation -- reporting the offset (-1, -2, ...)
+    captures the diagnosis without over-counting.
+    """
+    fact_levels = [
+        TABLE_GRAIN[t]["level"]
+        for t in view_tables
+        if TABLE_GRAIN.get(t, {}).get("category") == "fact"
+    ]
+    if not fact_levels:
+        return 0
+    output_level = max(fact_levels)
+    if output_level > 0:
+        return sum(1 for L in fact_levels if L > 0)
+    return output_level  # 0 or negative
 
 
 # ---------------------------------------------------------------------------
@@ -270,14 +306,20 @@ def _render_matrix_md(
     alignment_scores: dict[str, float],
     dense_threshold: float = 0.5,
     feature_grain: dict[str, dict] | None = None,
+    per_view_grain_change: dict[str, int] | None = None,
 ) -> str:
     """Render one matrix to a pipe-table markdown block.
 
     feature_grain (optional): if provided, inserts a `grain` column
     between the feature label and the view columns. Used only on the
     table matrix -- filters and base columns have no grain semantics.
-    The dict maps feature -> {"label": str, "expander": bool}; an
-    additional footer row counts grain-expander joins per view.
+    The dict maps feature -> {"label": str, "category": str, "level": int|None};
+    non-zero-level facts get their grain cell bolded as a visual flag.
+
+    per_view_grain_change (optional): signed integer per view --
+    positive = N grain-expanding joins; 0 = at cohort grain;
+    negative = anchor coarser than cohort by that many levels.
+    Used to render the grain-changers footer.
     """
     lines: list[str] = []
     lines.append(f"## {title}")
@@ -307,9 +349,11 @@ def _render_matrix_md(
         if show_grain:
             grain_info = feature_grain.get(feature, {})
             grain_label = grain_info.get("label", "?")
-            # Bold the grain cell when it's an expander -- a visual flag
-            # for the modeler that joining this table changes row meaning.
-            if grain_info.get("expander"):
+            level = grain_info.get("level")
+            # Bold any fact whose grain differs from the cohort (either
+            # finer or coarser) -- a visual flag for the modeler that
+            # this table can shift the view's output grain.
+            if level not in (None, 0):
                 row.append(f"**{grain_label}**")
             else:
                 row.append(grain_label)
@@ -329,25 +373,25 @@ def _render_matrix_md(
     score_row.append(f"_dense = ≥ {int(dense_threshold * 100)}% coverage; ● marks dense_")
     lines.append("| " + " | ".join(score_row) + " |")
 
-    # Grain-expander count footer (table matrix only).
-    if show_grain:
-        expander_features = [
-            f for f in feature_order
-            if feature_grain.get(f, {}).get("expander")
-        ]
-        expander_row = ["**grain-expanders joined**"]
-        expander_row.append("")
+    # Grain-changers footer (table matrix only). Signed per-view tally:
+    # positive = N finer-grain (grain-expanding) joins; 0 = at cohort;
+    # negative = anchor coarser than cohort by that many levels.
+    if show_grain and per_view_grain_change is not None:
+        changer_row = ["**grain-changers joined**"]
+        changer_row.append("")
         for short in view_short_names:
-            n_exp = sum(
-                1 for f in expander_features
-                if membership[f].get(short, False)
-            )
-            cell = f"**{n_exp}**" if n_exp > 0 else "0"
-            expander_row.append(cell)
-        expander_row.append(
-            "_count of tables joined whose grain is finer than the cohort_"
+            n = per_view_grain_change.get(short, 0)
+            if n > 0:
+                cell = f"**+{n}**"
+            elif n < 0:
+                cell = f"**{n}**"
+            else:
+                cell = "0"
+            changer_row.append(cell)
+        changer_row.append(
+            "_+N = N finer-grain joins; -N = anchor N levels coarser than cohort_"
         )
-        lines.append("| " + " | ".join(expander_row) + " |")
+        lines.append("| " + " | ".join(changer_row) + " |")
 
     return "\n".join(lines)
 
@@ -428,6 +472,10 @@ def main() -> int:
     table_scores = _per_view_alignment_score(
         table_order, table_membership, view_short_names,
     )
+    grain_change = {
+        SHORT_NAMES[v["view_name"]]: _view_grain_change(v["tables"])
+        for v in VIEWS
+    }
     tables_md = _render_matrix_md(
         title="1. Table matrix  (structural shape)",
         subtitle=(
@@ -435,11 +483,13 @@ def main() -> int:
             "any scope -- main, CTEs, subqueries. This is the substrate "
             "that drove community detection, so we lead with it. The "
             "`grain` column shows each table's row-cardinality relative "
-            "to the community cohort grain (encounter): `dim` and `code` "
-            "joins don't multiply rows; `↑ per X` joins do, and are flagged "
-            "as grain-expanders. Joining a grain-expander changes what an "
-            "output row means -- a strong signal the view wants its own "
-            "model rather than consolidation with cohort-grain peers."
+            "to the community cohort grain (encounter): `dim` / `code` "
+            "joins don't shift grain; `↑ per X` joins push the output "
+            "finer; `↓ per Y` facts mean the view's anchor is coarser "
+            "than cohort. The **grain-changers** footer reports a signed "
+            "tally per view: +N = N finer-grain joins (each compounds "
+            "row multiplication); -N = anchor N levels coarser than "
+            "cohort. Zero means the view stays at cohort grain."
         ),
         feature_order=table_order,
         membership=table_membership,
@@ -447,6 +497,7 @@ def main() -> int:
         feature_col_label="table",
         alignment_scores=table_scores,
         feature_grain=TABLE_GRAIN,
+        per_view_grain_change=grain_change,
     )
 
     # 2. FILTERS matrix (cohort definitions)
@@ -497,10 +548,11 @@ def main() -> int:
     legend_md = "\n".join(legend_lines)
 
     intro = (
-        "# Mock v3: Patient Access community -- feature matrix with grain\n"
+        "# Mock v4: Patient Access community -- feature matrix with signed grain change\n"
         "\n"
-        "Six synthetic views. R6 is the intentional outlier "
-        "(clinical-quality, not patient-access).\n"
+        "Six synthetic views. R6 (clinical-quality) and R1 "
+        "(panel size) are the intentional outliers -- but for "
+        "different reasons that the grain footer now distinguishes.\n"
         "\n"
         "Three matrices, ordered structural -> filters -> base columns. "
         "Each shows:\n"
@@ -513,12 +565,14 @@ def main() -> int:
         "ground each view participates in. Low alignment = structural "
         "outlier signal, quantified.\n"
         "\n"
-        "**New in v3:** the table matrix has a **`grain`** column and a "
-        "**`grain-expanders joined`** footer. A grain-expander is a table "
-        "whose grain is finer than the community cohort grain (encounter, "
-        "for this community) -- joining it multiplies output rows and "
-        "changes what one row means. The Clarity prefix taxonomy is the "
-        "production-ready signal here; see "
+        "**New in v4:** the table matrix has a **`grain`** column and a "
+        "**`grain-changers joined`** footer that reports a signed integer "
+        "per view. `+N` = N finer-grain joins relative to the community "
+        "cohort grain (encounter); each one compounds row multiplication. "
+        "`-N` = the view's anchor fact is N levels coarser than cohort -- "
+        "it's at a different grain entirely (different question, different "
+        "model). `0` = at cohort grain. The Clarity prefix taxonomy is "
+        "the production-ready signal here; see "
         "`wiki/concepts/clarity-table-families.md`. For this mock the "
         "grain dict is hardcoded; in production it will read from the "
         "Clarity metadata table that ships cardinality alongside the "
@@ -537,31 +591,37 @@ def main() -> int:
         "parameterization evidence (push-down candidates for the unified\n"
         "model), not similarity votes.\n"
         "\n"
-        "**Look at R6's alignment scores across the three matrices** AND\n"
-        "**its grain-expander count.** R6 hits the encounter cohort\n"
-        "(PAT_ENC ✓) but pulls in two grain-expanders (FLOWSHEET, PAT_ENC_DX)\n"
-        "that nobody else uses. That's a separate diagnosis from low\n"
-        "alignment -- it says the view operates at a different grain than\n"
-        "the rest of the community. Consolidating R6 with R3/R4/R5 would\n"
-        "silently change what an output row means: encounters become\n"
-        "(encounter, measurement, dx) triples.\n"
+        "**Look at R6** -- alignment 40% in tables, grain-changers **+2**.\n"
+        "R6 hits the encounter cohort (PAT_ENC ✓) but pulls in two\n"
+        "grain-expanders (FLOWSHEET, PAT_ENC_DX) that nobody else uses.\n"
+        "It operates at a *finer* grain than the rest. Consolidating R6\n"
+        "with R3/R4/R5 would silently change what an output row means:\n"
+        "encounters become (encounter, measurement, dx) triples.\n"
         "\n"
-        "**Look at R4 vs R5.** Similar alignment, zero grain-expanders --\n"
-        "they're a near-twin pair at the same grain. Strong consolidation\n"
+        "**Look at R1** -- alignment 40% in tables, grain-changers **-1**.\n"
+        "R1 doesn't touch PAT_ENC at all; its anchor is PAT_PCP\n"
+        "(↓ per patient), one level coarser than cohort. R1 operates\n"
+        "at a *different cohort grain* -- it's not 'an encounter view\n"
+        "missing tables,' it's a panel-grain view from a different\n"
+        "question family entirely.\n"
+        "\n"
+        "**Together, the +2 and -1 readings encode the asymmetric\n"
+        "diagnoses.** R6 is a finer-grain extension that should split off\n"
+        "into a measurement-grain or dx-grain model on top of the\n"
+        "encounter-grain backbone. R1 is a different cohort that should\n"
+        "live in its own patient-grain model. Both are outliers; they\n"
+        "are NOT the same kind of outlier, and the unified model\n"
+        "recommendation differs.\n"
+        "\n"
+        "**Look at R4 vs R5.** Similar alignment, both grain-changers = 0 --\n"
+        "they're a near-twin pair at the cohort grain. Strong consolidation\n"
         "candidate.\n"
         "\n"
-        "**Look at R2 vs R3.** v2 surfaced that they share encounter-close\n"
-        "base columns even though their output names differ (`pct_closed_24h`\n"
-        "vs `close_rate`). Both at encounter grain, both zero\n"
-        "grain-expanders. Same story confirmed by v3.\n"
-        "\n"
-        "**Look at R1.** Low alignment (40/0/23), zero grain-expanders --\n"
-        "but R1 doesn't touch PAT_ENC at all; it's at PAT_PCP grain. The\n"
-        "grain column shows PAT_PCP as `dim`, which is true relative to a\n"
-        "patient-grain cohort but obscures that R1's effective cohort is\n"
-        "*different* from this community's encounter cohort. R1 is a\n"
-        "different-cohort-grain outlier, while R6 is a finer-grain-extension\n"
-        "outlier. Different problems, different model recommendations.\n"
+        "**Look at R2 vs R3.** Both at cohort grain (R2's PAT_PCP join\n"
+        "doesn't pull the output coarser because PAT_ENC dominates the\n"
+        "join cardinality). v2 surfaced that they share encounter-close\n"
+        "base columns even though their output names differ\n"
+        "(`pct_closed_24h` vs `close_rate`). Same story confirmed here.\n"
     )
 
     full = "\n".join([

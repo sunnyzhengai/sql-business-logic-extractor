@@ -17,6 +17,10 @@ Foundational frames:
 - [App config IDs as coordination keys](concepts/app-config-id-as-coordination-key.md) — Epic INI-Item as the operational primitive that closes the app-team coordination loop; go-to-market wedge for healthcare Epic shops
 - [Recursive translation principle](concepts/recursive-translation-principle.md) — translate every SQL construct by recursion to raw columns; unknown patterns/columns are governance signals, never opaque fallbacks
 
+Domain knowledge (Epic / Clarity):
+
+- [Clarity table families](concepts/clarity-table-families.md) — Epic's prefix conventions (PAT_* facts, CLARITY_* conformed dims, ZC_* code lookups) and the grain implications that drive modeling decisions
+
 Canonical scenes:
 
 - [Patient A01 — same row, multiple identities](concepts/patient-a01-scene.md) — the knockout example against container-level ownership

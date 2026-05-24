@@ -1214,6 +1214,33 @@ def _parse_header_comments(lines: list[str], metadata: dict):
         metadata["revisions"] = revisions
 
 
+def _extract_object_header(sql: str, metadata: dict) -> None:
+    """Pull the SSMS-generated Object header out of the raw SQL.
+
+    SSMS prefaces each exported object with a comment like:
+        /****** Object:  View [dbo].[vw_foo]    Script Date: ... ******/
+    The `strip_ssms_preamble` parsing rule drops this entire preamble
+    in service of robust parsing. To avoid losing the useful pieces
+    (schema, name, script date), we extract them here BEFORE the rule
+    runs. Free-form Author/Description comments are NOT extracted by
+    this helper -- accepted tradeoff for parse robustness.
+
+    Mutates `metadata` in place with keys: object_type, schema, name,
+    script_date (when present).
+    """
+    obj_match = re.search(
+        r"/\*+\s*Object:\s+(\w+)\s+\[([^\]]*)\]\.\[([^\]]*)\]"
+        r"(?:\s+Script Date:\s*(.+?))?\s*\*+/",
+        sql,
+    )
+    if obj_match:
+        metadata["object_type"] = obj_match.group(1)
+        metadata["schema"] = obj_match.group(2)
+        metadata["name"] = obj_match.group(3)
+        if obj_match.group(4):
+            metadata["script_date"] = obj_match.group(4).strip()
+
+
 def preprocess_ssms(sql: str) -> tuple[str, dict]:
     """Strip SSMS boilerplate from scripted views/procedures/functions.
 
@@ -1222,6 +1249,10 @@ def preprocess_ssms(sql: str) -> tuple[str, dict]:
     description, report name, revision history, etc.).
     """
     metadata = {}
+
+    # Extract the SSMS Object header BEFORE the strip_ssms_preamble rule
+    # drops it. Captures schema/name/script_date -- the useful metadata.
+    _extract_object_header(sql, metadata)
 
     # Pre-pass: apply the rule registry. Each rule is one T-SQL construct
     # sqlglot can't parse natively, declared in parsing_rules/rules.py

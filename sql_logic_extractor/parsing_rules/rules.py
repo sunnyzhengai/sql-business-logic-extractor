@@ -17,6 +17,40 @@ from .rule import Rule
 
 PARSING_RULES: list[Rule] = [
     Rule(
+        id="strip_ssms_preamble",
+        description=(
+            "SSMS Generate-Scripts prefaces every exported view/proc with "
+            "a preamble of `USE [db]`, `GO`, `SET ANSI_NULLS ...`, "
+            "`/****** Object: ... ******/`, and similar boilerplate. The "
+            "previous approach was line-by-line keyword matching against "
+            "a hardcoded list of SET options -- whack-a-mole, miss one "
+            "and the whole view stops parsing with a misleading "
+            "'invalid expression' error.\n\n"
+            "This rule trims everything before the first "
+            "`CREATE [OR ALTER|REPLACE] (VIEW|PROCEDURE|PROC|FUNCTION|TRIGGER)` "
+            "in one regex pass. No keyword enumeration needed; any "
+            "preamble of any shape just disappears. If no CREATE statement "
+            "is found (unusual: snippet file, dynamic SQL fragment), the "
+            "rule does nothing.\n\n"
+            "Object metadata (schema, name, script date) is extracted "
+            "by `_extract_object_header` in resolve.py BEFORE this rule "
+            "runs, so the useful pieces survive the strip. Author / "
+            "Description / Revision history in free-form comments is "
+            "lost as a tradeoff for parse robustness; can be reinstated "
+            "as a separate pre-extraction step if needed."
+        ),
+        # \A anchors to absolute start-of-string; .*? is non-greedy so
+        # we don't accidentally swallow a later CREATE in a comment.
+        # The lookahead finds CREATE without consuming it.
+        pattern=(
+            r"\A.*?"
+            r"(?=CREATE\s+(?:OR\s+(?:ALTER|REPLACE)\s+)?"
+            r"(?:VIEW|PROCEDURE|PROC|FUNCTION|TRIGGER)\b)"
+        ),
+        replacement="",
+        flags=re.IGNORECASE | re.DOTALL,
+    ),
+    Rule(
         id="create_view_explicit_column_list",
         description=(
             "T-SQL allows `CREATE VIEW name (col1, col2, ...) AS SELECT ...` "

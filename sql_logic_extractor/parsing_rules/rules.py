@@ -87,7 +87,22 @@ PARSING_RULES: list[Rule] = [
             r"((?:CREATE\s+(?:OR\s+ALTER\s+)?|ALTER\s+)VIEW\s+"
             r"(?:\[[^\]]+\]|\w+)"
             r"(?:\.(?:\[[^\]]+\]|\w+))?)"
-            r"\s*\((?:\[[^\]]*\]|[^)])*\)\s*"
+            r"\s*\((?:\[[^\]]*\]|[^)])*\)"
+            # Between `)` and `AS`: previously only `\s*` (whitespace).
+            # Yang's MyChart corpus has views where developers put a
+            # divider comment / separator line between the closing
+            # column-list paren and AS:
+            #
+            #   CREATE VIEW [name] (cols...)
+            #   -- ----------------------
+            #   AS
+            #
+            # With `\s*`, the rule didn't fire because `--` isn't
+            # whitespace, and the entire column list (+ AS) leaked into
+            # the cleaned SQL body. `[\s\S]*?` is "any character,
+            # non-greedy" -- consumes blanks, line comments, block
+            # comments, dash separators, anything between `)` and `AS`.
+            r"[\s\S]*?"
             r"\bAS\b"
         ),
         replacement=r"\1 AS",

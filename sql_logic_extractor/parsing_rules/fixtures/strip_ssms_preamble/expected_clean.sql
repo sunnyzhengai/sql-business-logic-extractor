@@ -1,4 +1,8 @@
-CREATE VIEW [dbo].[vw_mychart_patient_summary] AS
-SELECT pat_id, pat_name
-FROM PATIENT
-WHERE status_c = 2
+CREATE   VIEW [Reporting].[V_CCHCS_DXP_HP_Mychart_PBI]
+AS
+
+WITH YearMonth AS (
+    SELECT YearMonth = CONVERT(CHAR(6), DD.CALENDAR_DATE, 112)
+    FROM DateDimension DD
+)
+SELECT * FROM YearMonth

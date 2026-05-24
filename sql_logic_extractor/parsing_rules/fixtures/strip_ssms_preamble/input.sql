@@ -1,12 +1,16 @@
-USE [MyHealthcareDB]
+USE [Reporting]
 GO
-/****** Object:  View [dbo].[vw_mychart_patient_summary]    Script Date: 5/24/2026 9:15:42 AM ******/
+/****** Object:  View [Reporting].[V_CCHCS_DXP_HP_Mychart_PBI]    Script Date: 5/23/2026 10:05:28 AM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER OFF
 GO
 
-CREATE VIEW [dbo].[vw_mychart_patient_summary] AS
-SELECT pat_id, pat_name
-FROM PATIENT
-WHERE status_c = 2
+CREATE   VIEW [Reporting].[V_CCHCS_DXP_HP_Mychart_PBI]
+AS
+
+WITH YearMonth AS (
+    SELECT YearMonth = CONVERT(CHAR(6), DD.CALENDAR_DATE, 112)
+    FROM DateDimension DD
+)
+SELECT * FROM YearMonth

@@ -1411,6 +1411,15 @@ def preprocess_ssms(sql: str) -> tuple[str, dict]:
         if not body_started and (upper.startswith("SELECT") or upper.startswith("WITH")):
             body_started = True
 
+        # If body_started was JUST set by the CREATE matcher and the next
+        # non-empty line is a bare `AS`, that AS is the CREATE wrapper's
+        # terminator (SSMS puts it on its own line after long view names)
+        # -- skip it so it doesn't leak into the body. sqlglot would
+        # otherwise fail with "Required keyword: this missing for Alias"
+        # at the following WITH/SELECT.
+        if body_started and not clean_lines and upper == "AS":
+            continue
+
         if body_started or upper.startswith("SELECT") or upper.startswith("WITH"):
             body_started = True
             clean_lines.append(line)

@@ -46,6 +46,37 @@ BOM_SIGNATURES = {
 }
 
 
+# Try to detect Fabric's notebookutils / mssparkutils. The lakehouse
+# mount at /lakehouse/default/Files/... is READ-ONLY for plain Python
+# `open(file, "w")` -- writes execute without raising but silently
+# don't persist to OneLake. Writes have to go through Fabric's fs API.
+# Outside Fabric (local dev, CI), these imports fail and we fall back
+# to plain Python writes.
+_FABRIC_FS = None
+try:
+    import notebookutils  # type: ignore
+    _FABRIC_FS = notebookutils.fs
+except ImportError:
+    try:
+        import mssparkutils  # type: ignore
+        _FABRIC_FS = mssparkutils.fs
+    except ImportError:
+        pass
+
+
+def _write_text(path: Path, text: str) -> None:
+    """Write `text` to `path` as UTF-8. In Fabric, uses notebookutils/
+    mssparkutils.fs.put because plain Python `open(w)` silently fails
+    on the lakehouse mount path. Outside Fabric, uses plain Python.
+    """
+    if _FABRIC_FS is not None:
+        # Fabric's fs.put accepts mount paths and the abfss:// URI form.
+        _FABRIC_FS.put(str(path), text, overwrite=True)
+    else:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+
+
 def _detect_encoding(first_bytes: bytes) -> str:
     """Classify a file's encoding from its leading bytes.
 
@@ -219,18 +250,19 @@ def convert_to_utf8(corpus_dir: str | Path, dry_run: bool = True) -> int:
 
         if not dry_run:
             # Read with the source encoding, strip any leading BOM,
-            # write back as plain UTF-8 without BOM.
+            # write back as plain UTF-8 via _write_text (which routes
+            # through Fabric's fs API when running in a Fabric notebook).
             with open(f, "r", encoding=read_enc) as fh:
                 text = fh.read().lstrip("﻿")
-            with open(f, "w", encoding="utf-8") as fh:
-                fh.write(text)
+            _write_text(f, text)
         n_converted += 1
 
     if dry_run:
         print(f"\nDry run: {n_converted} files would be converted.")
         print("Re-run with dry_run=False to apply.")
     else:
-        print(f"\nConverted {n_converted} files to UTF-8.")
+        fabric_note = " (via Fabric fs.put)" if _FABRIC_FS is not None else ""
+        print(f"\nConverted {n_converted} files to UTF-8{fabric_note}.")
     return n_converted
 
 

@@ -580,7 +580,12 @@ def build_view_data(
             continue
 
         # Tables: from the graph (already covers all scopes + joins).
-        tables = sorted(view_to_tables_map.get(view_name, set()))
+        # The graph encodes table nodes with a "table::" prefix on the
+        # node ID -- strip it so the matrix shows bare table names.
+        tables = sorted(
+            (t[len("table::"):] if t.startswith("table::") else t)
+            for t in view_to_tables_map.get(view_name, set())
+        )
 
         # Filters: english-readable form, deduplicated by english key.
         filters_seen: set[str] = set()

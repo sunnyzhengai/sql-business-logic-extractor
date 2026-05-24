@@ -135,6 +135,13 @@ from tools.p50_present.community_html import (
 # Per-view HTML rendering added Phase 3a.
 from tools.p50_present.view_html import render_view_html, view_html_filename
 
+# Per-community 3-matrix renderer (Phase 4). Promotes the v4 mock at
+# tools/diagnostics/mock_view_matrix.py into a production artifact.
+from tools.p50_present.community_matrix import (
+    build_view_data,
+    write_community_matrix,
+)
+
 
 def write_validation_report(
     header: dict,
@@ -469,10 +476,42 @@ def run_validation(
         )
         spec_paths.append(spec_path)
 
+    # Phase 4: per-community 3-matrix feature view. One markdown per
+    # community alongside the modeling spec. Same loop shape so the two
+    # artifacts stay parallel.
+    matrices_dir = output_dir / "community_matrices"
+    matrices_dir.mkdir(parents=True, exist_ok=True)
+    # Build the view_data dict ONCE -- shared across all communities.
+    # Keyed by view_name; values have tables/filters/base_columns lists.
+    all_view_data = build_view_data(views, view_to_tables(g))
+    matrix_paths: list[str] = []
+    for community_index, analysis in enumerate(analyses):
+        top_label = (analysis["top_tables"][0][0]
+                     if analysis["top_tables"]
+                     else f"community_{community_index}")
+        safe = _safe_filename(top_label)
+        fname = f"community_{community_index:02d}_{safe}_matrix.md"
+        primary_views = sorted(community_to_primary.get(community_index, set()))
+        # Filter view_data to just this community's primary views.
+        community_view_data = {
+            vn: all_view_data[vn]
+            for vn in primary_views
+            if vn in all_view_data
+        }
+        matrix_path = write_community_matrix(
+            community_index=community_index,
+            top_table=top_label,
+            primary_views=primary_views,
+            view_data=community_view_data,
+            output_path=matrices_dir / fname,
+        )
+        matrix_paths.append(matrix_path)
+
     print(f"      graph.html (overview)     -> {overview_html}")
     print(f"      communities/index.html    -> {index_html}")
     print(f"      communities.md            -> {communities_md}")
     print(f"      modeling_specs/           -> {specs_dir} ({len(spec_paths)} spec(s))")
+    print(f"      community_matrices/       -> {matrices_dir} ({len(matrix_paths)} matrix(es))")
     print(f"      validation_report.md      -> {report_md}")
 
     return {
@@ -480,6 +519,7 @@ def run_validation(
         "communities_index_html": index_html,
         "communities_md": communities_md,
         "modeling_specs": spec_paths,
+        "community_matrices": matrix_paths,
         "validation_report": report_md,
         "n_views_total": len(all_views),
         "n_views_business": len(views),

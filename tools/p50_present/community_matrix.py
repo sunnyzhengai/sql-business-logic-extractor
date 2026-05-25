@@ -56,12 +56,29 @@ def _is_real_table_name(name: str) -> bool:
     """Return True if `name` looks like a real table identifier.
 
     Filters CTE-definition fragments and SQL operators that got captured
-    as 'tables' by the corpus extractor (e.g. 'DAY_OF_MONTH = 1) AS DD',
-    'CROSS APPLY DateDim', 'MYPT_ID WHERE 1 = 1'). Real table names
-    contain only identifier characters, optional schema dots, and
-    optional bracket quoting -- never SQL operators or keywords.
+    as 'tables' by the corpus extractor:
+
+      - 'DAY_OF_MONTH = 1) AS DD'   -- CTE definition
+      - 'CROSS APPLY DateDim'        -- T-SQL syntax
+      - 'MYPT_ID WHERE 1 = 1'        -- inline filter
+      - 'HSP_ACCOUNT_ID IS NULL'     -- inline filter (IS NULL form)
+
+    Two checks layered:
+
+      1. Embedded whitespace in the bare identifier -- Clarity/BI tables
+         use underscore-separated names; a space means we're looking at
+         a SQL expression captured by mistake.
+      2. SQL operators / keywords anywhere in the original string --
+         catch-all for `=`, `<>`, `WHERE`, `AND`, etc.
     """
     if not name or name.strip() in ("?", ""):
+        return False
+    # Strip schema prefix and bracket quoting to get the bare identifier.
+    bare = name.split(".")[-1].strip("[]").strip()
+    # Real healthcare/BI table identifiers are single words. Embedded
+    # whitespace is the strongest signal that we're looking at a SQL
+    # expression rather than a table name.
+    if " " in bare or "\t" in bare:
         return False
     upper = " " + name.upper() + " "  # pad so token-bounded matches work
     for tok in _NON_TABLE_TOKENS:
@@ -135,6 +152,45 @@ def _clean_filter(key: str) -> str | None:
 def _is_real_filter(key: str) -> bool:
     """Back-compat: True iff `_clean_filter(key)` returns non-None."""
     return _clean_filter(key) is not None
+
+
+def _parse_base_column_ref(bc: str, bt: str) -> tuple[str, str] | None:
+    """Parse a base-column lineage entry into (bare_table, column).
+
+    The corpus encodes ColumnV1.base_columns entries in scope-qualified
+    form. Three shapes:
+
+      - "table:TABLENAME.COLNAME"   -- final base-table reference.
+        Return ("TABLENAME", "COLNAME"); the parallel base_tables entry
+        is redundant in this case.
+
+      - "cte:scope_name.COLNAME"    -- scope-internal lineage; this
+        column is computed inside a CTE, not pulled from a base table.
+        Returns None so the base-column matrix excludes it -- these
+        aren't substrate references.
+
+      - "COLNAME" (bare)            -- legacy/parser-incomplete shape.
+        Fall back to the parallel base_tables[i] for the table name;
+        return None if base_tables is "?" / empty.
+
+    The matrix consumes only the (TABLE, COLUMN) tuples this returns.
+    """
+    if not bc:
+        return None
+    if bc.startswith("cte:"):
+        # Scope-internal lineage; not a base reference.
+        return None
+    if bc.startswith("table:"):
+        rest = bc[len("table:"):]
+        if "." not in rest:
+            return None
+        table, col = rest.split(".", 1)
+        return (table, col)
+    # Bare column-name shape; use base_tables fallback if available.
+    if bt and bt != "?":
+        bare_table = bt.split(".")[-1]
+        return (bare_table, bc)
+    return None
 
 
 def _is_unresolved_view_reference(name: str) -> bool:
@@ -709,9 +765,24 @@ def write_community_matrix(
 # ---------------------------------------------------------------------------
 
 
+# Shop-specific aliases / non-table identifiers the corpus extractor
+# captured as tables by mistake. Names listed here are dropped from the
+# matrix regardless of any other heuristic. Edit this set as new false
+# positives surface in customer corpora; if it grows past ~20 entries,
+# move it to a per-corpus config file.
+DEFAULT_TABLE_SKIP_LIST: set[str] = {
+    # SQL aliases caught masquerading as tables (Yang's MyChart corpus,
+    # 2026-05-24). Likely originate from `FROM PAT_ENC PAC` patterns
+    # where the extractor recorded the alias as a separate table.
+    "PAC",
+}
+
+
 def build_view_data(
     views: list[dict],
     view_to_tables_map: dict[str, set[str]],
+    *,
+    table_skip_list: set[str] | None = None,
 ) -> dict[str, dict]:
     """Build the {view_name -> {"tables", "filters", "base_columns"}} dict.
 
@@ -744,6 +815,7 @@ def build_view_data(
         # node ID -- strip it. Also filter out entries that aren't real
         # table identifiers (CTE-definition fragments, SQL operators)
         # that leaked through as table nodes; see _is_real_table_name.
+        skip = table_skip_list if table_skip_list is not None else DEFAULT_TABLE_SKIP_LIST
         raw_tables = view_to_tables_map.get(view_name, set())
         clean_tables: set[str] = set()
         for t in raw_tables:
@@ -755,6 +827,12 @@ def build_view_data(
             # can extract those views later or add explicit entries to
             # CLARITY_TABLE_GRAIN to override the heuristic.
             if _is_unresolved_view_reference(bare):
+                continue
+            # Shop-specific skip list -- captures SQL aliases like PAC
+            # that the extractor recorded as tables. Compare on the
+            # bare identifier (post-schema-stripping), uppercased.
+            bare_upper = bare.split(".")[-1].strip("[]").upper()
+            if bare_upper in {s.upper() for s in skip}:
                 continue
             clean_tables.add(bare)
         tables = sorted(clean_tables)
@@ -775,28 +853,40 @@ def build_view_data(
                 filters_seen.add(cleaned)
                 filters.append(cleaned)
 
-        # Base columns: pair each base_column with its base_table to
-        # produce "TABLE.COLUMN" entries. base_columns and base_tables
-        # are parallel tuples on ColumnV1.
+        # Base columns. Decode the scope-qualified lineage encoding
+        # (`table:T.C` / `cte:scope.C`) via _parse_base_column_ref:
+        # CTE-internal lineage is filtered out, real base-table refs
+        # become clean (TABLE, COLUMN) tuples. Apply the same V_*
+        # unresolved-view drop and skip-list as the table matrix so
+        # the base-column matrix and the table matrix stay consistent.
+        skip = table_skip_list if table_skip_list is not None else DEFAULT_TABLE_SKIP_LIST
+        skip_upper = {s.upper() for s in skip}
         base_cols_seen: set[str] = set()
         base_cols: list[str] = []
         for scope in view.get("scopes") or []:
             for col in scope.get("columns") or []:
                 bcs = col.get("base_columns") or ()
                 bts = col.get("base_tables") or ()
-                # If parallel-aligned, use the pair; otherwise emit the
-                # column with "?" table marker.
                 if len(bcs) == len(bts):
-                    pairs = zip(bts, bcs)
+                    pairs_iter = list(zip(bts, bcs))
                 else:
-                    pairs = [("?", bc) for bc in bcs]
-                for table, column in pairs:
-                    if not column:
+                    pairs_iter = [("?", bc) for bc in bcs]
+                for bt, bc in pairs_iter:
+                    parsed = _parse_base_column_ref(bc, bt)
+                    if parsed is None:
                         continue
-                    # Strip schema prefix from table (PATIENT.PAT_ID
-                    # not Clarity.dbo.PATIENT.PAT_ID).
-                    table_bare = (table or "?").split(".")[-1]
-                    pair = f"{table_bare}.{column}"
+                    table_name, column_name = parsed
+                    # Apply consistency filters: must look like a real
+                    # table, must not be an unresolved V_*, must not be
+                    # in the skip list.
+                    if not _is_real_table_name(table_name):
+                        continue
+                    if _is_unresolved_view_reference(table_name):
+                        continue
+                    bare_upper = table_name.split(".")[-1].strip("[]").upper()
+                    if bare_upper in skip_upper:
+                        continue
+                    pair = f"{table_name}.{column_name}"
                     if pair in base_cols_seen:
                         continue
                     base_cols_seen.add(pair)

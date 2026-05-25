@@ -393,6 +393,44 @@ class TestNoiseGuards(unittest.TestCase):
         self.assertTrue(_is_unresolved_view_reference("v_cchp_member"))
         self.assertTrue(_is_unresolved_view_reference("dbo.V_FOO"))
 
+    def test_is_real_table_name_rejects_whitespace_in_identifier(self):
+        """Any embedded whitespace -- like `HSP_ACCOUNT_ID IS NULL` --
+        means the extractor captured a SQL expression, not a table."""
+        from tools.p50_present.community_matrix import _is_real_table_name
+        self.assertFalse(_is_real_table_name("HSP_ACCOUNT_ID IS NULL"))
+        self.assertFalse(_is_real_table_name("MYPT_ID IS NOT NULL"))
+        self.assertFalse(_is_real_table_name("FOO BAR"))
+
+    def test_parse_base_column_ref_decodes_table_lineage(self):
+        from tools.p50_present.community_matrix import _parse_base_column_ref
+        self.assertEqual(
+            _parse_base_column_ref("table:PATIENT.PAT_ID", "PATIENT"),
+            ("PATIENT", "PAT_ID"),
+        )
+        self.assertEqual(
+            _parse_base_column_ref("table:PAT_ENC.STATUS_C", "?"),
+            ("PAT_ENC", "STATUS_C"),
+        )
+
+    def test_parse_base_column_ref_drops_cte_lineage(self):
+        """CTE-internal lineage isn't a base-table reference."""
+        from tools.p50_present.community_matrix import _parse_base_column_ref
+        self.assertIsNone(_parse_base_column_ref("cte:AugDenials.AUG_ID", "?"))
+        self.assertIsNone(_parse_base_column_ref("cte:YearMonth.YEAR_MONTH", "T"))
+
+    def test_parse_base_column_ref_handles_bare_column_with_base_table(self):
+        from tools.p50_present.community_matrix import _parse_base_column_ref
+        self.assertEqual(
+            _parse_base_column_ref("PAT_ID", "PATIENT"),
+            ("PATIENT", "PAT_ID"),
+        )
+
+    def test_parse_base_column_ref_unresolvable(self):
+        """Bare column with `?` base_table -> can't resolve, drop."""
+        from tools.p50_present.community_matrix import _parse_base_column_ref
+        self.assertIsNone(_parse_base_column_ref("PAT_ID", "?"))
+        self.assertIsNone(_parse_base_column_ref("PAT_ID", ""))
+
     def test_is_unresolved_view_reference_keeps_f_prefix_and_known(self):
         """F_* is BI convention for fact table -- not a view. Known
         explicit entries in CLARITY_TABLE_GRAIN also bypass the

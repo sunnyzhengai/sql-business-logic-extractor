@@ -91,8 +91,51 @@ def _is_real_table_name(name: str) -> bool:
 _TAUTOLOGY_RE = re.compile(r"^\s*\(?\s*1\s*=\s*1\s*\)?\s*$")
 
 
-def _is_self_equality_leg(leg: str) -> bool:
-    """One AND-leg is `X = X` (whitespace + paren tolerant)."""
+# Pattern for an "identifier-looking" expression in the english-translated
+# filter: starts with a letter, contains only word chars / spaces / dots
+# / brackets. No quotes, no numbers, no parens, no operators -- those
+# signal a literal or function call.
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z][\w \.\[\]]*$")
+
+
+def _looks_like_identifier(s: str) -> bool:
+    """True if `s` looks like a column-reference identifier (as the
+    english translator renders them) rather than a literal value.
+
+    A literal value would be a quoted string, number, NULL, function
+    call, or arithmetic expression -- none of which match the
+    identifier pattern. Joined column references render as title-case
+    phrases like `Patient Identifier`, `Mypt Identifier`,
+    `Ua Who Accessed`.
+    """
+    s = s.strip().strip("()").strip()
+    if not s:
+        return False
+    if s[0] in ("'", '"'):
+        return False  # quoted literal
+    if s.upper() in ("NULL", "TRUE", "FALSE"):
+        return False
+    return bool(_IDENTIFIER_RE.fullmatch(s))
+
+
+def _is_join_key_leg(leg: str) -> bool:
+    """One leg is a JOIN ON-style `<identifier> = <identifier>`.
+
+    Heuristic: both sides of the `=` look like column-reference
+    identifiers (no literals, no function calls). Captures both
+      - self-equality (`X = X`, JOIN keys that translate to identical
+        sides), and
+      - cross-identifier (`Ua Who Accessed = Mypt Identifier`, JOIN
+        keys whose columns translate to different phrases).
+
+    A genuine cohort predicate has at least one side that's a literal,
+    so it doesn't match this pattern. Risk of false positives: filters
+    that compare two columns of the SAME row (e.g.
+    `Created Date = Modified Date`) get dropped. In the matrix-display
+    context, the modeler/steward is hunting for cohort definitions,
+    not these rare same-row column equalities; the tradeoff favors
+    aggressive cleanup.
+    """
     leg = leg.strip()
     if _TAUTOLOGY_RE.match(leg):
         return True
@@ -101,52 +144,88 @@ def _is_self_equality_leg(leg: str) -> bool:
         return False
     lhs = parts[0].strip().strip("()").strip()
     rhs = parts[1].strip().strip("()").strip()
-    return bool(lhs) and lhs == rhs
+    if not lhs or not rhs:
+        return False
+    # Self-equality (already a join key) or cross-identifier (also a
+    # join key, just translated to different phrases) -- same behavior.
+    return _looks_like_identifier(lhs) and _looks_like_identifier(rhs)
+
+
+# Kept as a back-compat alias; new code should use _is_join_key_leg.
+_is_self_equality_leg = _is_join_key_leg
+
+
+_AND_OR_SPLIT_RE = re.compile(r"(\s+(?:and|or)\s+)", re.IGNORECASE)
+_CONNECTOR_RE = re.compile(r"\s+(?:and|or)\s+", re.IGNORECASE)
+_LEADING_CONNECTOR_RE = re.compile(r"^\s*(?:and|or)\s+", re.IGNORECASE)
+_TRAILING_CONNECTOR_RE = re.compile(r"\s+(?:and|or)\s*$", re.IGNORECASE)
 
 
 def _clean_filter(key: str) -> str | None:
-    """Decompose compound `AND` filters, drop self-equality legs, return
-    the cleaned english (or None if entirely noise).
+    """Drop self-equality legs from a filter expression, return cleaned
+    english (or None if entirely noise).
 
-    Drops two classes of extractor noise:
+    Removes:
       - Tautologies (`1 = 1`) -- developer-pasted placeholder.
       - Self-equality (`X = X`) -- JOIN ON keys where the column name
         matches across the join, rendered by the english translator
-        as identical lhs/rhs.
+        with identical lhs/rhs.
 
-    For COMPOUND `AND` expressions, decomposes into legs and keeps just
-    the legs with real predicates. So
+    Decomposes BOTH `and` AND `or` compounds. So
         `Patient Identifier = Patient Identifier and Is Valid Patient Yn = 'Y'`
     becomes
-        `Is Valid Patient Yn = 'Y'`.
+        `Is Valid Patient Yn = 'Y'`,
+    and
+        `(X = X) or (Coverage Type C = 2)`
+    becomes
+        `(Coverage Type C = 2)`.
 
-    OR expressions are NOT decomposed -- dropping a leg of an OR
-    changes semantics. They're left intact; if every OR leg is
-    self-equality (rare), the whole filter is dropped.
+    Note: decomposing OR is a display cleanup, not a semantically
+    precise rewrite. In raw SQL, `a.X = b.X` is a real join predicate
+    that filters out unmatched rows -- the english translator
+    silently collapses both sides to one identifier and we lose that
+    information. For the matrix display purpose (steward / modeler
+    pattern-spotting), dropping these legs is the right tradeoff:
+    they look like noise to a human reviewer.
     """
     if not key:
         return None
     stripped = key.strip()
-
-    # OR present? Don't decompose. Just check if the whole thing is
-    # self-equality / tautology.
-    if re.search(r"\s+or\s+", stripped, re.IGNORECASE):
-        # If the entire expression is a tautology, drop.
-        if _TAUTOLOGY_RE.match(stripped):
-            return None
-        return stripped
-
-    # AND chain: split, drop self-equality legs.
-    legs = re.split(r"\s+and\s+", stripped, flags=re.IGNORECASE)
-    real_legs = [leg for leg in legs if not _is_self_equality_leg(leg)]
-    if not real_legs:
+    if _TAUTOLOGY_RE.match(stripped):
         return None
-    if len(real_legs) == len(legs):
-        # All legs were real -- return original (preserves casing/
-        # spacing of the original english).
-        return stripped
-    # Rejoin the survivors with " and ".
-    return " and ".join(leg.strip() for leg in real_legs)
+
+    # Tokenize: alternating [leg, connector, leg, connector, ...].
+    # _AND_OR_SPLIT_RE captures the connector so we keep it for rejoining.
+    parts = _AND_OR_SPLIT_RE.split(stripped)
+
+    # Drop each self-equality leg. Also drop the connector adjacent to
+    # it so we don't end up with `Y and  and Z` or leading `or X`.
+    kept: list[str] = []
+    for p in parts:
+        is_connector = bool(_CONNECTOR_RE.fullmatch(p))
+        if is_connector:
+            # Only keep this connector if the previous kept item is a
+            # leg (not another connector and not the start).
+            if kept and not _CONNECTOR_RE.fullmatch(kept[-1]):
+                kept.append(p)
+            # else: drop -- we just dropped a leg before this connector.
+        else:
+            if _is_self_equality_leg(p):
+                # Drop this leg. If the previous kept item is a
+                # connector, drop it too (the connector now has no
+                # right-hand operand).
+                if kept and _CONNECTOR_RE.fullmatch(kept[-1]):
+                    kept.pop()
+            else:
+                kept.append(p)
+
+    result = "".join(kept).strip()
+    # Tidy: leading or trailing orphan connectors.
+    result = _LEADING_CONNECTOR_RE.sub("", result)
+    result = _TRAILING_CONNECTOR_RE.sub("", result)
+    if not result:
+        return None
+    return result
 
 
 def _is_real_filter(key: str) -> bool:

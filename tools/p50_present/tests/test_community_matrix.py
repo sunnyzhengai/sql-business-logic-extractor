@@ -285,12 +285,12 @@ class TestBuildViewData(unittest.TestCase):
         view = {
             "view_name": "VW_DUP",
             "scopes": [
-                {"id": "main", "filters": [{"english": "Status = Closed"}], "columns": []},
-                {"id": "cte_x", "filters": [{"english": "Status = Closed"}], "columns": []},
+                {"id": "main", "filters": [{"english": "Status = 'Closed'"}], "columns": []},
+                {"id": "cte_x", "filters": [{"english": "Status = 'Closed'"}], "columns": []},
             ],
         }
         result = build_view_data([view], {"VW_DUP": set()})
-        self.assertEqual(result["VW_DUP"]["filters"].count("Status = Closed"), 1)
+        self.assertEqual(result["VW_DUP"]["filters"].count("Status = 'Closed'"), 1)
 
     def test_strips_schema_prefix_from_table_in_base_columns(self):
         """When base_tables contains schema-qualified names like
@@ -381,11 +381,38 @@ class TestNoiseGuards(unittest.TestCase):
         self.assertIsNone(_clean_filter("PAT_ID = PAT_ID and COV_ID = COV_ID"))
         self.assertIsNone(_clean_filter("1 = 1 and PAT_ID = PAT_ID"))
 
-    def test_clean_filter_preserves_or_compounds_untouched(self):
-        """OR semantics differ from AND; we don't decompose."""
+    def test_clean_filter_decomposes_or_chains_too(self):
+        """OR-containing filters get the same self-equality / join-key
+        leg removal as AND."""
+        from tools.p50_present.community_matrix import _clean_filter
+        # `(X = X) or (Y)` -> just `Y`.
+        cleaned = _clean_filter(
+            "(Patient Identifier = Patient Identifier) or (Coverage Type C = 2)"
+        )
+        self.assertEqual(cleaned, "(Coverage Type C = 2)")
+
+    def test_clean_filter_preserves_legit_or_chains(self):
+        """Real OR compounds (both sides have literals) survive intact."""
         from tools.p50_present.community_matrix import _clean_filter
         keep = "Status = 'A' or Status = 'B'"
         self.assertEqual(_clean_filter(keep), keep)
+
+    def test_clean_filter_drops_cross_identifier_join_keys(self):
+        """`Ua Who Accessed = Mypt Identifier` is a join key where the
+        two columns translate to different english phrases. Both
+        sides are identifier-looking with no literal -- drop."""
+        from tools.p50_present.community_matrix import _clean_filter
+        cleaned = _clean_filter(
+            "Ua Who Accessed = Mypt Identifier and Coverage Type C = 2"
+        )
+        self.assertEqual(cleaned, "Coverage Type C = 2")
+
+    def test_clean_filter_keeps_literal_comparison(self):
+        """Comparisons against a literal value (number, string) survive."""
+        from tools.p50_present.community_matrix import _clean_filter
+        self.assertEqual(_clean_filter("Coverage Type C = 2"), "Coverage Type C = 2")
+        self.assertEqual(_clean_filter("Status = 'Y'"), "Status = 'Y'")
+        self.assertEqual(_clean_filter("Year > 2018"), "Year > 2018")
 
     def test_is_unresolved_view_reference_drops_v_prefix(self):
         from tools.p50_present.community_matrix import _is_unresolved_view_reference

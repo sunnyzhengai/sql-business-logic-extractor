@@ -35,6 +35,7 @@ for mod in list(sys.modules):
         del sys.modules[mod]
 
 from sql_logic_extractor.extract import SQLBusinessLogicExtractor, to_dict
+from sql_logic_extractor.resolve import preprocess_ssms
 
 
 # ---- EDIT THIS PATH to the view that's missing tables --------------------
@@ -56,9 +57,17 @@ if not fix_loaded:
         ">>> at the path your notebook imports `sql_logic_extractor` from."
     )
 
-# Step 2: parse the view file directly into a logic dict.
-sql = open(view_path, encoding="utf-8").read()
-logic = to_dict(SQLBusinessLogicExtractor(dialect="tsql").extract(sql))
+# Step 2: read + preprocess + extract. preprocess_ssms strips the
+# SSMS preamble (USE / GO / SET ANSI_NULLS / Object header) and the
+# CREATE wrapper, mirroring what tools/p10_extract/batch.py does in
+# production. Without this step sqlglot fails at line 4 col 3
+# (the first GO after SET ANSI_NULLS).
+raw_sql = open(view_path, encoding="utf-8").read()
+clean_sql, _meta = preprocess_ssms(raw_sql)
+if not clean_sql or not clean_sql.strip():
+    # Safety net: if preprocess removed everything, fall back to raw.
+    clean_sql = raw_sql
+logic = to_dict(SQLBusinessLogicExtractor(dialect="tsql").extract(clean_sql))
 
 print(f"=== Top-level sources for {view_path.split('/')[-1]} ===")
 top_sources = [s.get("name") for s in logic.get("sources") or []]

@@ -28,7 +28,82 @@ Output: one file per community at
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# Input-data hygiene filters (defensive guards against extractor noise).
+#
+# When the corpus extractor captures CTE definitions, JOIN ON keys, or
+# placeholder filters as "tables" or "filters", they leak into the matrix
+# as noise rows. These filters drop the obvious junk so the matrix shows
+# only signal. The DEEPER fix belongs in the extractor; these guards are
+# the renderer-side safety net.
+# ---------------------------------------------------------------------------
+
+# Tokens that, if found inside a "table" string, mean it's not a real
+# table identifier -- almost certainly a CTE definition fragment or a
+# SQL-expression that got captured as a table by mistake.
+_NON_TABLE_TOKENS = (
+    " WHERE ", " AND ", " OR ", " AS ",
+    "CROSS APPLY", "OUTER APPLY",
+    "=", "(", ")", "<", ">",
+)
+
+
+def _is_real_table_name(name: str) -> bool:
+    """Return True if `name` looks like a real table identifier.
+
+    Filters CTE-definition fragments and SQL operators that got captured
+    as 'tables' by the corpus extractor (e.g. 'DAY_OF_MONTH = 1) AS DD',
+    'CROSS APPLY DateDim', 'MYPT_ID WHERE 1 = 1'). Real table names
+    contain only identifier characters, optional schema dots, and
+    optional bracket quoting -- never SQL operators or keywords.
+    """
+    if not name or name.strip() in ("?", ""):
+        return False
+    upper = " " + name.upper() + " "  # pad so token-bounded matches work
+    for tok in _NON_TABLE_TOKENS:
+        if tok in upper:
+            return False
+    return True
+
+
+# Pattern for tautology filters like "1 = 1" / "1=1" / " ( 1 = 1 ) ".
+_TAUTOLOGY_RE = re.compile(r"^\s*\(?\s*1\s*=\s*1\s*\)?\s*$")
+
+
+def _is_real_filter(key: str) -> bool:
+    """Return True if `key` represents a real cohort filter.
+
+    Drops two classes of extractor noise:
+      - Tautologies (`1 = 1`) -- placeholder developers use to seed a
+        WHERE-clause AND-chain. Pure noise.
+      - Self-equality (`X = X`) -- JOIN ON keys where the column name
+        matches across the join (e.g. `a.PAT_ID = b.PAT_ID` renders as
+        `Patient Identifier = Patient Identifier` once englished).
+        These are join keys, not cohort definitions.
+
+    Compound filters that combine a self-equality with a real predicate
+    (`Patient Identifier = Patient Identifier and Coverage Type C = 2`)
+    are NOT dropped -- there's signal mixed in. A future cleanup could
+    decompose the AND and strip just the self-equality leg.
+    """
+    if not key:
+        return False
+    stripped = key.strip()
+    if _TAUTOLOGY_RE.match(stripped):
+        return False
+    # Self-equality: split on first `=`, compare sides if simple.
+    if " and " not in stripped.lower() and " or " not in stripped.lower():
+        parts = stripped.split("=", 1)
+        if len(parts) == 2:
+            lhs = parts[0].strip().strip("()").strip()
+            rhs = parts[1].strip().strip("()").strip()
+            if lhs and lhs == rhs:
+                return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +132,20 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 CLARITY_TABLE_GRAIN: dict[str, dict] = {
+    # ===================================================================
+    # ADD NEW DOMAIN ENTRIES HERE -- one row per table, in alphabetical
+    # order within each section. Categories: "fact", "dim", "code".
+    # Levels are relative to community cohort (typically encounter):
+    #   None  -- dim or code; join doesn't shift grain.
+    #   0     -- cohort grain.
+    #   +N    -- finer than cohort by N levels.
+    #   -N    -- coarser than cohort by N levels.
+    # See wiki/concepts/clarity-table-families.md for taxonomy notes.
+    # ===================================================================
+
+    # Universal date dimension (every healthcare warehouse has this).
+    "DATE_DIMENSION":    {"label": "dim",                "category": "dim",  "level": None},
+
     # Patient master (conformed dim).
     "PATIENT":           {"label": "dim",                "category": "dim",  "level": None},
 
@@ -226,6 +315,37 @@ def _view_grain_change(
     return output_level  # 0 or negative
 
 
+def _render_aligned_pipe_table(
+    header: list[str], rows: list[list[str]],
+) -> list[str]:
+    """Render a pipe-table where every column is padded to its max width.
+
+    GitHub renders pipe-tables aligned regardless of padding; this just
+    makes the RAW markdown text readable when viewed in a plain editor
+    (Fabric notebook output, VS Code without preview, etc.). The width
+    is computed on raw character count, including markdown decorations
+    like `**bold**`, since we're aligning the source text.
+    """
+    n_cols = len(header)
+    widths = [len(h) for h in header]
+    for row in rows:
+        for i, cell in enumerate(row[:n_cols]):
+            if len(cell) > widths[i]:
+                widths[i] = len(cell)
+
+    def fmt(cells: list[str]) -> str:
+        padded = [c.ljust(widths[i]) for i, c in enumerate(cells)]
+        return "| " + " | ".join(padded) + " |"
+
+    out = [fmt(header)]
+    # Separator row: at least 3 dashes per column, padded to width.
+    sep_cells = ["-" * max(3, widths[i]) for i in range(n_cols)]
+    out.append("| " + " | ".join(sep_cells) + " |")
+    for row in rows:
+        out.append(fmt(row))
+    return out
+
+
 def _render_matrix_md(
     title: str,
     subtitle: str,
@@ -239,7 +359,7 @@ def _render_matrix_md(
     per_view_grain_change: dict[str, int] | None = None,
     dense_threshold: float = 0.5,
 ) -> str:
-    """Render one matrix to a pipe-table markdown block.
+    """Render one matrix to a column-aligned pipe-table markdown block.
 
     feature_grain_fn (optional): callable(feature_name) -> dict with
     keys {"label": str, "level": int|None}. If provided, inserts a
@@ -249,29 +369,23 @@ def _render_matrix_md(
     per_view_grain_change (optional): signed integer per view footer;
     rendered when feature_grain_fn is also provided.
     """
-    lines: list[str] = []
-    lines.append(f"## {title}")
-    lines.append("")
-    lines.append(subtitle)
-    lines.append("")
+    lines: list[str] = [f"## {title}", "", subtitle, ""]
 
     show_grain = feature_grain_fn is not None
     header_cells = [feature_col_label]
     if show_grain:
         header_cells.append("grain")
     header_cells += view_short_names + ["coverage"]
-    lines.append("| " + " | ".join(header_cells) + " |")
-    lines.append("|" + "|".join(["---"] * len(header_cells)) + "|")
 
     n_views = len(view_short_names)
     dense_count_threshold = max(1, int(dense_threshold * n_views))
 
+    body_rows: list[list[str]] = []
     for feature in feature_order:
         row: list[str] = []
         n_hits = sum(membership[feature].values())
         is_dense = n_hits >= dense_count_threshold
-        feature_label = f"**{feature}**" if is_dense else feature
-        row.append(feature_label)
+        row.append(f"**{feature}**" if is_dense else feature)
         if show_grain:
             grain_info = feature_grain_fn(feature)
             grain_label = grain_info.get("label", "?")
@@ -279,42 +393,40 @@ def _render_matrix_md(
             # Bold any fact whose grain differs from the cohort (either
             # finer or coarser) -- visual flag that the table can shift
             # the view's output grain.
-            if level not in (None, 0):
-                row.append(f"**{grain_label}**")
-            else:
-                row.append(grain_label)
+            row.append(f"**{grain_label}**" if level not in (None, 0) else grain_label)
         for short in view_short_names:
             row.append("✓" if membership[feature].get(short, False) else " ")
-        coverage_cell = f"{n_hits}/{n_views}" + ("  ●" if is_dense else "")
-        row.append(coverage_cell)
-        lines.append("| " + " | ".join(row) + " |")
+        row.append(f"{n_hits}/{n_views}" + ("  ●" if is_dense else ""))
+        body_rows.append(row)
 
-    # Footer rows --------------------------------------------------------
+    # Footer: alignment row.
     score_row = ["**alignment** (% of dense rows used)"]
     if show_grain:
         score_row.append("")
     for short in view_short_names:
-        s = alignment_scores.get(short, 0.0)
-        score_row.append(f"**{int(round(s * 100))}%**")
-    score_row.append(f"_dense = ≥ {int(dense_threshold * 100)}% coverage; ● marks dense_")
-    lines.append("| " + " | ".join(score_row) + " |")
+        score_row.append(f"**{int(round(alignment_scores.get(short, 0.0) * 100))}%**")
+    score_row.append(
+        f"_dense = ≥ {int(dense_threshold * 100)}% coverage; ● marks dense_"
+    )
+    body_rows.append(score_row)
 
+    # Footer: grain-changers row (table matrix only).
     if show_grain and per_view_grain_change is not None:
         changer_row = ["**grain-changers joined**", ""]
         for short in view_short_names:
             n = per_view_grain_change.get(short, 0)
             if n > 0:
-                cell = f"**+{n}**"
+                changer_row.append(f"**+{n}**")
             elif n < 0:
-                cell = f"**{n}**"
+                changer_row.append(f"**{n}**")
             else:
-                cell = "0"
-            changer_row.append(cell)
+                changer_row.append("0")
         changer_row.append(
             "_+N = N finer-grain joins; -N = anchor N levels coarser than cohort_"
         )
-        lines.append("| " + " | ".join(changer_row) + " |")
+        body_rows.append(changer_row)
 
+    lines.extend(_render_aligned_pipe_table(header_cells, body_rows))
     return "\n".join(lines)
 
 
@@ -581,19 +693,29 @@ def build_view_data(
 
         # Tables: from the graph (already covers all scopes + joins).
         # The graph encodes table nodes with a "table::" prefix on the
-        # node ID -- strip it so the matrix shows bare table names.
+        # node ID -- strip it. Also filter out entries that aren't real
+        # table identifiers (CTE-definition fragments, SQL operators)
+        # that leaked through as table nodes; see _is_real_table_name.
+        raw_tables = view_to_tables_map.get(view_name, set())
         tables = sorted(
             (t[len("table::"):] if t.startswith("table::") else t)
-            for t in view_to_tables_map.get(view_name, set())
+            for t in raw_tables
+            if _is_real_table_name(
+                t[len("table::"):] if t.startswith("table::") else t
+            )
         )
 
         # Filters: english-readable form, deduplicated by english key.
+        # `_is_real_filter` drops the obvious extractor noise (1=1
+        # tautologies, simple self-equality JOIN ON keys).
         filters_seen: set[str] = set()
         filters: list[str] = []
         for scope in view.get("scopes") or []:
             for f in scope.get("filters") or []:
                 key = (f.get("english") or f.get("expression") or "").strip()
                 if not key or key in filters_seen:
+                    continue
+                if not _is_real_filter(key):
                     continue
                 filters_seen.add(key)
                 filters.append(key)

@@ -159,8 +159,10 @@ class TestWriteCommunityMatrix(unittest.TestCase):
                 output_path=out,
             )
             content = out.read_text(encoding="utf-8")
-            # Grain column shows up in the table-matrix header.
-            self.assertIn("| table | grain |", content)
+            # Grain column shows up in the table-matrix header. Padding
+            # may insert variable whitespace, so test for the cells
+            # individually rather than a fixed substring.
+            self.assertRegex(content, r"\|\s*table\s*\|\s*grain\s*\|")
             self.assertIn("grain-changers joined", content)
             # PAT_ENC labeled as cohort; FLOWSHEET as grain expander.
             self.assertIn("cohort", content)
@@ -176,10 +178,11 @@ class TestWriteCommunityMatrix(unittest.TestCase):
                 view_data=SAMPLE_VIEW_DATA, output_path=out,
             )
             content = out.read_text(encoding="utf-8")
-            # Filter matrix header has no "grain" column.
-            self.assertIn("| filter / cohort definition | R1 |", content)
-            # Base column matrix header has no "grain" column.
-            self.assertIn("| base column (TABLE.COLUMN) | R1 |", content)
+            # Filter matrix header has no "grain" column (test against
+            # padding-tolerant regex). The cell right after the feature
+            # label should be R1 -- no grain cell in between.
+            self.assertRegex(content, r"\|\s*filter / cohort definition\s*\|\s*R1\s*\|")
+            self.assertRegex(content, r"\|\s*base column \(TABLE\.COLUMN\)\s*\|\s*R1\s*\|")
 
     def test_legend_lists_all_views(self):
         from tools.p50_present.community_matrix import write_community_matrix
@@ -308,6 +311,118 @@ class TestBuildViewData(unittest.TestCase):
         }
         result = build_view_data([view], {"VW_SCHEMA": set()})
         self.assertIn("PATIENT.PAT_ID", result["VW_SCHEMA"]["base_columns"])
+
+
+class TestNoiseGuards(unittest.TestCase):
+    """The renderer-side hygiene guards that drop extractor noise."""
+
+    def test_is_real_table_name_accepts_normal_identifiers(self):
+        from tools.p50_present.community_matrix import _is_real_table_name
+        self.assertTrue(_is_real_table_name("PAT_ENC"))
+        self.assertTrue(_is_real_table_name("PATIENT"))
+        self.assertTrue(_is_real_table_name("V_CCHP_UMAuthorization_Fact"))
+        self.assertTrue(_is_real_table_name("dbo.PATIENT"))
+
+    def test_is_real_table_name_rejects_cte_fragments(self):
+        from tools.p50_present.community_matrix import _is_real_table_name
+        # CTE-definition fragments that leaked through as "tables"
+        self.assertFalse(_is_real_table_name("DAY_OF_MONTH = 1) AS DD"))
+        self.assertFalse(_is_real_table_name("MYPT_ID WHERE 1 = 1"))
+        self.assertFalse(_is_real_table_name("HSP_ACCOUNT_ID IS NULL WHERE 1 = 1"))
+        self.assertFalse(_is_real_table_name("CROSS APPLY DateDim"))
+
+    def test_is_real_filter_accepts_real_predicates(self):
+        from tools.p50_present.community_matrix import _is_real_filter
+        self.assertTrue(_is_real_filter("Coverage Type C = 2"))
+        self.assertTrue(_is_real_filter("Encounter Date >= 2024-01-01"))
+        self.assertTrue(_is_real_filter("Status in ('A', 'B')"))
+
+    def test_is_real_filter_rejects_tautology(self):
+        from tools.p50_present.community_matrix import _is_real_filter
+        self.assertFalse(_is_real_filter("1 = 1"))
+        self.assertFalse(_is_real_filter("1=1"))
+        self.assertFalse(_is_real_filter("(1 = 1)"))
+        self.assertFalse(_is_real_filter("  1 = 1  "))
+
+    def test_is_real_filter_rejects_self_equality(self):
+        """JOIN ON keys like `a.PAT_ID = b.PAT_ID` render as
+        `Patient Identifier = Patient Identifier` and aren't cohort
+        definitions."""
+        from tools.p50_present.community_matrix import _is_real_filter
+        self.assertFalse(_is_real_filter("Patient Identifier = Patient Identifier"))
+        self.assertFalse(_is_real_filter("Coverage Identifier = Coverage Identifier"))
+
+    def test_is_real_filter_keeps_compound_predicates(self):
+        """Compounds combining a self-equality with a real predicate keep
+        signal -- don't drop them wholesale."""
+        from tools.p50_present.community_matrix import _is_real_filter
+        compound = "Patient Identifier = Patient Identifier and Coverage Type C = 2"
+        self.assertTrue(_is_real_filter(compound))
+
+
+class TestBuildViewDataAppliesGuards(unittest.TestCase):
+
+    def test_filters_drop_tautology_and_self_equality(self):
+        """build_view_data should NOT include 1=1 or X=X in filters."""
+        from tools.p50_present.community_matrix import build_view_data
+        view = {
+            "view_name": "VW_GUARD",
+            "scopes": [{
+                "id": "main",
+                "filters": [
+                    {"english": "1 = 1"},
+                    {"english": "Coverage Type C = 2"},
+                    {"english": "Patient Identifier = Patient Identifier"},
+                ],
+                "columns": [],
+            }],
+        }
+        result = build_view_data([view], {"VW_GUARD": set()})
+        filters = result["VW_GUARD"]["filters"]
+        self.assertIn("Coverage Type C = 2", filters)
+        self.assertNotIn("1 = 1", filters)
+        self.assertNotIn("Patient Identifier = Patient Identifier", filters)
+
+    def test_tables_drop_cte_fragments(self):
+        """Tables containing SQL operators / keywords get dropped."""
+        from tools.p50_present.community_matrix import build_view_data
+        view = {"view_name": "VW_T", "scopes": []}
+        view_to_tables = {"VW_T": {
+            "PAT_ENC",
+            "table::DAY_OF_MONTH = 1) AS DD",
+            "table::PATIENT",
+            "table::CROSS APPLY DateDim",
+        }}
+        result = build_view_data([view], view_to_tables)
+        tables = result["VW_T"]["tables"]
+        # Real tables stay, including the bare 'PAT_ENC' (no prefix)
+        # and the schema-stripped 'PATIENT'.
+        self.assertIn("PAT_ENC", tables)
+        self.assertIn("PATIENT", tables)
+        # CTE-fragment "tables" got filtered out.
+        for t in tables:
+            self.assertNotIn("=", t)
+            self.assertNotIn("(", t)
+
+
+class TestAlignedRender(unittest.TestCase):
+    """Column-aligned pipe-table rendering for raw-md readability."""
+
+    def test_columns_padded_to_max_width(self):
+        from tools.p50_present.community_matrix import _render_aligned_pipe_table
+        header = ["table", "grain", "R1", "coverage"]
+        rows = [
+            ["**LONG_TABLE_NAME**", "cohort", "✓", "1/1  ●"],
+            ["short", "?",          " ", "0/1"],
+        ]
+        out = _render_aligned_pipe_table(header, rows)
+        # Every output line should be the same number of pipe chars.
+        pipe_counts = [line.count("|") for line in out]
+        self.assertEqual(len(set(pipe_counts)), 1,
+                         f"pipe counts not uniform: {pipe_counts}")
+        # Body rows should be the same length (column alignment).
+        body_lengths = [len(out[2]), len(out[3])]
+        self.assertEqual(body_lengths[0], body_lengths[1])
 
 
 if __name__ == "__main__":

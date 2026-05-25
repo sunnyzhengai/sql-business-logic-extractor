@@ -649,28 +649,18 @@ def extract_corpus(
         print(f"Error: no .sql files in {in_dir}", file=sys.stderr)
         return 1
 
-    requested_out = Path(output_path)
-    requested_out.parent.mkdir(parents=True, exist_ok=True)
-
-    # Fabric's lakehouse mount silently fails to overwrite existing
-    # files when written via plain Python open("w"). Detect that case
-    # and stage the write through /tmp; copy to the lakehouse at the
-    # end via notebookutils.fs.cp. Outside Fabric this branch is a
-    # no-op -- we write directly to the requested path.
-    from tools.shared.sql_loader import _is_lakehouse_path, write_to_lakehouse
-    _stage_via_tmp = _is_lakehouse_path(requested_out)
-    if _stage_via_tmp:
-        import tempfile
-        _tmp_dir = Path(tempfile.mkdtemp(prefix="extract_corpus_"))
-        out = _tmp_dir / requested_out.name
-        progress_path = _tmp_dir / "corpus_progress.txt"
-        print(
-            f"  Staging corpus write through {out} -- final destination "
-            f"{requested_out} (lakehouse mount: overwrites need fs.cp)"
-        )
-    else:
-        out = requested_out
-        progress_path = out.parent / "corpus_progress.txt"
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    progress_path = out.parent / "corpus_progress.txt"
+    # Note on Fabric: plain Python writes to /lakehouse/.../Files/
+    # persist for NEW files in most runtimes but may silently fail
+    # to OVERWRITE existing files. If you re-run extract_corpus with
+    # the same output_path and don't see a new mtime, use a fresh
+    # filename (e.g. corpus_v2.jsonl). Earlier attempt to auto-stage
+    # via /tmp + fs.cp didn't work across all Fabric versions
+    # (notebookutils.fs.cp raised Py4JJavaError in Yang's runtime;
+    # fs.put silently no-op'd). Plain Python writes are reliable for
+    # the new-file case, so we don't stage.
 
     schema = load_schema(schema_path) if schema_path else {}
     zc_values = _load_zc_values(zc_values_path)
@@ -725,24 +715,9 @@ def extract_corpus(
         pf.write(f"# finished at {time.strftime('%Y-%m-%d %H:%M:%S')} "
                   f"after {total:.1f}s\n")
 
-    # If we staged the write through /tmp because the requested output
-    # was on the Fabric lakehouse mount, copy the staged corpus +
-    # progress log to the lakehouse via fs.cp. Plain Python writes
-    # would have silently no-op'd on an overwrite.
-    if _stage_via_tmp:
-        write_to_lakehouse(out, requested_out)
-        # Best-effort: also publish the progress log.
-        try:
-            write_to_lakehouse(progress_path, requested_out.parent / progress_path.name)
-        except Exception as e:
-            print(f"  (progress log copy failed: {e}; corpus.jsonl is in place)")
-        print(f"\ncorpus.jsonl written to {requested_out}  "
-              f"(via /tmp -> fs.cp staging; {len(sql_files)} views, "
-              f"{n_ok} ok, {n_failed} failed, {total:.1f}s)")
-    else:
-        print(f"\ncorpus.jsonl written to {out}  ({len(sql_files)} views, "
-              f"{n_ok} ok, {n_failed} failed, {total:.1f}s)")
-        print(f"  Progress log: {progress_path}")
+    print(f"\ncorpus.jsonl written to {out}  ({len(sql_files)} views, "
+          f"{n_ok} ok, {n_failed} failed, {total:.1f}s)")
+    print(f"  Progress log: {progress_path}")
     return 0
 
 

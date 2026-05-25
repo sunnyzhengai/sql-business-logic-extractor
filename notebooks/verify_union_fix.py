@@ -35,7 +35,7 @@ for mod in list(sys.modules):
         del sys.modules[mod]
 
 from sql_logic_extractor.extract import SQLBusinessLogicExtractor, to_dict
-from sql_logic_extractor.resolve import preprocess_ssms
+from tools.shared.sql_loader import load_clean_sql, read_sql_robust
 
 
 # ---- EDIT THIS PATH to the view that's missing tables --------------------
@@ -57,21 +57,21 @@ if not fix_loaded:
         ">>> at the path your notebook imports `sql_logic_extractor` from."
     )
 
-# Step 2: read + preprocess + extract. preprocess_ssms strips the
-# SSMS preamble (USE / GO / SET ANSI_NULLS / Object header) and the
-# CREATE wrapper, mirroring what tools/p10_extract/batch.py does in
-# production.
-raw_sql = open(view_path, encoding="utf-8").read()
+# Step 2: load via tools.shared.sql_loader. ONE call handles the
+# encoding-auto-detect + preprocess_ssms preamble strip that bit us
+# every previous diagnostic. Any new cell touching raw .sql files
+# should import from this loader; see tools/shared/sql_loader.py.
+raw_sql = read_sql_robust(view_path)
 
-# Show the first 5 lines of the RAW file so we can see what shape
-# the input has -- especially useful when the parse error is at a
+# Show first 5 lines of the RAW file so we can see what shape the
+# input has -- especially useful when the parse error is at a
 # specific line/col.
 print(f"=== Raw SQL, first 5 lines ===")
 for i, line in enumerate(raw_sql.split("\n")[:5], 1):
     print(f"  {i}: {line!r}")
 print()
 
-clean_sql, _meta = preprocess_ssms(raw_sql)
+clean_sql, _meta = load_clean_sql(view_path)
 print(f"=== After preprocess_ssms (first 5 lines) ===")
 print(f"  cleaned length: {len(clean_sql)} chars")
 if not clean_sql or not clean_sql.strip():

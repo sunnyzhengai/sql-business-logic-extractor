@@ -60,13 +60,30 @@ if not fix_loaded:
 # Step 2: read + preprocess + extract. preprocess_ssms strips the
 # SSMS preamble (USE / GO / SET ANSI_NULLS / Object header) and the
 # CREATE wrapper, mirroring what tools/p10_extract/batch.py does in
-# production. Without this step sqlglot fails at line 4 col 3
-# (the first GO after SET ANSI_NULLS).
+# production.
 raw_sql = open(view_path, encoding="utf-8").read()
+
+# Show the first 5 lines of the RAW file so we can see what shape
+# the input has -- especially useful when the parse error is at a
+# specific line/col.
+print(f"=== Raw SQL, first 5 lines ===")
+for i, line in enumerate(raw_sql.split("\n")[:5], 1):
+    print(f"  {i}: {line!r}")
+print()
+
 clean_sql, _meta = preprocess_ssms(raw_sql)
+print(f"=== After preprocess_ssms (first 5 lines) ===")
+print(f"  cleaned length: {len(clean_sql)} chars")
 if not clean_sql or not clean_sql.strip():
-    # Safety net: if preprocess removed everything, fall back to raw.
+    print("  >>> WARNING: preprocess_ssms returned EMPTY. Falling back to raw.")
+    print("  >>> This means the strip_ssms_preamble rule didn't match.")
+    print("  >>> Likely: view content doesn't have CREATE VIEW where expected.")
     clean_sql = raw_sql
+else:
+    for i, line in enumerate(clean_sql.split("\n")[:5], 1):
+        print(f"  {i}: {line!r}")
+print()
+
 logic = to_dict(SQLBusinessLogicExtractor(dialect="tsql").extract(clean_sql))
 
 print(f"=== Top-level sources for {view_path.split('/')[-1]} ===")

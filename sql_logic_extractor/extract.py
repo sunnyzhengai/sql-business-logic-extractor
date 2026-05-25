@@ -754,11 +754,27 @@ class SQLBusinessLogicExtractor:
                 sub_logic = QueryLogic(raw_sql=_sql(branch))
                 self._extract_set_operations(branch, sub_logic)
                 branches.append(to_dict(sub_logic))
+                # Promote nested-union sources/joins/filters into the
+                # parent so this scope's reads_from_tables surfaces
+                # tables from ALL branches, not just the first.
+                logic.sources.extend(sub_logic.sources)
+                logic.joins.extend(sub_logic.joins)
+                logic.filters.extend(sub_logic.filters)
             elif isinstance(branch, exp.Select):
                 self._visited_containers.add(id(branch))
                 sub_logic = QueryLogic(raw_sql=_sql(branch))
                 self._extract_select(branch, sub_logic)
                 branches.append(to_dict(sub_logic))
+                # Same merge: each SELECT branch contributes its tables
+                # to the parent scope's reads_from_tables. Previously
+                # these landed only in set_operations[].branches[] --
+                # a parallel data structure that downstream scope
+                # serialization didn't read, so UNION branches'
+                # tables silently disappeared from the corpus. Critical
+                # for community detection and the matrix table axis.
+                logic.sources.extend(sub_logic.sources)
+                logic.joins.extend(sub_logic.joins)
+                logic.filters.extend(sub_logic.filters)
             else:
                 branches.append({"raw_sql": _sql(branch)})
 

@@ -544,6 +544,22 @@ class TestLevel8_SetOps:
         assert len(r["ctes"]) == 1
         cte_logic = r["ctes"][0].get("logic", {})
         assert cte_logic.get("set_operations")
+        # Regression guard: UNION branch tables must be promoted into
+        # the CTE's sources. Without this merge, the corpus's
+        # reads_from_tables for the CTE scope was empty -- AA and BB
+        # tables silently disappeared from community detection and
+        # the matrix table axis. See Yang's MyChart QA finding,
+        # 2026-05-25.
+        cte_source_names = {
+            (s.get("name") or "").upper()
+            for s in cte_logic.get("sources") or []
+        }
+        assert "PAT_ENC_HSP" in cte_source_names, (
+            f"PAT_ENC_HSP missing from CTE sources: {cte_source_names}"
+        )
+        assert "PAT_ENC" in cte_source_names, (
+            f"PAT_ENC missing from CTE sources: {cte_source_names}"
+        )
 
 
 # ============================================================

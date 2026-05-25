@@ -74,36 +74,84 @@ def _is_real_table_name(name: str) -> bool:
 _TAUTOLOGY_RE = re.compile(r"^\s*\(?\s*1\s*=\s*1\s*\)?\s*$")
 
 
-def _is_real_filter(key: str) -> bool:
-    """Return True if `key` represents a real cohort filter.
+def _is_self_equality_leg(leg: str) -> bool:
+    """One AND-leg is `X = X` (whitespace + paren tolerant)."""
+    leg = leg.strip()
+    if _TAUTOLOGY_RE.match(leg):
+        return True
+    parts = leg.split("=", 1)
+    if len(parts) != 2:
+        return False
+    lhs = parts[0].strip().strip("()").strip()
+    rhs = parts[1].strip().strip("()").strip()
+    return bool(lhs) and lhs == rhs
+
+
+def _clean_filter(key: str) -> str | None:
+    """Decompose compound `AND` filters, drop self-equality legs, return
+    the cleaned english (or None if entirely noise).
 
     Drops two classes of extractor noise:
-      - Tautologies (`1 = 1`) -- placeholder developers use to seed a
-        WHERE-clause AND-chain. Pure noise.
+      - Tautologies (`1 = 1`) -- developer-pasted placeholder.
       - Self-equality (`X = X`) -- JOIN ON keys where the column name
-        matches across the join (e.g. `a.PAT_ID = b.PAT_ID` renders as
-        `Patient Identifier = Patient Identifier` once englished).
-        These are join keys, not cohort definitions.
+        matches across the join, rendered by the english translator
+        as identical lhs/rhs.
 
-    Compound filters that combine a self-equality with a real predicate
-    (`Patient Identifier = Patient Identifier and Coverage Type C = 2`)
-    are NOT dropped -- there's signal mixed in. A future cleanup could
-    decompose the AND and strip just the self-equality leg.
+    For COMPOUND `AND` expressions, decomposes into legs and keeps just
+    the legs with real predicates. So
+        `Patient Identifier = Patient Identifier and Is Valid Patient Yn = 'Y'`
+    becomes
+        `Is Valid Patient Yn = 'Y'`.
+
+    OR expressions are NOT decomposed -- dropping a leg of an OR
+    changes semantics. They're left intact; if every OR leg is
+    self-equality (rare), the whole filter is dropped.
     """
     if not key:
-        return False
+        return None
     stripped = key.strip()
-    if _TAUTOLOGY_RE.match(stripped):
+
+    # OR present? Don't decompose. Just check if the whole thing is
+    # self-equality / tautology.
+    if re.search(r"\s+or\s+", stripped, re.IGNORECASE):
+        # If the entire expression is a tautology, drop.
+        if _TAUTOLOGY_RE.match(stripped):
+            return None
+        return stripped
+
+    # AND chain: split, drop self-equality legs.
+    legs = re.split(r"\s+and\s+", stripped, flags=re.IGNORECASE)
+    real_legs = [leg for leg in legs if not _is_self_equality_leg(leg)]
+    if not real_legs:
+        return None
+    if len(real_legs) == len(legs):
+        # All legs were real -- return original (preserves casing/
+        # spacing of the original english).
+        return stripped
+    # Rejoin the survivors with " and ".
+    return " and ".join(leg.strip() for leg in real_legs)
+
+
+def _is_real_filter(key: str) -> bool:
+    """Back-compat: True iff `_clean_filter(key)` returns non-None."""
+    return _clean_filter(key) is not None
+
+
+def _is_unresolved_view_reference(name: str) -> bool:
+    """Heuristic: `V_*` prefix names that survived view-expansion are
+    typically foundation views NOT in the corpus -- we can't see
+    through them to base tables, so they're an opaque indirection
+    layer the matrix should hide.
+
+    The check is bypassed if the name has an explicit entry in
+    CLARITY_TABLE_GRAIN -- author intent overrides the heuristic.
+    `F_*` is intentionally NOT dropped (BI convention: F_ prefix = fact
+    table, not foundation view).
+    """
+    bare = name.strip().split(".")[-1].strip("[]").upper()
+    if bare in CLARITY_TABLE_GRAIN:
         return False
-    # Self-equality: split on first `=`, compare sides if simple.
-    if " and " not in stripped.lower() and " or " not in stripped.lower():
-        parts = stripped.split("=", 1)
-        if len(parts) == 2:
-            lhs = parts[0].strip().strip("()").strip()
-            rhs = parts[1].strip().strip("()").strip()
-            if lhs and lhs == rhs:
-                return False
-    return True
+    return bare.startswith("V_")
 
 
 # ---------------------------------------------------------------------------
@@ -697,28 +745,35 @@ def build_view_data(
         # table identifiers (CTE-definition fragments, SQL operators)
         # that leaked through as table nodes; see _is_real_table_name.
         raw_tables = view_to_tables_map.get(view_name, set())
-        tables = sorted(
-            (t[len("table::"):] if t.startswith("table::") else t)
-            for t in raw_tables
-            if _is_real_table_name(
-                t[len("table::"):] if t.startswith("table::") else t
-            )
-        )
+        clean_tables: set[str] = set()
+        for t in raw_tables:
+            bare = t[len("table::"):] if t.startswith("table::") else t
+            if not _is_real_table_name(bare):
+                continue
+            # Drop V_* foundation-view references that survived
+            # expansion (means they weren't in the corpus). The user
+            # can extract those views later or add explicit entries to
+            # CLARITY_TABLE_GRAIN to override the heuristic.
+            if _is_unresolved_view_reference(bare):
+                continue
+            clean_tables.add(bare)
+        tables = sorted(clean_tables)
 
-        # Filters: english-readable form, deduplicated by english key.
-        # `_is_real_filter` drops the obvious extractor noise (1=1
-        # tautologies, simple self-equality JOIN ON keys).
+        # Filters: english form, decomposed to drop self-equality legs.
+        # `_clean_filter` strips `1 = 1` tautologies AND self-equality
+        # JOIN ON legs out of compound `AND` chains, preserving the
+        # real predicates -- so the filter matrix doesn't drown in
+        # `Patient Identifier = Patient Identifier` noise.
         filters_seen: set[str] = set()
         filters: list[str] = []
         for scope in view.get("scopes") or []:
             for f in scope.get("filters") or []:
                 key = (f.get("english") or f.get("expression") or "").strip()
-                if not key or key in filters_seen:
+                cleaned = _clean_filter(key)
+                if not cleaned or cleaned in filters_seen:
                     continue
-                if not _is_real_filter(key):
-                    continue
-                filters_seen.add(key)
-                filters.append(key)
+                filters_seen.add(cleaned)
+                filters.append(cleaned)
 
         # Base columns: pair each base_column with its base_table to
         # produce "TABLE.COLUMN" entries. base_columns and base_tables

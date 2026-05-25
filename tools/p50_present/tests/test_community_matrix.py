@@ -359,6 +359,49 @@ class TestNoiseGuards(unittest.TestCase):
         compound = "Patient Identifier = Patient Identifier and Coverage Type C = 2"
         self.assertTrue(_is_real_filter(compound))
 
+    def test_clean_filter_drops_self_equality_leg_from_and_compound(self):
+        """The AND-leg `X = X` gets removed; the real predicate survives."""
+        from tools.p50_present.community_matrix import _clean_filter
+        cleaned = _clean_filter(
+            "Patient Identifier = Patient Identifier and Is Valid Patient Yn = 'Y'"
+        )
+        self.assertEqual(cleaned, "Is Valid Patient Yn = 'Y'")
+
+    def test_clean_filter_drops_multiple_self_equality_legs(self):
+        from tools.p50_present.community_matrix import _clean_filter
+        cleaned = _clean_filter(
+            "PAT_ID = PAT_ID and COV_ID = COV_ID and Coverage Type C = 2"
+        )
+        self.assertEqual(cleaned, "Coverage Type C = 2")
+
+    def test_clean_filter_returns_none_when_all_legs_noise(self):
+        """If every AND-leg is self-equality / tautology, the whole
+        filter is noise."""
+        from tools.p50_present.community_matrix import _clean_filter
+        self.assertIsNone(_clean_filter("PAT_ID = PAT_ID and COV_ID = COV_ID"))
+        self.assertIsNone(_clean_filter("1 = 1 and PAT_ID = PAT_ID"))
+
+    def test_clean_filter_preserves_or_compounds_untouched(self):
+        """OR semantics differ from AND; we don't decompose."""
+        from tools.p50_present.community_matrix import _clean_filter
+        keep = "Status = 'A' or Status = 'B'"
+        self.assertEqual(_clean_filter(keep), keep)
+
+    def test_is_unresolved_view_reference_drops_v_prefix(self):
+        from tools.p50_present.community_matrix import _is_unresolved_view_reference
+        self.assertTrue(_is_unresolved_view_reference("V_MYC_PT_USER_ACCSS"))
+        self.assertTrue(_is_unresolved_view_reference("v_cchp_member"))
+        self.assertTrue(_is_unresolved_view_reference("dbo.V_FOO"))
+
+    def test_is_unresolved_view_reference_keeps_f_prefix_and_known(self):
+        """F_* is BI convention for fact table -- not a view. Known
+        explicit entries in CLARITY_TABLE_GRAIN also bypass the
+        heuristic (author override)."""
+        from tools.p50_present.community_matrix import _is_unresolved_view_reference
+        self.assertFalse(_is_unresolved_view_reference("F_PAT_MYCHART_STATUS_HX"))
+        self.assertFalse(_is_unresolved_view_reference("PATIENT"))  # in dict
+        self.assertFalse(_is_unresolved_view_reference("PAT_ENC"))  # in dict
+
 
 class TestBuildViewDataAppliesGuards(unittest.TestCase):
 

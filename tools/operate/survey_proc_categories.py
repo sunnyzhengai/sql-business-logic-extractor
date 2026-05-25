@@ -95,9 +95,32 @@ def _classify(write_targets: list[str], select_count: int, has_create_proc: bool
     return "mixed"
 
 
+def _read_sql_robust(path: Path) -> str:
+    """Read a SQL file with BOM-aware encoding detection.
+
+    SSMS Generate-Scripts defaults to UTF-16 LE for both views AND
+    stored procs. The survey is a triage step and shouldn't require
+    pre-conversion -- otherwise the user can't see "what do I have?"
+    without first committing to the convert+upload workflow. Production
+    extraction (Phase C) still expects UTF-8 in the corpus; this
+    encoding-robustness is just for the survey's read-only inspection.
+    """
+    raw = path.read_bytes()
+    if raw.startswith(b"\xff\xfe"):
+        return raw.decode("utf-16-le")[1:]
+    if raw.startswith(b"\xfe\xff"):
+        return raw.decode("utf-16-be")[1:]
+    if raw.startswith(b"\xef\xbb\xbf"):
+        return raw.decode("utf-8")[1:]
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("utf-16-le", errors="replace")
+
+
 def survey_one_file(path: Path) -> dict:
     """Survey one .sql file. Returns a dict of counts + verdict."""
-    text = path.read_text(encoding="utf-8", errors="replace")
+    text = _read_sql_robust(path)
     has_create_proc = bool(_HAS_CREATE_PROCEDURE.search(text))
     select_count = len(_SELECT_COUNT_RE.findall(text))
     exec_count = len(_EXEC_RE.findall(text))

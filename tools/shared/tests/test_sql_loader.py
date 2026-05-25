@@ -91,5 +91,40 @@ class TestLoadCleanSql(unittest.TestCase):
         self.assertIn("SELECT a FROM tbl", clean)
 
 
+class TestLakehousePathDetection(unittest.TestCase):
+    """Lakehouse mount detection -- drives the staging-through-/tmp logic."""
+
+    def test_lakehouse_path_detected(self):
+        from tools.shared.sql_loader import _is_lakehouse_path
+        self.assertTrue(_is_lakehouse_path(
+            "/lakehouse/default/Files/outputs/corpus.jsonl"
+        ))
+        self.assertTrue(_is_lakehouse_path(
+            "/lakehouse/abc-uuid/Files/data/views/v.sql"
+        ))
+
+    def test_local_paths_not_detected(self):
+        from tools.shared.sql_loader import _is_lakehouse_path
+        self.assertFalse(_is_lakehouse_path("/tmp/foo.jsonl"))
+        self.assertFalse(_is_lakehouse_path("/Users/admin/work/corpus.jsonl"))
+        # Lakehouse-shaped but not under /Files/ -- internal Fabric paths.
+        self.assertFalse(_is_lakehouse_path("/lakehouse/default/Tables/foo"))
+
+
+class TestWriteToLakehouseFallback(unittest.TestCase):
+    """Outside Fabric (no notebookutils / mssparkutils), write_to_lakehouse
+    should fall back to shutil.copy and just work."""
+
+    def test_shutil_fallback_copies_local_file(self):
+        from tools.shared.sql_loader import write_to_lakehouse
+        with tempfile.NamedTemporaryFile(suffix=".sql", delete=False) as src:
+            src.write(b"SELECT 1")
+            src_path = src.name
+        with tempfile.NamedTemporaryFile(suffix=".sql", delete=False) as dst:
+            dst_path = dst.name
+        write_to_lakehouse(src_path, dst_path)
+        self.assertEqual(Path(dst_path).read_bytes(), b"SELECT 1")
+
+
 if __name__ == "__main__":
     unittest.main()

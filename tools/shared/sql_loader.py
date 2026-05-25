@@ -85,6 +85,54 @@ def read_sql_robust(path: str | Path) -> str:
         return raw.decode("utf-16-le", errors="replace")
 
 
+def write_to_lakehouse(local_path: str | Path, lakehouse_path: str | Path) -> None:
+    """Copy a local file to a Fabric lakehouse path via notebookutils.fs.cp.
+
+    Plain Python `open("w")` writes to `/lakehouse/default/Files/...`
+    succeed for NEW files but silently no-op when overwriting an
+    existing file -- the silent-overwrite trap that wasted a debugging
+    session on Yang's MyChart corpus.jsonl regeneration. Routing the
+    write through Fabric's `fs.cp` (or `mssparkutils.fs.cp` on older
+    Fabric runtimes) is the proven path.
+
+    Outside Fabric (no notebookutils), falls back to shutil.copy --
+    plain filesystem semantics for local dev / CI.
+
+    Parameters
+    ----------
+    local_path : path on the LOCAL filesystem (e.g., /tmp/corpus.jsonl).
+        The "source" for the copy. Must exist.
+    lakehouse_path : path on the Fabric lakehouse mount (e.g.,
+        /lakehouse/default/Files/outputs/corpus.jsonl). The "destination."
+
+    Notes
+    -----
+    fs.cp accepts the `file://` URI scheme for local sources. We pass
+    that explicitly because some Fabric versions don't auto-prepend it.
+    """
+    import shutil
+    try:
+        import notebookutils  # type: ignore
+        notebookutils.fs.cp(
+            f"file://{local_path}", str(lakehouse_path), recurse=False,
+        )
+    except ImportError:
+        try:
+            import mssparkutils  # type: ignore
+            mssparkutils.fs.cp(
+                f"file://{local_path}", str(lakehouse_path), recurse=False,
+            )
+        except ImportError:
+            # Local dev / CI -- plain copy.
+            shutil.copy(local_path, lakehouse_path)
+
+
+def _is_lakehouse_path(path: str | Path) -> bool:
+    """Heuristic: paths under /lakehouse/.../Files/ are on the Fabric mount."""
+    p = str(path)
+    return p.startswith("/lakehouse/") and "/Files/" in p
+
+
 def load_clean_sql(path: str | Path) -> tuple[str, dict]:
     """Read a .sql file and return preprocessed SQL ready for sqlglot.
 

@@ -109,6 +109,7 @@ from tools.p30_analyze.filter_patterns import (
 from tools.p30_analyze.join_paths import analyze_join_paths, count_join_edges
 from tools.p30_analyze.primary_community import assign_views_to_communities
 from tools.p30_analyze.projection import extract_table_projection
+from tools.p30_analyze.view_expansion import build_expanded_table_projection
 
 # Per-view membership strength + driver detection (Phase 3a).
 # view_to_tables added in Phase 3b as a shared helper.
@@ -291,10 +292,20 @@ def run_validation(
     print(f"      Graph: {g.number_of_nodes()} nodes, {g.number_of_edges()} edges, "
           f"{n_table} distinct tables")
 
-    print("[4/8] Extracting table-projection subgraph...")
-    table_g = extract_table_projection(g)
+    print("[4/8] Extracting table-projection subgraph (with view-of-view expansion)...")
+    # Use the expanded projection: foundation views referenced by other
+    # views get replaced with their base tables before clustering. This
+    # is what makes report views that share BASE tables (via different
+    # foundation-view layers) cluster together instead of fragmenting
+    # into singletons. Reuse the same expanded view_to_tables map for
+    # the matrix renderer downstream so both see the same substrate.
+    raw_view_to_tables = view_to_tables(g)
+    table_g, expanded_view_to_tables = build_expanded_table_projection(
+        g, views, view_to_tables_map=raw_view_to_tables,
+    )
     print(f"      Projection: {table_g.number_of_nodes()} tables, "
-          f"{table_g.number_of_edges()} weighted edges")
+          f"{table_g.number_of_edges()} weighted edges "
+          f"(after view-of-view expansion)")
 
     print(f"[5/8] Detecting bridge tables (top {100 - bridge_percentile:.0f}% by degree)...")
     bridge_nodes = detect_bridge_tables(table_g, percentile=bridge_percentile)
@@ -321,7 +332,11 @@ def run_validation(
     view_strength = compute_view_membership_strength(g, communities)
     # Phase 3b: also compute view->tables map for Option B rendering
     # (view nodes embedded in each community HTML with click-to-highlight).
-    tables_per_view = view_to_tables(g)
+    # Use the RAW map here -- the HTML viz shows foundation-view nodes
+    # as their own table-shaped pills, which is informative lineage; only
+    # the matrix renderer and community-detection projection use the
+    # expanded (base-tables-only) version.
+    tables_per_view = raw_view_to_tables
     # Phase 3e-i: per-community column-variance analysis. Identifies
     # (column_name, source_tables) groups with >= 2 distinct fingerprints
     # across the community's primary views -- the modeling team's
@@ -483,7 +498,11 @@ def run_validation(
     matrices_dir.mkdir(parents=True, exist_ok=True)
     # Build the view_data dict ONCE -- shared across all communities.
     # Keyed by view_name; values have tables/filters/base_columns lists.
-    all_view_data = build_view_data(views, view_to_tables(g))
+    # Use the expanded view-to-tables map so the matrix shows base
+    # tables (the substrate), not foundation views (the indirection
+    # layer). This is the same map that drove community detection in
+    # step 4 -- one substrate, one story.
+    all_view_data = build_view_data(views, expanded_view_to_tables)
     matrix_paths: list[str] = []
     for community_index, analysis in enumerate(analyses):
         top_label = (analysis["top_tables"][0][0]

@@ -491,6 +491,74 @@ class TestBuildViewDataAppliesGuards(unittest.TestCase):
         self.assertNotIn("1 = 1", filters)
         self.assertNotIn("Patient Identifier = Patient Identifier", filters)
 
+    def test_self_join_columns_disambiguated_by_alias(self):
+        """Two refs to the same base table with different aliases (a
+        self-join on PAT_ENC A / PAT_ENC B) should produce two distinct
+        rows on the base-column matrix, rendered as TABLE(alias).COLUMN."""
+        from tools.p50_present.community_matrix import build_view_data
+        view = {
+            "view_name": "VW_SELF",
+            "scopes": [{
+                "id": "main",
+                "kind": "main",
+                "columns": [],
+                "filters": [
+                    {"expression": "A.STATUS_C = 1", "kind": "where",
+                     "columns": [{"column": "STATUS_C", "table": "PAT_ENC",
+                                   "table_alias": "A"}]},
+                ],
+                "joins": [{
+                    "right_table": "PAT_ENC", "right_alias": "B",
+                    "join_type": "INNER JOIN",
+                    "on_expression": "A.PAT_ID = B.PARENT_PAT_ID",
+                    "columns": [
+                        {"column": "PAT_ID", "table": "PAT_ENC",
+                         "table_alias": "A"},
+                        {"column": "PARENT_PAT_ID", "table": "PAT_ENC",
+                         "table_alias": "B"},
+                    ],
+                }],
+            }],
+        }
+        result = build_view_data([view], {"VW_SELF": {"table::PAT_ENC"}})
+        base_cols = result["VW_SELF"]["base_columns"]
+        # Both alias-distinct refs survived.
+        self.assertIn("PAT_ENC(A).PAT_ID", base_cols)
+        self.assertIn("PAT_ENC(B).PARENT_PAT_ID", base_cols)
+        # Filter-only ref also picked up.
+        self.assertIn("PAT_ENC(A).STATUS_C", base_cols)
+
+    def test_group_by_order_by_columns_flow_to_base_column_matrix(self):
+        """GROUP BY / ORDER BY entries are surfaced as synthetic filters
+        with kind=group_by/order_by; their column refs join the base-
+        column matrix but they DON'T appear as predicate rows."""
+        from tools.p50_present.community_matrix import build_view_data
+        view = {
+            "view_name": "VW_GO",
+            "scopes": [{
+                "id": "main", "kind": "main", "columns": [], "joins": [],
+                "filters": [
+                    {"expression": "STATUS_C = 1", "kind": "where",
+                     "columns": [{"column": "STATUS_C", "table": "PAT_ENC",
+                                   "table_alias": "PAT_ENC"}]},
+                    {"expression": "PAT_ID", "kind": "group_by",
+                     "columns": [{"column": "PAT_ID", "table": "PAT_ENC",
+                                   "table_alias": "PAT_ENC"}]},
+                    {"expression": "ENC_DATE", "kind": "order_by",
+                     "columns": [{"column": "ENC_DATE", "table": "PAT_ENC",
+                                   "table_alias": "PAT_ENC"}]},
+                ],
+            }],
+        }
+        result = build_view_data([view], {"VW_GO": {"table::PAT_ENC"}})
+        # Predicate axis: only the WHERE row.
+        self.assertEqual(result["VW_GO"]["filters"], ["STATUS_C = 1"])
+        # Base-column axis: all three refs; alias == table -> no parens.
+        base_cols = result["VW_GO"]["base_columns"]
+        self.assertIn("PAT_ENC.STATUS_C", base_cols)
+        self.assertIn("PAT_ENC.PAT_ID", base_cols)
+        self.assertIn("PAT_ENC.ENC_DATE", base_cols)
+
     def test_tables_drop_cte_fragments(self):
         """Tables containing SQL operators / keywords get dropped."""
         from tools.p50_present.community_matrix import build_view_data

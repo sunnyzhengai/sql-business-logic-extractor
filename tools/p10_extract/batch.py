@@ -52,6 +52,7 @@ from sql_logic_extractor.comment_attachment import (
 )
 from sql_logic_extractor.corpus_schema import (
     SCHEMA_VERSION,
+    ColumnRefV1,
     ColumnV1,
     FilterV1,
     InventoryRefV1,
@@ -306,11 +307,14 @@ def _build_filter_v1(
 ) -> FilterV1:
     """Translate a ScopedFilter's expression for the business form.
 
-    Three structured fields are populated from the raw SQL:
+    Four structured fields are populated from the raw SQL:
       - `expression` / `english` -- comments stripped, English translated
       - `inline_comments`        -- author-written /* */ and -- annotations
       - `zc_lookups`             -- resolved <X>_C = <N> references via
                                     the project's zc_values dictionary
+      - `columns`                -- alias-resolved column refs inside the
+                                    predicate (or GROUP BY / ORDER BY
+                                    clause for the synthetic kinds)
     """
     raw = (rf.expression or "").strip()
     cleaned, comments = _split_sql_comments(raw)
@@ -325,6 +329,16 @@ def _build_filter_v1(
         subquery_scope_ids=tuple(rf.subquery_scope_ids or []),
         inline_comments=tuple(comments),
         zc_lookups=tuple(zc_lookups),
+        columns=tuple(_build_column_ref_v1(c) for c in (rf.columns or [])),
+    )
+
+
+def _build_column_ref_v1(rc) -> ColumnRefV1:
+    """Map a resolver ScopedColumnRef to the corpus-output ColumnRefV1."""
+    return ColumnRefV1(
+        column=getattr(rc, "column", "") or "",
+        table=getattr(rc, "table", "") or "",
+        table_alias=getattr(rc, "table_alias", "") or "",
     )
 
 
@@ -365,6 +379,7 @@ def _build_join_v1(rj) -> JoinV1:
         join_type=rj.join_type or "JOIN",
         on_expression=rj.on_expression or "",
         right_alias=rj.right_alias or "",
+        columns=tuple(_build_column_ref_v1(c) for c in (rj.columns or [])),
     )
 
 

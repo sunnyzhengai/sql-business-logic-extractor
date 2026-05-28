@@ -73,13 +73,29 @@ class ResolvedQuery:
 # ---------------------------------------------------------------------------
 
 @dataclass
+class ScopedColumnRef:
+    """One column reference inside a filter / join ON / GROUP BY /
+    ORDER BY. `table` is the real base-table name resolved via the
+    scope's alias map; `table_alias` is what the SQL author wrote in
+    the FROM/JOIN (equal to `table` when no alias was used, empty when
+    the column reference was unqualified in the SQL)."""
+    column: str
+    table: str = ""
+    table_alias: str = ""
+
+
+@dataclass
 class ScopedFilter:
     """A predicate declared in one scope. `kind` distinguishes
-    where/having/qualify/join_on/exists/in. `subquery_scope_ids` lists
-    any subquery scopes referenced inside this predicate."""
+    where/having/qualify/join_on/exists/in/group_by/order_by.
+    `subquery_scope_ids` lists any subquery scopes referenced inside
+    this predicate. `columns` are alias-resolved column references
+    occurring inside the predicate (or inside the GROUP BY / ORDER BY
+    clause for the synthetic kinds)."""
     expression: str
     kind: str = "where"
     subquery_scope_ids: list[str] = field(default_factory=list)
+    columns: list[ScopedColumnRef] = field(default_factory=list)
 
 
 @dataclass
@@ -88,11 +104,13 @@ class ScopedJoin:
     table name OR another scope's id (e.g., a CTE referenced as the
     right side of a join). `join_type` preserves the parser's wording
     ('INNER JOIN', 'LEFT JOIN', 'CROSS JOIN', ...). `on_expression` is
-    the raw ON predicate."""
+    the raw ON predicate. `columns` are alias-resolved refs from inside
+    the ON clause."""
     right_table: str
     join_type: str
     on_expression: str = ""
     right_alias: str = ""
+    columns: list[ScopedColumnRef] = field(default_factory=list)
 
 
 @dataclass
@@ -570,25 +588,7 @@ class LineageResolver:
             raw_sql=logic.get("raw_sql", ""),
         )
 
-        # --- Filters declared in THIS scope only (no propagation) ---
-        for f in logic.get("filters", []) or []:
-            f_kind = f.get("scope") or "where"
-            if f_kind == "join":
-                # Drop pure equi-join keys; keep business-bearing join predicates.
-                expr_upper = (f.get("expression") or "").upper()
-                if " = " in (f.get("expression") or "") and not any(op in expr_upper for op in
-                    [" > ", " < ", " >= ", " <= ", " <> ", " != ",
-                     "BETWEEN", "LIKE", "DATEDIFF", "AND "]):
-                    continue
-                f_kind = "join_on"
-            scope.filters.append(ScopedFilter(
-                expression=f.get("expression") or "",
-                kind=f_kind,
-                # Subquery linkage filled in below once subquery scopes have IDs.
-                subquery_scope_ids=[],
-            ))
-
-        # --- reads_from_tables / reads_from_scopes ---
+        # --- Source / scope-reference bookkeeping ---
         # CTE references resolve to globally-known CTE IDs (CTEs declared
         # anywhere in the query are visible to descendants). Derived-table
         # aliases resolve to the local scope's subqueries.
@@ -599,6 +599,7 @@ class LineageResolver:
             if alias and (sq.get("context") in ("from", None) or False):
                 derived_alias_to_id[alias.lower()] = f"derived:{alias}"
 
+        # --- reads_from_tables / reads_from_scopes ---
         lateral_count = 0
         for src in logic.get("sources", []) or []:
             stype = src.get("type") or ""
@@ -633,6 +634,38 @@ class LineageResolver:
         scope.reads_from_tables = list(dict.fromkeys(scope.reads_from_tables))
         scope.reads_from_scopes = list(dict.fromkeys(scope.reads_from_scopes))
 
+        # Alias map for column lineage (returns scope-qualified prefixes
+        # like "table:PAT_ENC" / "cte:CTE1") AND a simpler base-table-only
+        # map used to resolve filter / join / GROUP BY / ORDER BY column
+        # refs to (real_table, alias). The latter intentionally skips CTE
+        # and derived aliases since the matrix axis is base tables only.
+        alias_map = self._build_alias_map(logic, cte_name_to_id, derived_alias_to_id)
+        alias_to_real = self._build_alias_to_real_table(
+            logic, cte_name_to_id, derived_alias_to_id
+        )
+        single_source = self._infer_single_base_source(logic, cte_name_to_id)
+
+        # --- Filters declared in THIS scope only (no propagation) ---
+        for f in logic.get("filters", []) or []:
+            f_kind = f.get("scope") or "where"
+            if f_kind == "join":
+                # Drop pure equi-join keys; keep business-bearing join predicates.
+                expr_upper = (f.get("expression") or "").upper()
+                if " = " in (f.get("expression") or "") and not any(op in expr_upper for op in
+                    [" > ", " < ", " >= ", " <= ", " <> ", " != ",
+                     "BETWEEN", "LIKE", "DATEDIFF", "AND "]):
+                    continue
+                f_kind = "join_on"
+            scope.filters.append(ScopedFilter(
+                expression=f.get("expression") or "",
+                kind=f_kind,
+                # Subquery linkage filled in below once subquery scopes have IDs.
+                subquery_scope_ids=[],
+                columns=self._resolve_col_refs(
+                    f.get("columns") or [], alias_to_real, single_source
+                ),
+            ))
+
         # --- Joins: structured (right_table, type, ON) for shape comparison ---
         for join in logic.get("joins", []) or []:
             scope.joins.append(ScopedJoin(
@@ -640,10 +673,12 @@ class LineageResolver:
                 join_type=join.get("join_type") or "JOIN",
                 on_expression=join.get("on_expression") or "",
                 right_alias=join.get("right_alias") or "",
+                columns=self._resolve_col_refs(
+                    join.get("columns") or [], alias_to_real, single_source
+                ),
             ))
 
         # --- Columns local to this scope (no transitive resolution) ---
-        alias_map = self._build_alias_map(logic, cte_name_to_id, derived_alias_to_id)
         for out in logic.get("outputs", []) or []:
             col = self._resolve_column_local(out, alias_map, cte_name_to_id, derived_alias_to_id)
             if col is not None:
@@ -721,6 +756,113 @@ class LineageResolver:
         for alias, der_id in derived_alias_to_id.items():
             out.setdefault(alias, der_id)
         return out
+
+    def _build_alias_to_real_table(
+        self,
+        logic: dict,
+        cte_name_to_id: dict[str, str],
+        derived_alias_to_id: dict[str, str],
+    ) -> dict[str, tuple[str, str]]:
+        """Map source/join alias (lower-cased) -> (real_table, sql_alias).
+
+        Restricted to BASE tables: CTEs and derived/lateral aliases are
+        intentionally excluded because the community-matrix base-column
+        axis only carries base-table refs. When two FROM entries share a
+        bare table name with distinct aliases (self-joins), both alias
+        keys are recorded; the bare-name key resolves to whichever entry
+        was registered last (matches sqlglot's default-disambiguation).
+        """
+        out: dict[str, tuple[str, str]] = {}
+        for src in logic.get("sources", []) or []:
+            if (src.get("type") or "") != "table":
+                continue
+            sname = src.get("name") or ""
+            if not sname or sname.lower() in cte_name_to_id:
+                continue
+            salias = src.get("alias") or sname
+            if salias:
+                out[salias.lower()] = (sname, salias)
+            out[sname.lower()] = (sname, salias)
+        for join in logic.get("joins", []) or []:
+            rt = join.get("right_table") or ""
+            if not rt or rt.lower() in cte_name_to_id:
+                continue
+            ra = join.get("right_alias") or rt
+            if ra.lower() in derived_alias_to_id:
+                continue
+            if ra:
+                out[ra.lower()] = (rt, ra)
+            out[rt.lower()] = (rt, ra)
+        return out
+
+    def _infer_single_base_source(
+        self,
+        logic: dict,
+        cte_name_to_id: dict[str, str],
+    ) -> Optional[tuple[str, str]]:
+        """If this scope reads from exactly one base table with no joins,
+        return (real_table, alias) so unqualified column refs (`SELECT X
+        WHERE Y > 0`) can be resolved to that table. Otherwise return
+        None and leave unqualified refs unresolved -- the caller surfaces
+        them as table='' which the matrix consumer skips."""
+        base_sources: list[tuple[str, str]] = []
+        for src in logic.get("sources", []) or []:
+            if (src.get("type") or "") != "table":
+                return None
+            sname = src.get("name") or ""
+            if not sname or sname.lower() in cte_name_to_id:
+                return None
+            salias = src.get("alias") or sname
+            base_sources.append((sname, salias))
+        joins = logic.get("joins", []) or []
+        if len(base_sources) == 1 and not joins:
+            return base_sources[0]
+        return None
+
+    def _resolve_col_refs(
+        self,
+        raw_cols: list,
+        alias_to_real: dict[str, tuple[str, str]],
+        single_source: Optional[tuple[str, str]],
+    ) -> list["ScopedColumnRef"]:
+        """Resolve a list of extract.ColumnRef dicts (or dataclasses) to
+        ScopedColumnRef. Skips column entries with empty `column`."""
+        refs: list[ScopedColumnRef] = []
+        for c in raw_cols:
+            if isinstance(c, dict):
+                col_name = c.get("column") or ""
+                sql_table = c.get("table") or ""
+            else:
+                col_name = getattr(c, "column", "") or ""
+                sql_table = getattr(c, "table", "") or ""
+            if not col_name:
+                continue
+            if sql_table:
+                hit = alias_to_real.get(sql_table.lower())
+                if hit is not None:
+                    real_table, sql_alias = hit
+                    refs.append(ScopedColumnRef(
+                        column=col_name, table=real_table, table_alias=sql_alias,
+                    ))
+                    continue
+                # CTE / derived / unknown alias: keep what the SQL said
+                # in table_alias and leave the base table empty -- the
+                # matrix consumer skips empty-table entries.
+                refs.append(ScopedColumnRef(
+                    column=col_name, table="", table_alias=sql_table,
+                ))
+                continue
+            # Fully unqualified: fall back to the single-source case only.
+            if single_source is not None:
+                real_table, sql_alias = single_source
+                refs.append(ScopedColumnRef(
+                    column=col_name, table=real_table, table_alias=sql_alias,
+                ))
+            else:
+                refs.append(ScopedColumnRef(
+                    column=col_name, table="", table_alias="",
+                ))
+        return refs
 
     def _resolve_column_local(
         self,

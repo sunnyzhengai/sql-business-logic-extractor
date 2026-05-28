@@ -608,6 +608,12 @@ class SQLBusinessLogicExtractor:
         group_keys = [_sql(g, dialect=self.dialect) for g in group.expressions]
         for agg in logic.aggregations:
             agg.group_by = group_keys
+        for g in group.expressions:
+            logic.filters.append(Filter(
+                expression=_sql(g, dialect=self.dialect),
+                scope="group_by",
+                columns=_extract_columns(g),
+            ))
 
     def _extract_window_details(self, select, logic: QueryLogic):
         for expr in select.expressions:
@@ -739,8 +745,16 @@ class SQLBusinessLogicExtractor:
 
     def _extract_order_by(self, select, logic: QueryLogic):
         order = select.find(exp.Order)
-        if order:
-            logic.order_by = [_sql(o) for o in order.expressions]
+        if not order:
+            return
+        logic.order_by = [_sql(o) for o in order.expressions]
+        for o in order.expressions:
+            inner = o.this if isinstance(o, exp.Ordered) else o
+            logic.filters.append(Filter(
+                expression=_sql(inner, dialect=self.dialect),
+                scope="order_by",
+                columns=_extract_columns(inner),
+            ))
 
     def _extract_set_operations(self, tree, logic: QueryLogic):
         op_type = type(tree).__name__.upper()

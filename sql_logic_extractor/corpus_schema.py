@@ -58,6 +58,31 @@ SCHEMA_VERSION: int = 3
 # ============================================================
 
 @dataclass(frozen=True)
+class ColumnRefV1:
+    """One column reference inside a filter, join ON clause, GROUP BY,
+    or ORDER BY clause.
+
+    `column` is the bare column name as written. `table` is the resolved
+    base table that the column came from (e.g. `PAT_ENC`); empty when
+    the resolver could not pin it down (column reference was unqualified
+    and ambiguous, or the source was a CTE / derived scope).
+    `table_alias` is the alias the SQL author wrote in the FROM/JOIN
+    clause for that table (e.g. `A` in `PAT_ENC A`). When the SQL has
+    no alias, this equals `table`. When the column is fully unqualified
+    in the SQL, `table_alias` is empty.
+
+    Self-joins are disambiguated by `table_alias`: two refs that share
+    `(column, table)` but differ on `table_alias` are distinct.
+
+    Additive type (post-v3, no schema bump). Old corpus.jsonl files
+    without `columns` on filters/joins are still readable.
+    """
+    column: str = ""
+    table: str = ""
+    table_alias: str = ""
+
+
+@dataclass(frozen=True)
 class JoinV1:
     """One JOIN declared in a scope, surfaced for view-shape comparison.
 
@@ -68,6 +93,10 @@ class JoinV1:
     joins -- and is NOT stored, since shape comparison normalizes a
     view's joins as a multiset rather than an ordered chain.
 
+    `columns` lists every column reference appearing inside the ON
+    predicate, resolved through the scope's alias map so self-joins
+    can be disambiguated by `table_alias`.
+
     Additive field on ScopeV1 (added post-v3, no schema bump). Old
     corpus.jsonl files without a `joins` field are still readable.
     """
@@ -75,6 +104,7 @@ class JoinV1:
     join_type: str = "JOIN"
     on_expression: str = ""
     right_alias: str = ""
+    columns: tuple[ColumnRefV1, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -117,6 +147,17 @@ class FilterV1:
     code-to-name lookup hits; absent otherwise. Author-written inline
     comments and the auto-resolved zc_lookups are complementary signals.
 
+    `columns` lists every column reference appearing inside this
+    predicate, resolved through the scope's alias map. This is what the
+    community matrix consumes to build the per-view base-column axis
+    that includes WHERE / HAVING / JOIN ON / GROUP BY / ORDER BY refs
+    (not just SELECT-output base columns).
+
+    `kind` values include "where" | "having" | "qualify" | "join_on"
+    | "exists" | "in" | "group_by" | "order_by". GROUP BY and ORDER BY
+    are surfaced as synthetic FilterV1 entries so they ride the same
+    column-collection plumbing without a schema-level new field.
+
     Additive fields; defaults keep old corpora backward-readable.
     """
     expression: str = ""
@@ -125,6 +166,7 @@ class FilterV1:
     subquery_scope_ids: tuple[str, ...] = ()
     inline_comments: tuple[str, ...] = ()
     zc_lookups: tuple[ZcLookupV1, ...] = ()
+    columns: tuple[ColumnRefV1, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -337,6 +379,8 @@ def _join_from_dict(d: dict) -> JoinV1:
         join_type=d.get("join_type", "JOIN"),
         on_expression=d.get("on_expression", ""),
         right_alias=d.get("right_alias", ""),
+        columns=tuple(_column_ref_from_dict(c)
+                       for c in d.get("columns", []) or []),
     )
 
 
@@ -349,6 +393,16 @@ def _filter_from_dict(d: dict) -> FilterV1:
         inline_comments=tuple(d.get("inline_comments", []) or []),
         zc_lookups=tuple(_zc_lookup_from_dict(z)
                           for z in d.get("zc_lookups", []) or []),
+        columns=tuple(_column_ref_from_dict(c)
+                       for c in d.get("columns", []) or []),
+    )
+
+
+def _column_ref_from_dict(d: dict) -> ColumnRefV1:
+    return ColumnRefV1(
+        column=d.get("column", ""),
+        table=d.get("table", ""),
+        table_alias=d.get("table_alias", ""),
     )
 
 

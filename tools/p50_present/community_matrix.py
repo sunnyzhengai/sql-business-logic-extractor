@@ -920,11 +920,16 @@ def build_view_data(
         # `_clean_filter` strips `1 = 1` tautologies AND self-equality
         # JOIN ON legs out of compound `AND` chains, preserving the
         # real predicates -- so the filter matrix doesn't drown in
-        # `Patient Identifier = Patient Identifier` noise.
+        # `Patient Identifier = Patient Identifier` noise. The synthetic
+        # group_by / order_by FilterV1 entries (added so their column
+        # refs flow into the base-column matrix) are skipped here --
+        # they aren't cohort-defining predicates.
         filters_seen: set[str] = set()
         filters: list[str] = []
         for scope in view.get("scopes") or []:
             for f in scope.get("filters") or []:
+                if (f.get("kind") or "") in ("group_by", "order_by"):
+                    continue
                 key = (f.get("english") or f.get("expression") or "").strip()
                 cleaned = _clean_filter(key)
                 if not cleaned or cleaned in filters_seen:
@@ -932,17 +937,45 @@ def build_view_data(
                 filters_seen.add(cleaned)
                 filters.append(cleaned)
 
-        # Base columns. Decode the scope-qualified lineage encoding
-        # (`table:T.C` / `cte:scope.C`) via _parse_base_column_ref:
-        # CTE-internal lineage is filtered out, real base-table refs
-        # become clean (TABLE, COLUMN) tuples. Apply the same V_*
-        # unresolved-view drop and skip-list as the table matrix so
-        # the base-column matrix and the table matrix stay consistent.
+        # Base columns. Three sources are merged onto the same axis:
+        #   (1) SELECT-output lineage via ColumnV1.base_columns
+        #       (scope-qualified `table:T.C` / `cte:scope.C`)
+        #   (2) FilterV1.columns -- refs inside WHERE / HAVING / JOIN ON
+        #       / GROUP BY / ORDER BY predicates
+        #   (3) JoinV1.columns   -- refs inside JOIN ON predicates
+        #
+        # Each ref ends up as a (table, alias, column) triple so self-
+        # joins disambiguate by alias. Row label is `TABLE(alias).COLUMN`
+        # when alias differs from table; just `TABLE.COLUMN` otherwise.
+        # Apply the same V_* unresolved-view drop and skip-list as the
+        # table matrix so the three matrices stay consistent.
         skip = table_skip_list if table_skip_list is not None else DEFAULT_TABLE_SKIP_LIST
         skip_upper = {s.upper() for s in skip}
-        base_cols_seen: set[str] = set()
+        base_cols_seen: set[tuple[str, str, str]] = set()
         base_cols: list[str] = []
+
+        def _accept_triple(table_name: str, alias: str, column_name: str) -> None:
+            if not table_name or not column_name:
+                return
+            if not _is_real_table_name(table_name):
+                return
+            if _is_unresolved_view_reference(table_name):
+                return
+            bare_upper = table_name.split(".")[-1].strip("[]").upper()
+            if bare_upper in skip_upper:
+                return
+            alias_norm = alias or table_name
+            key = (table_name, alias_norm, column_name)
+            if key in base_cols_seen:
+                return
+            base_cols_seen.add(key)
+            if alias_norm and alias_norm != table_name:
+                base_cols.append(f"{table_name}({alias_norm}).{column_name}")
+            else:
+                base_cols.append(f"{table_name}.{column_name}")
+
         for scope in view.get("scopes") or []:
+            # (1) SELECT-output lineage.
             for col in scope.get("columns") or []:
                 bcs = col.get("base_columns") or ()
                 bts = col.get("base_tables") or ()
@@ -955,21 +988,29 @@ def build_view_data(
                     if parsed is None:
                         continue
                     table_name, column_name = parsed
-                    # Apply consistency filters: must look like a real
-                    # table, must not be an unresolved V_*, must not be
-                    # in the skip list.
-                    if not _is_real_table_name(table_name):
-                        continue
-                    if _is_unresolved_view_reference(table_name):
-                        continue
-                    bare_upper = table_name.split(".")[-1].strip("[]").upper()
-                    if bare_upper in skip_upper:
-                        continue
-                    pair = f"{table_name}.{column_name}"
-                    if pair in base_cols_seen:
-                        continue
-                    base_cols_seen.add(pair)
-                    base_cols.append(pair)
+                    # SELECT-output lineage doesn't carry the SQL alias.
+                    # Use the table name as alias so the label collapses
+                    # to TABLE.COLUMN (no parens) -- and dedupes against
+                    # any filter/join ref that DID carry the same alias.
+                    _accept_triple(table_name, table_name, column_name)
+
+            # (2) Filter / GROUP BY / ORDER BY column refs.
+            for f in scope.get("filters") or []:
+                for cref in f.get("columns") or []:
+                    _accept_triple(
+                        cref.get("table") or "",
+                        cref.get("table_alias") or "",
+                        cref.get("column") or "",
+                    )
+
+            # (3) JOIN ON column refs.
+            for j in scope.get("joins") or []:
+                for cref in j.get("columns") or []:
+                    _accept_triple(
+                        cref.get("table") or "",
+                        cref.get("table_alias") or "",
+                        cref.get("column") or "",
+                    )
 
         result[view_name] = {
             "tables": tables,

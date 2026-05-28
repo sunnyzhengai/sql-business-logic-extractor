@@ -15,10 +15,12 @@ import pytest
 
 from sql_logic_extractor.corpus_schema import (
     SCHEMA_VERSION,
+    ColumnRefV1,
     ColumnV1,
     CorpusV1,
     FilterV1,
     InventoryRefV1,
+    JoinV1,
     ReportV1,
     ScopeV1,
     TermV1,
@@ -233,3 +235,78 @@ def test_view_with_no_scopes_round_trips():
     c = CorpusV1(views=(ViewV1(view_name="V_FAILED"),))
     c2 = corpus_from_dict(corpus_to_dict(c))
     assert c == c2
+
+
+# ---------- ColumnRefV1 on filters / joins -------------------------------
+
+def test_filter_columns_round_trip():
+    """FilterV1.columns carries alias-resolved refs for WHERE / HAVING /
+    JOIN ON / GROUP BY / ORDER BY predicates -- preserved across
+    serialization."""
+    flt = FilterV1(
+        expression="A.PAT_ID > 100 AND B.STATUS_C = 1",
+        kind="where",
+        columns=(
+            ColumnRefV1(column="PAT_ID", table="PAT_ENC", table_alias="A"),
+            ColumnRefV1(column="STATUS_C", table="PAT_ENC", table_alias="B"),
+        ),
+    )
+    scope = ScopeV1(id="main", kind="main", filters=(flt,))
+    view = ViewV1(view_name="V", scopes=(scope,))
+    c = CorpusV1(views=(view,))
+    c2 = corpus_from_dict(corpus_to_dict(c))
+    assert c == c2
+    # Self-join disambiguation: two refs share (table, column) but differ
+    # on table_alias -- both must survive round-trip.
+    rebuilt = c2.views[0].scopes[0].filters[0].columns
+    aliases = sorted(r.table_alias for r in rebuilt)
+    assert aliases == ["A", "B"]
+
+
+def test_join_columns_round_trip():
+    """JoinV1.columns carries refs from the ON predicate."""
+    join = JoinV1(
+        right_table="PAT_ENC",
+        right_alias="B",
+        join_type="INNER JOIN",
+        on_expression="A.PAT_ID = B.PAT_ID",
+        columns=(
+            ColumnRefV1(column="PAT_ID", table="PAT_ENC", table_alias="A"),
+            ColumnRefV1(column="PAT_ID", table="PAT_ENC", table_alias="B"),
+        ),
+    )
+    scope = ScopeV1(id="main", kind="main", joins=(join,))
+    c = CorpusV1(views=(ViewV1(view_name="V", scopes=(scope,)),))
+    c2 = corpus_from_dict(corpus_to_dict(c))
+    assert c == c2
+
+
+def test_old_corpus_without_columns_field_still_loads():
+    """Backward-compat: a corpus.jsonl written before the columns field
+    existed (filter / join dicts have no `columns` key) must load with
+    columns defaulting to ()."""
+    d = {
+        "schema_version": SCHEMA_VERSION,
+        "views": [{
+            "view_name": "V_OLD",
+            "scopes": [{
+                "id": "main",
+                "kind": "main",
+                "filters": [{
+                    "expression": "STATUS_C = 1",
+                    "english": "Status is active",
+                    "kind": "where",
+                    # NO `columns` key.
+                }],
+                "joins": [{
+                    "right_table": "T2",
+                    "join_type": "INNER JOIN",
+                    "on_expression": "A.X = B.X",
+                    # NO `columns` key.
+                }],
+            }],
+        }],
+    }
+    c = corpus_from_dict(d)
+    assert c.views[0].scopes[0].filters[0].columns == ()
+    assert c.views[0].scopes[0].joins[0].columns == ()

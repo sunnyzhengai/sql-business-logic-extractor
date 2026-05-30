@@ -9,9 +9,9 @@
   p.meta { color: #666; font-size: 13px; margin: 0 0 18px; }
   section { margin-bottom: 24px; }
   section h2 { font-size: 14px; margin: 0 0 8px; color: #555; }
-  /* Compare picker: two dropdowns + a Show-all toggle. Default state
-     hides everything except the first two views so the page opens
-     "ready to compare" rather than "wall of panels". */
+  /* Compare picker: two dropdowns + three mode buttons. Default
+     mode is "selected pair" (side-by-side) with the first two
+     views chosen alphabetically. */
   .controls { background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
                padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 16px;
                align-items: center; }
@@ -20,11 +20,24 @@
                        min-width: 220px; max-width: 360px; }
   .controls button { font-family: sans-serif; font-size: 13px; padding: 4px 10px;
                        cursor: pointer; }
-  /* Each per-view panel sits inside .panel-grid as flex-wrapping. JS
-     toggles each panel's display based on the dropdown selection. */
+  .controls button.active { background: #2c7fb8; color: #fff; border-color: #1a5d8a; }
+  /* Color legend appears below the controls only when overlay mode
+     is active -- explains the tri-color encoding to a first-time
+     reader. */
+  .legend { display: none; padding: 6px 14px; background: #fff;
+             border: 1px solid #e0e0e0; border-radius: 4px; margin-top: 8px;
+             font-size: 12px; color: #555; }
+  .legend.active { display: flex; gap: 18px; align-items: center; }
+  .legend .swatch { display: inline-block; width: 14px; height: 14px;
+                     vertical-align: middle; margin-right: 6px; border-radius: 3px; }
+  /* Per-view panel grid + overlay container. Each mode hides the
+     other via display:none. */
   .panel-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
   .panel { scroll-margin-top: 12px; }
   .panel.hidden { display: none; }
+  #overlay-section { display: none; }
+  #overlay-section.active { display: block; }
+  #pair-section.hidden { display: none; }
 </style>
 </head>
 <body>
@@ -33,10 +46,17 @@
 <section class="controls">
   <label>Left:&nbsp;<select id="cmp-a"><option value="VW_A" selected>VW_A</option><option value="VW_B">VW_B</option><option value="VW_C">VW_C</option><option value="VW_D">VW_D</option></select></label>
   <label>Right:&nbsp;<select id="cmp-b"><option value="VW_A">VW_A</option><option value="VW_B" selected>VW_B</option><option value="VW_C">VW_C</option><option value="VW_D">VW_D</option></select></label>
+  <button id="cmp-pair" type="button" class="active">Show selected pair</button>
+  <button id="cmp-overlay" type="button">Overlay pair</button>
   <button id="cmp-all" type="button">Show all</button>
-  <button id="cmp-pair" type="button">Show selected pair</button>
 </section>
-<section>
+<div id="legend" class="legend">
+  <span><span class="swatch" style="background:#2c7fb8;"></span>In both views</span>
+  <span><span class="swatch" style="background:#16a085;"></span>Left only</span>
+  <span><span class="swatch" style="background:#e67e22;"></span>Right only</span>
+  <span><span class="swatch" style="background:#dcdcdc;"></span>Neither (substrate)</span>
+</div>
+<section id="pair-section">
   <div class="panel-grid">
 <div class="panel" data-view="VW_A" id="view-VW_A"><svg width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_A  (2/4 tables)</text><path d="M283,61 L178,61" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,125" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">CLARITY_DEP</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g><g><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g></svg></div>
 <div class="panel" data-view="VW_B" id="view-VW_B"><svg width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_B  (2/4 tables)</text><path d="M283,61 L178,61" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,125" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">CLARITY_DEP</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g><g><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g></svg></div>
@@ -44,10 +64,33 @@
 <div class="panel" data-view="VW_D" id="view-VW_D"><svg width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_D  (4/4 tables)</text><path d="M283,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M73,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M73,61 L178,125" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">CLARITY_DEP</text></g><g><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">ZC_PATIENT_STATUS</text></g></svg></div>
   </div>
 </section>
+<section id="overlay-section">
+  <svg id="overlay-svg" width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text id="overlay-title" x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">Overlay (pick a pair)</text><path data-edge="CLARITY_DEP||PAT_ENC" d="M283,61 L178,61" stroke="#dcdcdc" stroke-width="2" stroke-dasharray="4,4" fill="none" /><path data-edge="PATIENT||PAT_ENC" d="M73,61 L178,61" stroke="#dcdcdc" stroke-width="2" stroke-dasharray="4,4" fill="none" /><path data-edge="PATIENT||ZC_PATIENT_STATUS" d="M73,61 L178,125" stroke="#dcdcdc" stroke-width="2" stroke-dasharray="4,4" fill="none" /><g data-node="CLARITY_DEP"><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#dcdcdc" stroke="#dcdcdc" stroke-width="1.5" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#9e9e9e">CLARITY_DEP</text></g><g data-node="PATIENT"><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#dcdcdc" stroke="#dcdcdc" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#9e9e9e">PATIENT</text></g><g data-node="PAT_ENC"><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#dcdcdc" stroke="#dcdcdc" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#9e9e9e">PAT_ENC</text></g><g data-node="ZC_PATIENT_STATUS"><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#dcdcdc" stroke="#dcdcdc" stroke-width="1.5" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g></svg>
+</section>
+<script id="shape-data" type="application/json">{"VW_A":{"nodes":["PATIENT","PAT_ENC"],"edges":["PATIENT||PAT_ENC"]},"VW_B":{"nodes":["PATIENT","PAT_ENC"],"edges":["PATIENT||PAT_ENC"]},"VW_C":{"nodes":["CLARITY_DEP","PATIENT","PAT_ENC"],"edges":["CLARITY_DEP||PAT_ENC","PATIENT||PAT_ENC"]},"VW_D":{"nodes":["CLARITY_DEP","PATIENT","PAT_ENC","ZC_PATIENT_STATUS"],"edges":["CLARITY_DEP||PAT_ENC","PATIENT||PAT_ENC","PATIENT||ZC_PATIENT_STATUS"]}}</script>
 <script>
 (function() {
-  // Pick exactly two panels to display (the L/R dropdown values);
-  // everything else is hidden via the .hidden class.
+  // Per-view membership data, embedded as JSON so the overlay
+  // recolor logic can look up which view contains which nodes/edges
+  // without a round-trip.
+  var SHAPE = JSON.parse(document.getElementById('shape-data').textContent);
+  var COLORS = {
+    both: '#2c7fb8',
+    onlyA: '#16a085',
+    onlyB: '#e67e22',
+    neither: '#dcdcdc',
+  };
+
+  // Mode = 'pair' | 'overlay' | 'all'. Drives which section is
+  // visible and how the dropdown handlers behave.
+  var mode = 'pair';
+
+  function setActive(buttonId) {
+    ['cmp-pair', 'cmp-overlay', 'cmp-all'].forEach(function(id) {
+      document.getElementById(id).classList.toggle('active', id === buttonId);
+    });
+  }
+
   function showPair() {
     var a = document.getElementById('cmp-a').value;
     var b = document.getElementById('cmp-b').value;
@@ -55,19 +98,119 @@
       var v = el.getAttribute('data-view');
       el.classList.toggle('hidden', v !== a && v !== b);
     });
+    document.getElementById('pair-section').classList.remove('hidden');
+    document.getElementById('overlay-section').classList.remove('active');
+    document.getElementById('legend').classList.remove('active');
+    setActive('cmp-pair');
+    mode = 'pair';
   }
-  // Drop the .hidden class everywhere -- the scroll-through view.
+
   function showAll() {
     document.querySelectorAll('[data-view]').forEach(function(el) {
       el.classList.remove('hidden');
     });
+    document.getElementById('pair-section').classList.remove('hidden');
+    document.getElementById('overlay-section').classList.remove('active');
+    document.getElementById('legend').classList.remove('active');
+    setActive('cmp-all');
+    mode = 'all';
   }
-  document.getElementById('cmp-a').addEventListener('change', showPair);
-  document.getElementById('cmp-b').addEventListener('change', showPair);
-  document.getElementById('cmp-all').addEventListener('click', showAll);
+
+  function showOverlay() {
+    renderOverlay();
+    document.getElementById('pair-section').classList.add('hidden');
+    document.getElementById('overlay-section').classList.add('active');
+    document.getElementById('legend').classList.add('active');
+    setActive('cmp-overlay');
+    mode = 'overlay';
+  }
+
+  // Recolor every overlay-svg element based on the currently-
+  // selected pair. Cheap -- runs in microseconds even for the
+  // largest community we have so far.
+  function renderOverlay() {
+    var nameA = document.getElementById('cmp-a').value;
+    var nameB = document.getElementById('cmp-b').value;
+    var A = SHAPE[nameA] || {nodes: [], edges: []};
+    var B = SHAPE[nameB] || {nodes: [], edges: []};
+    var nodesA = new Set(A.nodes);
+    var nodesB = new Set(B.nodes);
+    var edgesA = new Set(A.edges);
+    var edgesB = new Set(B.edges);
+
+    var title = document.getElementById('overlay-title');
+    if (title) {
+      title.textContent = nameA + '  vs.  ' + nameB;
+    }
+
+    document.querySelectorAll('#overlay-svg [data-node]').forEach(function(g) {
+      var name = g.getAttribute('data-node');
+      var inA = nodesA.has(name);
+      var inB = nodesB.has(name);
+      var color, labelColor, weight;
+      if (inA && inB) {
+        color = COLORS.both;
+        labelColor = '#1a1a1a';
+        weight = 'bold';
+      } else if (inA) {
+        color = COLORS.onlyA;
+        labelColor = '#1a1a1a';
+        weight = 'bold';
+      } else if (inB) {
+        color = COLORS.onlyB;
+        labelColor = '#1a1a1a';
+        weight = 'bold';
+      } else {
+        color = COLORS.neither;
+        labelColor = '#9e9e9e';
+        weight = 'normal';
+      }
+      var circle = g.querySelector('circle');
+      var text = g.querySelector('text');
+      if (circle) {
+        circle.setAttribute('fill', color);
+        circle.setAttribute('stroke', color);
+      }
+      if (text) {
+        text.setAttribute('fill', labelColor);
+        text.setAttribute('font-weight', weight);
+      }
+    });
+
+    document.querySelectorAll('#overlay-svg [data-edge]').forEach(function(path) {
+      var key = path.getAttribute('data-edge');
+      var inA = edgesA.has(key);
+      var inB = edgesB.has(key);
+      var color, width, dash;
+      if (inA && inB) {
+        color = COLORS.both; width = '2.4'; dash = '';
+      } else if (inA) {
+        color = COLORS.onlyA; width = '2.4'; dash = '';
+      } else if (inB) {
+        color = COLORS.onlyB; width = '2.4'; dash = '';
+      } else {
+        color = COLORS.neither; width = '1.2'; dash = '4,4';
+      }
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width', width);
+      path.setAttribute('stroke-dasharray', dash);
+    });
+  }
+
+  // Wire up the dropdowns to all three modes.
+  function onPickChange() {
+    if (mode === 'overlay') renderOverlay();
+    else if (mode === 'pair') showPair();
+    // 'all' mode is independent of the pair -- no change needed.
+  }
+
+  document.getElementById('cmp-a').addEventListener('change', onPickChange);
+  document.getElementById('cmp-b').addEventListener('change', onPickChange);
   document.getElementById('cmp-pair').addEventListener('click', showPair);
-  // Initial state: show only the first two views (the default
-  // dropdown values). Single-view communities just show the one.
+  document.getElementById('cmp-overlay').addEventListener('click', showOverlay);
+  document.getElementById('cmp-all').addEventListener('click', showAll);
+
+  // Initial render: pair mode with the default dropdown selection.
   showPair();
 })();
 </script>

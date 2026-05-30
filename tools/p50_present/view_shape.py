@@ -46,6 +46,7 @@ What is intentionally NOT here (yet)
 from __future__ import annotations
 
 import html
+import json
 from collections import defaultdict, deque
 from pathlib import Path
 
@@ -495,6 +496,17 @@ _FADED_LABEL_COLOR = "#9e9e9e"
 _LIT_EDGE_COLOR = "#2c7fb8"
 _FADED_EDGE_COLOR = "#dcdcdc"
 
+# Overlay mode: tri-color encoding for a 2-view diff in one SVG. The
+# overlay skeleton is rendered ONCE per community with stable
+# data-node/data-edge attributes; tiny JS rewrites fill/stroke based
+# on the selected pair so we don't have to pre-render all C(N,2)
+# overlays. Colors chosen for accessibility (distinguishable in
+# greyscale via lightness ordering too).
+_OVERLAY_BOTH = "#2c7fb8"        # blue: present in both views
+_OVERLAY_ONLY_A = "#16a085"      # teal: in Left view only
+_OVERLAY_ONLY_B = "#e67e22"      # orange: in Right view only
+_OVERLAY_NEITHER = "#dcdcdc"     # light grey: in the substrate, in neither chosen view
+
 
 def render_view_shape_panel(
     view_name: str,
@@ -637,6 +649,97 @@ def render_view_shape_panel(
 
 
 # ---------------------------------------------------------------------------
+# Overlay mode: tri-color compare in one SVG
+# ---------------------------------------------------------------------------
+
+def render_overlay_skeleton_svg(
+    substrate_nodes: set[str],
+    substrate_edges: set[tuple[str, str]],
+    coords: dict[str, tuple[int, int]],
+) -> str:
+    """Render the overlay-mode SVG skeleton (one per community).
+
+    Every element gets a stable `data-node` or `data-edge` attribute
+    so the page's JS can recolor it based on which pair the user picks
+    from the Left/Right dropdowns. Initial colors are placeholder
+    (the JS overwrites them immediately on page load); element
+    geometry / positions are baked in here and never change.
+
+    The skeleton draws the entire substrate -- every base table in the
+    community and every join across it. Coloring (overlap / A-only /
+    B-only / neither) is the only thing that changes between pairs.
+    """
+    if not coords:
+        return (
+            '<svg width="240" height="60" viewBox="0 0 240 60" '
+            'xmlns="http://www.w3.org/2000/svg">'
+            '<text x="120" y="35" text-anchor="middle" fill="#888" '
+            'font-family="sans-serif" font-size="13">'
+            '(empty community)</text></svg>'
+        )
+
+    max_col = max(c for (c, _) in coords.values())
+    max_row = max(r for (_, r) in coords.values())
+    width = _PAD_X * 2 + (max_col + 1) * _COL_SPACING
+    height = _PAD_Y * 2 + _TITLE_HEIGHT + (max_row + 1) * _ROW_SPACING
+
+    pixel: dict[str, tuple[int, int]] = {}
+    for node, (col, row) in coords.items():
+        x = _PAD_X + col * _COL_SPACING + _NODE_RADIUS + 30
+        y = _PAD_Y + _TITLE_HEIGHT + row * _ROW_SPACING + _NODE_RADIUS
+        pixel[node] = (x, y)
+
+    parts: list[str] = [
+        f'<svg id="overlay-svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}" '
+        f'xmlns="http://www.w3.org/2000/svg" '
+        f'style="background:#ffffff; border:1px solid #d0d0d0; '
+        f'border-radius:4px; display:block;">',
+        f'<text id="overlay-title" x="{width // 2}" y="18" '
+        f'text-anchor="middle" font-family="sans-serif" font-size="13" '
+        f'font-weight="bold" fill="#333">Overlay (pick a pair)</text>',
+    ]
+
+    # Edges: each carries `data-edge="A||B"` so the JS can look up the
+    # edge in either view's set. Initial color is "neither" (faded
+    # grey, dashed); JS recolors on the first paint.
+    for (a, b) in sorted(substrate_edges):
+        if a not in pixel or b not in pixel:
+            continue
+        x1, y1 = pixel[a]
+        x2, y2 = pixel[b]
+        key = f"{a}||{b}"
+        parts.append(
+            f'<path data-edge="{html.escape(key)}" '
+            f'd="M{x1},{y1} L{x2},{y2}" '
+            f'stroke="{_OVERLAY_NEITHER}" stroke-width="2" '
+            f'stroke-dasharray="4,4" fill="none" />'
+        )
+
+    # Nodes: each <g> carries `data-node="<bare table name>"`. JS
+    # rewrites the inner <circle> fill/stroke and the <text> color.
+    for n in sorted(substrate_nodes):
+        if n not in pixel:
+            continue
+        x, y = pixel[n]
+        label = html.escape(n)
+        parts.append(
+            f'<g data-node="{label}">'
+            f'<title>{label}</title>'
+            f'<circle cx="{x}" cy="{y}" r="{_NODE_RADIUS}" '
+            f'fill="{_OVERLAY_NEITHER}" stroke="{_OVERLAY_NEITHER}" '
+            f'stroke-width="1.5" />'
+            f'<text x="{x}" y="{y + _NODE_RADIUS + _LABEL_OFFSET}" '
+            f'text-anchor="middle" font-family="sans-serif" '
+            f'font-size="11" fill="{_FADED_LABEL_COLOR}">{label}</text>'
+            f'</g>'
+        )
+
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+# ---------------------------------------------------------------------------
 # HTML wrapper: N panels in a CSS grid
 # ---------------------------------------------------------------------------
 
@@ -651,9 +754,9 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   p.meta {{ color: #666; font-size: 13px; margin: 0 0 18px; }}
   section {{ margin-bottom: 24px; }}
   section h2 {{ font-size: 14px; margin: 0 0 8px; color: #555; }}
-  /* Compare picker: two dropdowns + a Show-all toggle. Default state
-     hides everything except the first two views so the page opens
-     "ready to compare" rather than "wall of panels". */
+  /* Compare picker: two dropdowns + three mode buttons. Default
+     mode is "selected pair" (side-by-side) with the first two
+     views chosen alphabetically. */
   .controls {{ background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
                padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 16px;
                align-items: center; }}
@@ -662,11 +765,24 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
                        min-width: 220px; max-width: 360px; }}
   .controls button {{ font-family: sans-serif; font-size: 13px; padding: 4px 10px;
                        cursor: pointer; }}
-  /* Each per-view panel sits inside .panel-grid as flex-wrapping. JS
-     toggles each panel's display based on the dropdown selection. */
+  .controls button.active {{ background: #2c7fb8; color: #fff; border-color: #1a5d8a; }}
+  /* Color legend appears below the controls only when overlay mode
+     is active -- explains the tri-color encoding to a first-time
+     reader. */
+  .legend {{ display: none; padding: 6px 14px; background: #fff;
+             border: 1px solid #e0e0e0; border-radius: 4px; margin-top: 8px;
+             font-size: 12px; color: #555; }}
+  .legend.active {{ display: flex; gap: 18px; align-items: center; }}
+  .legend .swatch {{ display: inline-block; width: 14px; height: 14px;
+                     vertical-align: middle; margin-right: 6px; border-radius: 3px; }}
+  /* Per-view panel grid + overlay container. Each mode hides the
+     other via display:none. */
   .panel-grid {{ display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }}
   .panel {{ scroll-margin-top: 12px; }}
   .panel.hidden {{ display: none; }}
+  #overlay-section {{ display: none; }}
+  #overlay-section.active {{ display: block; }}
+  #pair-section.hidden {{ display: none; }}
 </style>
 </head>
 <body>
@@ -675,18 +791,48 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 <section class="controls">
   <label>Left:&nbsp;<select id="cmp-a">{view_options_a}</select></label>
   <label>Right:&nbsp;<select id="cmp-b">{view_options_b}</select></label>
+  <button id="cmp-pair" type="button" class="active">Show selected pair</button>
+  <button id="cmp-overlay" type="button">Overlay pair</button>
   <button id="cmp-all" type="button">Show all</button>
-  <button id="cmp-pair" type="button">Show selected pair</button>
 </section>
-<section>
+<div id="legend" class="legend">
+  <span><span class="swatch" style="background:#2c7fb8;"></span>In both views</span>
+  <span><span class="swatch" style="background:#16a085;"></span>Left only</span>
+  <span><span class="swatch" style="background:#e67e22;"></span>Right only</span>
+  <span><span class="swatch" style="background:#dcdcdc;"></span>Neither (substrate)</span>
+</div>
+<section id="pair-section">
   <div class="panel-grid">
 {panels}
   </div>
 </section>
+<section id="overlay-section">
+  {overlay_svg}
+</section>
+<script id="shape-data" type="application/json">{shape_data_json}</script>
 <script>
 (function() {{
-  // Pick exactly two panels to display (the L/R dropdown values);
-  // everything else is hidden via the .hidden class.
+  // Per-view membership data, embedded as JSON so the overlay
+  // recolor logic can look up which view contains which nodes/edges
+  // without a round-trip.
+  var SHAPE = JSON.parse(document.getElementById('shape-data').textContent);
+  var COLORS = {{
+    both: '#2c7fb8',
+    onlyA: '#16a085',
+    onlyB: '#e67e22',
+    neither: '#dcdcdc',
+  }};
+
+  // Mode = 'pair' | 'overlay' | 'all'. Drives which section is
+  // visible and how the dropdown handlers behave.
+  var mode = 'pair';
+
+  function setActive(buttonId) {{
+    ['cmp-pair', 'cmp-overlay', 'cmp-all'].forEach(function(id) {{
+      document.getElementById(id).classList.toggle('active', id === buttonId);
+    }});
+  }}
+
   function showPair() {{
     var a = document.getElementById('cmp-a').value;
     var b = document.getElementById('cmp-b').value;
@@ -694,19 +840,119 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
       var v = el.getAttribute('data-view');
       el.classList.toggle('hidden', v !== a && v !== b);
     }});
+    document.getElementById('pair-section').classList.remove('hidden');
+    document.getElementById('overlay-section').classList.remove('active');
+    document.getElementById('legend').classList.remove('active');
+    setActive('cmp-pair');
+    mode = 'pair';
   }}
-  // Drop the .hidden class everywhere -- the scroll-through view.
+
   function showAll() {{
     document.querySelectorAll('[data-view]').forEach(function(el) {{
       el.classList.remove('hidden');
     }});
+    document.getElementById('pair-section').classList.remove('hidden');
+    document.getElementById('overlay-section').classList.remove('active');
+    document.getElementById('legend').classList.remove('active');
+    setActive('cmp-all');
+    mode = 'all';
   }}
-  document.getElementById('cmp-a').addEventListener('change', showPair);
-  document.getElementById('cmp-b').addEventListener('change', showPair);
-  document.getElementById('cmp-all').addEventListener('click', showAll);
+
+  function showOverlay() {{
+    renderOverlay();
+    document.getElementById('pair-section').classList.add('hidden');
+    document.getElementById('overlay-section').classList.add('active');
+    document.getElementById('legend').classList.add('active');
+    setActive('cmp-overlay');
+    mode = 'overlay';
+  }}
+
+  // Recolor every overlay-svg element based on the currently-
+  // selected pair. Cheap -- runs in microseconds even for the
+  // largest community we have so far.
+  function renderOverlay() {{
+    var nameA = document.getElementById('cmp-a').value;
+    var nameB = document.getElementById('cmp-b').value;
+    var A = SHAPE[nameA] || {{nodes: [], edges: []}};
+    var B = SHAPE[nameB] || {{nodes: [], edges: []}};
+    var nodesA = new Set(A.nodes);
+    var nodesB = new Set(B.nodes);
+    var edgesA = new Set(A.edges);
+    var edgesB = new Set(B.edges);
+
+    var title = document.getElementById('overlay-title');
+    if (title) {{
+      title.textContent = nameA + '  vs.  ' + nameB;
+    }}
+
+    document.querySelectorAll('#overlay-svg [data-node]').forEach(function(g) {{
+      var name = g.getAttribute('data-node');
+      var inA = nodesA.has(name);
+      var inB = nodesB.has(name);
+      var color, labelColor, weight;
+      if (inA && inB) {{
+        color = COLORS.both;
+        labelColor = '#1a1a1a';
+        weight = 'bold';
+      }} else if (inA) {{
+        color = COLORS.onlyA;
+        labelColor = '#1a1a1a';
+        weight = 'bold';
+      }} else if (inB) {{
+        color = COLORS.onlyB;
+        labelColor = '#1a1a1a';
+        weight = 'bold';
+      }} else {{
+        color = COLORS.neither;
+        labelColor = '#9e9e9e';
+        weight = 'normal';
+      }}
+      var circle = g.querySelector('circle');
+      var text = g.querySelector('text');
+      if (circle) {{
+        circle.setAttribute('fill', color);
+        circle.setAttribute('stroke', color);
+      }}
+      if (text) {{
+        text.setAttribute('fill', labelColor);
+        text.setAttribute('font-weight', weight);
+      }}
+    }});
+
+    document.querySelectorAll('#overlay-svg [data-edge]').forEach(function(path) {{
+      var key = path.getAttribute('data-edge');
+      var inA = edgesA.has(key);
+      var inB = edgesB.has(key);
+      var color, width, dash;
+      if (inA && inB) {{
+        color = COLORS.both; width = '2.4'; dash = '';
+      }} else if (inA) {{
+        color = COLORS.onlyA; width = '2.4'; dash = '';
+      }} else if (inB) {{
+        color = COLORS.onlyB; width = '2.4'; dash = '';
+      }} else {{
+        color = COLORS.neither; width = '1.2'; dash = '4,4';
+      }}
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width', width);
+      path.setAttribute('stroke-dasharray', dash);
+    }});
+  }}
+
+  // Wire up the dropdowns to all three modes.
+  function onPickChange() {{
+    if (mode === 'overlay') renderOverlay();
+    else if (mode === 'pair') showPair();
+    // 'all' mode is independent of the pair -- no change needed.
+  }}
+
+  document.getElementById('cmp-a').addEventListener('change', onPickChange);
+  document.getElementById('cmp-b').addEventListener('change', onPickChange);
   document.getElementById('cmp-pair').addEventListener('click', showPair);
-  // Initial state: show only the first two views (the default
-  // dropdown values). Single-view communities just show the one.
+  document.getElementById('cmp-overlay').addEventListener('click', showOverlay);
+  document.getElementById('cmp-all').addEventListener('click', showAll);
+
+  // Initial render: pair mode with the default dropdown selection.
   showPair();
 }})();
 </script>
@@ -738,6 +984,24 @@ def write_community_shapes(
     output_path = Path(output_path)
     nodes, edges, per_view = community_substrate(views)
     coords = hierarchical_layout(nodes, edges)
+
+    # Overlay skeleton: ONE SVG containing every substrate node and
+    # edge, with stable data-* attributes so the JS recolor function
+    # can switch the active pair without re-rendering geometry.
+    overlay_svg = render_overlay_skeleton_svg(nodes, edges, coords)
+
+    # Per-view JSON data: lets the overlay JS look up which nodes
+    # and edges each view contains. Edges are encoded as "A||B"
+    # strings so they're trivially comparable in JS (no nested
+    # array equality needed).
+    shape_data = {
+        name: {
+            "nodes": sorted(v_nodes),
+            "edges": [f"{a}||{b}" for (a, b) in sorted(v_edges)],
+        }
+        for name, (v_nodes, v_edges) in per_view.items()
+    }
+    shape_data_json = json.dumps(shape_data, separators=(",", ":"))
 
     # Per-view panels. Sort by view_name so output order is stable
     # across reruns (dict-iteration order could flip otherwise and the
@@ -809,6 +1073,8 @@ def write_community_shapes(
         view_options_a=options_a,
         view_options_b=options_b,
         panels="\n".join(panels),
+        overlay_svg=overlay_svg,
+        shape_data_json=shape_data_json,
     )
 
     output_path.write_text(html_body, encoding="utf-8")

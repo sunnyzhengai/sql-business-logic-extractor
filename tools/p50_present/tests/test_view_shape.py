@@ -407,22 +407,68 @@ class TestSVGRendering(unittest.TestCase):
             self.assertIn("Community 5", content)
             for view_name in ("VW_A", "VW_B", "VW_C", "VW_D"):
                 self.assertIn(view_name, content)
-            # v2: substrate panel was removed (every per-view panel
-            # already shows the substrate as the faded background).
-            # 4 view panels = 4 <svg> elements.
-            self.assertEqual(content.count("<svg "), 4)
-            # v2: compare-picker controls are present.
+            # v3: 4 per-view panels + 1 overlay skeleton = 5 <svg>.
+            self.assertEqual(content.count("<svg "), 5)
+            # Compare-picker controls (all three modes).
             self.assertIn('id="cmp-a"', content)
             self.assertIn('id="cmp-b"', content)
+            self.assertIn('id="cmp-pair"', content)
+            self.assertIn('id="cmp-overlay"', content)
             self.assertIn('id="cmp-all"', content)
-            # Each panel carries its data-view attribute so the JS
+            # Each per-view panel carries data-view so the JS
             # toggle can target it by view name.
             for view_name in ("VW_A", "VW_B", "VW_C", "VW_D"):
                 self.assertIn(f'data-view="{view_name}"', content)
             # First two views (alphabetic = VW_A, VW_B) are selected
-            # by default so the page opens in compare mode.
+            # by default so the page opens in pair mode comparing them.
             self.assertIn('value="VW_A" selected', content)
             self.assertIn('value="VW_B" selected', content)
+            # Overlay skeleton has the addressable id and data-* hooks.
+            self.assertIn('id="overlay-svg"', content)
+            # Per-view shape data is embedded as JSON for the overlay
+            # recolor logic.
+            self.assertIn('id="shape-data"', content)
+            # Color legend (visible only when overlay mode is active).
+            self.assertIn('id="legend"', content)
+
+
+# ---------------------------------------------------------------------------
+# Overlay-mode tests
+# ---------------------------------------------------------------------------
+
+class TestOverlaySkeleton(unittest.TestCase):
+
+    def test_overlay_has_data_node_and_data_edge_per_substrate_element(self):
+        """The overlay SVG draws every substrate node and edge as a
+        recolor-target. The JS finds them via [data-node] / [data-edge]
+        selectors, so missing attributes would break overlay mode
+        silently."""
+        from tools.p50_present.view_shape import render_overlay_skeleton_svg
+
+        views = [_make_view_a(), _make_view_b(), _make_view_c(), _make_view_d()]
+        nodes, edges, _ = community_substrate(views)
+        coords = hierarchical_layout(nodes, edges)
+        svg = render_overlay_skeleton_svg(nodes, edges, coords)
+        for table in nodes:
+            self.assertIn(f'data-node="{table}"', svg)
+        for (a, b) in edges:
+            self.assertIn(f'data-edge="{a}||{b}"', svg)
+        # Title bar is the slot the JS rewrites to show the pair.
+        self.assertIn('id="overlay-title"', svg)
+
+    def test_overlay_initial_color_is_neither(self):
+        """Skeleton starts painted as 'neither' (faded grey); JS
+        recolors on first render. This is just defensive -- if JS
+        fails to load, the user sees a sensible greyed-out shape
+        rather than a coloured but stale one."""
+        from tools.p50_present.view_shape import render_overlay_skeleton_svg
+
+        nodes = {"PAT_ENC", "PATIENT"}
+        edges = {("PATIENT", "PAT_ENC")}
+        coords = hierarchical_layout(nodes, edges)
+        svg = render_overlay_skeleton_svg(nodes, edges, coords)
+        # The 'neither' grey appears on both circles and the edge.
+        self.assertIn('#dcdcdc', svg)
 
 
 if __name__ == "__main__":

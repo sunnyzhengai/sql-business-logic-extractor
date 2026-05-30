@@ -159,6 +159,41 @@ def _make_view_union_in_cte() -> dict:
     }
 
 
+def _make_view_cross_apply() -> dict:
+    """CROSS APPLY (LATERAL) -- the inner subquery is recorded as a
+    lateral:<alias> scope, parallel to JOIN-clause subqueries."""
+    return {
+        "view_name": "VW_XAPPLY",
+        "view_outputs": ["main"],
+        "scopes": [
+            {
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["PATIENT"],
+                "reads_from_scopes": ["lateral:sub"],
+                "joins": [{
+                    "right_table": "sub", "right_alias": "sub",
+                    "join_type": "JOIN",
+                    "on_expression": "",
+                    "columns": [],
+                }],
+                "columns": [],
+            },
+            {
+                "id": "lateral:sub", "kind": "lateral",
+                "reads_from_tables": ["PAT_ENC", "CLARITY_DEP"],
+                "reads_from_scopes": [],
+                "joins": [{
+                    "right_table": "CLARITY_DEP", "right_alias": "d",
+                    "join_type": "INNER JOIN",
+                    "on_expression": "e.DEPARTMENT_ID = d.DEPARTMENT_ID",
+                    "columns": [],
+                }],
+                "columns": [],
+            },
+        ],
+    }
+
+
 def _make_view_join_subquery() -> dict:
     """JOIN-clause subquery -- the bug 1 case. After the extract.py +
     resolve.py fixes: the join's right_table is the subquery's alias
@@ -300,6 +335,19 @@ class TestBuildViewShape(unittest.TestCase):
         # Path-style label: 'CTE: combined · UNION branch 0'.
         self.assertIn("CTE: combined", b0.label)
         self.assertIn("UNION branch 0", b0.label)
+
+    def test_cross_apply_lateral_renders_as_separate_scope(self):
+        """CROSS APPLY -- the lateral:sub scope is rendered alongside
+        main; cross-scope edge connects main's driver to the
+        lateral's driver."""
+        shape = build_view_shape(_make_view_cross_apply())
+        scope_ids = {s.id for s in shape.scopes}
+        self.assertEqual(scope_ids, {"main", "lateral:sub"})
+        lat = shape.scope_by_id("lateral:sub")
+        self.assertEqual([n.table for n in lat.nodes],
+                          ["PAT_ENC", "CLARITY_DEP"])
+        # Cluster label uses the T-SQL-familiar CROSS APPLY naming.
+        self.assertEqual(lat.label, "CROSS APPLY: sub")
 
     def test_join_subquery_renders_as_separate_scope(self):
         shape = build_view_shape(_make_view_join_subquery())

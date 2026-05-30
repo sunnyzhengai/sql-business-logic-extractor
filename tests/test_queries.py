@@ -502,6 +502,41 @@ class TestLevel7_Subquery:
         # Should find the derived table as a source
         assert any(s["type"] == "subquery" for s in r.get("sources", []))
 
+    def test_23c_cross_apply_lateral_descended(self):
+        """T-SQL CROSS APPLY parses as exp.Lateral wrapping a Subquery.
+        _decompose_any used to fall through exp.Lateral entirely, so
+        the inner tables silently vanished. Fix: explicit Lateral
+        handler descends to lateral.this; the inner Subquery gets
+        recorded as a subquery with context='lateral'."""
+        sql = """
+        SELECT t1.PAT_ID, sub.recent_visit
+        FROM PATIENT t1
+        CROSS APPLY (
+            SELECT MAX(e.CONTACT_DATE) AS recent_visit
+            FROM PAT_ENC e
+            INNER JOIN CLARITY_DEP d ON e.DEPARTMENT_ID = d.DEPARTMENT_ID
+            WHERE e.PAT_ID = t1.PAT_ID
+        ) sub
+        """
+        r = extract(sql)
+        # The CROSS APPLY subquery is recorded under context='lateral'.
+        lateral_subqs = [s for s in (r.get("subqueries") or [])
+                          if s.get("context") == "lateral"]
+        assert len(lateral_subqs) == 1, (
+            f"expected exactly 1 lateral-context subquery, got "
+            f"{[s.get('context') for s in r.get('subqueries') or []]}"
+        )
+        inner = lateral_subqs[0]["logic"]
+        inner_tables = {s["name"] for s in (inner.get("sources") or [])}
+        assert "PAT_ENC" in inner_tables
+        assert "CLARITY_DEP" in inner_tables
+        # And the inner JOIN is preserved.
+        inner_joins = inner.get("joins") or []
+        assert any(j.get("right_table") == "CLARITY_DEP" for j in inner_joins)
+        # Lateral as a query-container should no longer surface as
+        # 'unknown' since we now explicitly descend into it.
+        assert "Lateral" not in (r.get("unknown_containers") or [])
+
     def test_23b_join_clause_subquery_descended(self):
         """JOIN-clause subquery (`JOIN (SELECT ... FROM A JOIN B ON ...)
         sub ON ...`) must descend the same way as FROM-clause subqueries

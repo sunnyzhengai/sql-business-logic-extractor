@@ -607,6 +607,12 @@ class LineageResolver:
                 # block below routes through scope refs rather than
                 # treating the alias as a table name.
                 derived_alias_to_id[alias.lower()] = f"join:{alias}"
+            elif ctx == "lateral":
+                # CROSS APPLY / OUTER APPLY / LATERAL on the right of
+                # a JOIN. Same routing as JOIN-clause subqueries --
+                # alias-based scope id so the join in the parent
+                # resolves cleanly.
+                derived_alias_to_id[alias.lower()] = f"lateral:{alias}"
 
         # --- reads_from_tables / reads_from_scopes ---
         lateral_count = 0
@@ -718,6 +724,11 @@ class LineageResolver:
                 # derived_alias_to_id map above stays in lockstep).
                 sub_id = f"join:{alias}"
                 sub_kind = "join"
+            elif alias and ctx == "lateral":
+                # CROSS APPLY / OUTER APPLY / LATERAL -- alias-based
+                # id parallel to JOIN-subqueries.
+                sub_id = f"lateral:{alias}"
+                sub_kind = "lateral"
             else:
                 idx = ctx_counters.get(ctx, 0)
                 ctx_counters[ctx] = idx + 1

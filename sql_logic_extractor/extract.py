@@ -255,6 +255,19 @@ class SQLBusinessLogicExtractor:
         through here instead of calling the leaf methods directly -- that
         keeps the completeness contract centralized and makes Layer 3 gap
         detection reliable.
+
+        Handler precedence:
+          1. Subquery / Select / Union / Intersect / Except -- explicit
+             handlers that produce per-context typed entries in logic.
+          2. Lateral -- T-SQL CROSS APPLY / OUTER APPLY and standard
+             SQL LATERAL all parse to exp.Lateral. We descend into its
+             body via the inner Subquery/Select so the inner tables and
+             joins land in their own scope; the alias is preserved.
+          3. Anything else (Pivot, Unpivot, Values, future node types)
+             gets a SOFT-DESCEND fallback: find any nested Select /
+             Subquery and decompose it. Tables inside an unknown
+             wrapper never silently vanish. The wrapper type still
+             flags in logic.unknown_containers for governance review.
         """
         if node is None:
             return
@@ -267,8 +280,37 @@ class SQLBusinessLogicExtractor:
         elif isinstance(node, (exp.Union, exp.Intersect, exp.Except)):
             self._visited_containers.add(id(node))
             self._decompose_set_op_branches(node, context, logic)
-        # Lateral/Values/Pivot/Unpivot fall through intentionally so they
-        # surface in logic.unknown_containers.
+        elif isinstance(node, exp.Lateral):
+            # CROSS APPLY / OUTER APPLY / LATERAL. Mark the wrapper
+            # as visited so it doesn't show up in unknown_containers,
+            # carry the alias forward by attaching it to the inner
+            # body, then dispatch on the inner node.
+            self._visited_containers.add(id(node))
+            inner = node.this
+            if inner is not None:
+                self._decompose_any(inner, "lateral", logic)
+            # Note: the inner Subquery/Select carries the alias via
+            # its own .alias attr (sqlglot stores the lateral's alias
+            # on the wrapper, but _add_subquery uses subq.alias which
+            # walks the right slot). For safety we also patch the
+            # subquery alias from the wrapper if the inner lacks one.
+            if isinstance(inner, exp.Subquery) and not inner.alias:
+                # Patch via the SubqueryInfo we just appended.
+                if logic.subqueries:
+                    logic.subqueries[-1].alias = node.alias or None
+        else:
+            # Soft-descend fallback. For any other query-container
+            # type, hunt for a nested Select / Subquery and pass that
+            # along. Tables inside Pivot, Values, Unpivot, etc. then
+            # at least make it into logic.subqueries. Accuracy of the
+            # specific construct's semantics is sacrificed (a Pivot's
+            # rotation columns aren't modelled), but tables don't
+            # silently vanish -- which is the modeler-grade
+            # safety net we promised.
+            for sub in node.find_all(exp.Select, exp.Subquery):
+                if id(sub) in self._visited_containers:
+                    continue
+                self._decompose_any(sub, context, logic)
 
     def _mark_subtree_extracted(self, node):
         """Mark ``node`` and all descendant containers as visited.
@@ -530,6 +572,16 @@ class SQLBusinessLogicExtractor:
                 # right_table field is just the join's reference name.
                 right_alias = right.alias
                 right_name = right_alias or "?subquery"
+            elif isinstance(right, exp.Lateral):
+                # T-SQL CROSS APPLY / OUTER APPLY parses as exp.Lateral
+                # wrapping a Subquery (or sometimes a function call).
+                # Same treatment as a JOIN-clause Subquery: use the
+                # alias as the right_table identifier so the corpus
+                # records a clean scope reference, and descend below
+                # so the inner tables / joins / filters land in their
+                # own lateral:<alias> scope.
+                right_alias = right.alias
+                right_name = right_alias or "?lateral"
             else:
                 right_name = _sql(right, dialect=self.dialect)
 
@@ -555,6 +607,13 @@ class SQLBusinessLogicExtractor:
             # never made it into the corpus).
             if isinstance(right, exp.Subquery):
                 self._decompose_any(right, "join", logic)
+            elif isinstance(right, exp.Lateral):
+                # CROSS APPLY / OUTER APPLY / LATERAL on the right of
+                # a JOIN. Dispatch through _decompose_any so the
+                # lateral's body (typically a Subquery) lands as its
+                # own scope under context="lateral". See _decompose_any
+                # for the precedence rules.
+                self._decompose_any(right, "lateral", logic)
 
     def _extract_outputs(self, select, logic: QueryLogic):
         for expr in select.expressions:

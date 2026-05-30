@@ -437,6 +437,8 @@ def _label_one_segment(seg_id: str, kind: str) -> str:
         return f"Derived: {bare}"
     if kind in ("join", "join_subq"):
         return f"JOIN subquery: {bare}"
+    if kind == "lateral":
+        return f"CROSS APPLY: {bare}"
     if kind.startswith("union"):
         return f"UNION branch {bare}"
     return f"{kind or 'scope'}: {bare}" if bare else (kind or seg_id)

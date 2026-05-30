@@ -44,15 +44,48 @@ ORDER BY s.name, o.type_desc, o.name;
 """
 
 
+def pick_driver() -> str:
+    """Return the best SQL Server ODBC driver installed on this machine.
+
+    Preference order (newest -> oldest). The newer drivers are preferred
+    because they support modern TLS and the Encrypt/TrustServerCertificate
+    options the connection string below relies on.
+    """
+    preferred = [
+        "ODBC Driver 18 for SQL Server",
+        "ODBC Driver 17 for SQL Server",
+        "SQL Server Native Client 11.0",
+        "SQL Server",  # legacy built-in, last resort
+    ]
+    installed = set(pyodbc.drivers())
+    for name in preferred:
+        if name in installed:
+            return name
+    raise RuntimeError(
+        "No SQL Server ODBC driver found. Install 'Microsoft ODBC Driver 18 "
+        "for SQL Server' from Microsoft. Installed drivers: "
+        f"{sorted(installed)}"
+    )
+
+
 def build_conn_str() -> str:
+    """Build a pyodbc connection string for the configured SERVER/DATABASE.
+
+    Uses SQL auth if SQL_USER + SQL_PASSWORD env vars are set, otherwise
+    falls back to Windows Integrated Auth.
+    """
     sql_user = os.environ.get("SQL_USER")
     sql_pwd  = os.environ.get("SQL_PASSWORD")
+    driver = pick_driver()
     base = (
-        "DRIVER={ODBC Driver 18 for SQL Server};"
+        f"DRIVER={{{driver}}};"
         f"SERVER={SERVER};"
         f"DATABASE={DATABASE};"
-        "Encrypt=yes;TrustServerCertificate=yes;"
     )
+    # Encrypt/TrustServerCertificate are only meaningful on the modern drivers.
+    # Adding them to the legacy "SQL Server" driver can cause connect failures.
+    if driver.startswith("ODBC Driver"):
+        base += "Encrypt=yes;TrustServerCertificate=yes;"
     if sql_user and sql_pwd:
         return base + f"UID={sql_user};PWD={sql_pwd};"
     return base + "Trusted_Connection=yes;"

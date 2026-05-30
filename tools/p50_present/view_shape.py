@@ -638,6 +638,76 @@ def _resolve_cross_scope_edges(shape: ViewShape) -> list[ShapeEdge]:
     return resolved
 
 
+def _scope_reference_order(shape: ViewShape) -> list[str]:
+    """Return scope ids in the order they're first referenced.
+
+    Starts from the root scopes (typically ['main']) and walks
+    cross_scope_edges in the order they were emitted -- which mirrors
+    the SQL author's JOIN / FROM order -- adding each referenced
+    scope the first time it's seen. Wrapper scopes (with branch
+    children) expand to their children in lexical order.
+
+    Without this, scopes appear alphabetically after the root, which
+    visually backwards-orders CTEs whose names don't happen to sort
+    in reference order. With this, the panel reads top-to-bottom in
+    the order the SQL refers to each scope.
+
+    Unreachable scopes (not referenced from any root) get appended at
+    the end in declaration order so they're still visible.
+    """
+    # Pre-compute parent->children map so wrapper scopes expand.
+    children_of: dict[str, list[str]] = defaultdict(list)
+    for s in shape.scopes:
+        for parent in shape.scopes:
+            if (parent.id != s.id and s.id.startswith(parent.id + "/")):
+                children_of[parent.id].append(s.id)
+                break
+
+    order: list[str] = []
+    seen: set[str] = set()
+
+    def _add(scope_id: str) -> None:
+        if scope_id in seen or shape.scope_by_id(scope_id) is None:
+            return
+        # If this scope has children (it's a wrapper), expand to them.
+        if children_of.get(scope_id):
+            for child in sorted(children_of[scope_id]):
+                _add(child)
+            # The wrapper itself is rendered through its children.
+            seen.add(scope_id)
+            return
+        seen.add(scope_id)
+        order.append(scope_id)
+
+    queue: list[str] = []
+    for root in shape.root_scope_ids:
+        _add(root)
+        queue.append(root)
+
+    while queue:
+        current = queue.pop(0)
+        # Walk cross_scope_edges that ORIGINATE in `current` in
+        # insertion order -- this is the SQL JOIN/FROM order.
+        for e in shape.cross_scope_edges:
+            if e.scope_id != current:
+                continue
+            if not e.target_id.startswith("scope:"):
+                continue
+            target = e.target_id[len("scope:"):]
+            if target in seen:
+                continue
+            _add(target)
+            queue.append(target)
+
+    # Catch any scope not reachable from the roots (rare but possible
+    # for views with disconnected scopes the resolver still emitted).
+    for s in shape.scopes:
+        if s.id not in seen:
+            order.append(s.id)
+            seen.add(s.id)
+    return order
+
+
 # ===========================================================================
 # Layout: each scope is a VERTICAL tree-list (one node per row, depth
 # = horizontal indent); scopes stack vertically.
@@ -680,15 +750,13 @@ def layout_shape(shape: ViewShape) -> tuple[
     node_coords: dict[str, tuple[int, int]] = {}
     scope_boxes: dict[str, tuple[int, int, int, int]] = {}
 
-    # Order scopes: root scopes first (typically 'main'), then the rest
-    # by id so output is deterministic across runs. Branch sub-scopes
-    # of the form `cte:foo/union:0` sort lexically so branches stay
-    # grouped under their parent visually.
-    root_ids = list(shape.root_scope_ids)
-    rest = [s.id for s in shape.scopes if s.id not in root_ids]
-    rest.sort()
-    scope_order = [s for s in (root_ids + rest)
-                   if shape.scope_by_id(s) is not None]
+    # Order scopes by REFERENCE order, not alphabetically: each
+    # CTE / subquery / lateral appears immediately after the first
+    # scope that references it. So if main joins A, then B, then C,
+    # the panel reads main / A / B / C top-to-bottom -- matching the
+    # SQL author's reading order. Unreachable scopes (rare) are
+    # appended at the end in declaration order.
+    scope_order = _scope_reference_order(shape)
 
     current_y = _PAD_Y + _TITLE_HEIGHT
     max_x = _PAD_X

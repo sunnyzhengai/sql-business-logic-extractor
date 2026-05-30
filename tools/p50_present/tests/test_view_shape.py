@@ -438,6 +438,51 @@ class TestBuildViewShape(unittest.TestCase):
 
 class TestLayout(unittest.TestCase):
 
+    def test_scope_order_follows_reference_order_not_alphabetical(self):
+        """Yang's bug: a view's main scope references CTEs in the
+        order Z, A, M; previously the layout sorted them alphabetic
+        (A, M, Z), reading backwards from the SQL. Fix: walk
+        cross_scope_edges in JOIN order from the root scope; each
+        CTE appears the first time it's referenced.
+        """
+        from tools.p50_present.view_shape import _scope_reference_order
+        # View whose main references CTE_Z first, then CTE_A, then
+        # CTE_M. Alphabetic order would be (A, M, Z) -- we want
+        # (Z, A, M).
+        view = {
+            "view_name": "VW_REFORDER",
+            "view_outputs": ["main"],
+            "scopes": [
+                {
+                    "id": "main", "kind": "main",
+                    "reads_from_tables": [],
+                    "reads_from_scopes": ["cte:Z", "cte:A", "cte:M"],
+                    "joins": [
+                        {"right_table": "Z", "right_alias": "Z",
+                         "join_type": "INNER JOIN",
+                         "on_expression": "1 = 1", "columns": []},
+                        {"right_table": "A", "right_alias": "A",
+                         "join_type": "INNER JOIN",
+                         "on_expression": "1 = 1", "columns": []},
+                        {"right_table": "M", "right_alias": "M",
+                         "join_type": "INNER JOIN",
+                         "on_expression": "1 = 1", "columns": []},
+                    ],
+                    "columns": [],
+                },
+                {"id": "cte:A", "kind": "cte", "reads_from_tables": ["TBL_A"],
+                 "reads_from_scopes": [], "joins": [], "columns": []},
+                {"id": "cte:M", "kind": "cte", "reads_from_tables": ["TBL_M"],
+                 "reads_from_scopes": [], "joins": [], "columns": []},
+                {"id": "cte:Z", "kind": "cte", "reads_from_tables": ["TBL_Z"],
+                 "reads_from_scopes": [], "joins": [], "columns": []},
+            ],
+        }
+        shape = build_view_shape(view)
+        order = _scope_reference_order(shape)
+        # main first, then Z, A, M in the order the joins reference them.
+        self.assertEqual(order, ["main", "cte:Z", "cte:A", "cte:M"])
+
     def test_layout_is_deterministic(self):
         shape = build_view_shape(_make_view_cte())
         coords_a, boxes_a, w_a, h_a = layout_shape(shape)

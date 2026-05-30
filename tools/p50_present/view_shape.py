@@ -157,6 +157,38 @@ def _is_scope_ref(name: str, scope_lookup: dict[str, dict]) -> bool:
     return bool(name) and name.lower() in scope_lookup
 
 
+def _inner_scope_anchors(
+    inner_scope: dict,
+    scope_lookup: dict[str, dict],
+) -> list[str]:
+    """Return the base-table anchors a cross-scope edge should connect
+    THROUGH this scope.
+
+    Two cases:
+      - The inner scope has its own joins -- its base tables are
+        internally connected via those joins, so a single edge to the
+        scope's primary driver is enough; the other base tables are
+        reachable through the internal edge chain.
+      - The inner scope has NO joins but multiple base tables --
+        this is the UNION-bodied scope case (post-fc904a6, branches'
+        sources merge into the parent CTE's reads_from_tables but
+        their internal join-emptiness remains). The branches are
+        parallel anchors with no internal connectivity, so each one
+        independently terminates whatever cross-scope edge consumes
+        the CTE result. Without fanning out here, the second/third/...
+        branch's tables end up as orphan nodes in the shape graph.
+    """
+    has_internal_joins = bool(inner_scope.get("joins") or [])
+    bases = [
+        _bare_table(t) for t in (inner_scope.get("reads_from_tables") or [])
+        if _bare_table(t)
+    ]
+    if has_internal_joins or len(bases) <= 1:
+        d = _scope_driver(inner_scope, scope_lookup)
+        return [d] if d else []
+    return bases
+
+
 def _join_left_table(
     join: dict,
     right_bare: str,
@@ -265,50 +297,74 @@ def view_extended_tree(view: dict) -> tuple[set[str], set[tuple[str, str]]]:
                 nodes.add(bare)
 
         # The driver of THIS scope is the left side of every join
-        # emitted from inside it.
+        # emitted from inside it. May legitimately be empty for some
+        # scopes (e.g., a CTE whose body was a UNION whose branches
+        # have all merged tables into the CTE but no internal joins
+        # remained). We DON'T `continue` here -- _join_left_table can
+        # still derive the join's left side from its own column refs,
+        # which keeps the per-join edge logic working even without a
+        # scope-level driver. We only skip the reads_from_scopes edge
+        # block below when there's no left to anchor from.
         left = _scope_driver(scope, scope_lookup)
-        if not left:
-            continue
 
         # Process explicit JOIN clauses. right_table may be a base
         # table OR a bare scope name (the corpus drops the cte:/
-        # derived: prefix on right_table). When it's a scope ref, the
-        # natural extended-tree edge is left -> ref_scope's driver
-        # (because the CTE's result, at the join boundary, IS its own
-        # driver table).
+        # derived: prefix on right_table). When it's a scope ref,
+        # _inner_scope_anchors returns the base-table fan-out -- one
+        # anchor for normal CTEs (their internal joins connect the
+        # others through), N anchors for union-bodied CTEs (each
+        # branch independently terminates the outer edge).
         for join in (scope.get("joins") or []):
             right_raw = join.get("right_table") or ""
             right_bare = _bare_table(right_raw)
             if not right_bare:
                 continue
             if _is_scope_ref(right_bare, scope_lookup):
-                # Join to a CTE / derived scope. Resolve to its driver.
                 inner = scope_lookup[right_bare.lower()]
-                right = _scope_driver(inner, scope_lookup)
-                if not right:
-                    continue
+                right_anchors = _inner_scope_anchors(inner, scope_lookup)
             else:
-                right = right_bare
+                right_anchors = [right_bare]
+            if not right_anchors:
+                continue
             # Re-derive the LEFT side from this join's own column refs
             # rather than always using the scope's driver -- otherwise
             # join chains (FROM A JOIN B JOIN C ON B.y=C.y) get
-            # mis-rooted at A.
-            join_left = _join_left_table(join, right, left, scope_lookup)
-            nodes.add(join_left)
-            nodes.add(right)
-            if join_left == right:
-                # Self-join -- the on-clause carries the disambiguation
-                # but as a shape edge it's degenerate.
+            # mis-rooted at A. Pass the first anchor as the "right"
+            # context for the column-based candidate filter.
+            join_left = _join_left_table(
+                join, right_anchors[0], left, scope_lookup,
+            )
+            if not join_left:
+                # No left side we can determine -- skip this edge
+                # entirely rather than emitting an edge with an empty
+                # endpoint that the matrix layer would render as a
+                # ghost node.
                 continue
-            edges.add(tuple(sorted([join_left, right])))
+            for right in right_anchors:
+                if not right:
+                    continue
+                nodes.add(join_left)
+                nodes.add(right)
+                if join_left == right:
+                    # Self-join -- on-clause carries disambiguation
+                    # but as a shape edge it's degenerate.
+                    continue
+                edges.add(tuple(sorted([join_left, right])))
 
         # Scope references that aren't via explicit JOIN (e.g.,
         # `FROM EncDept ED` listed in `reads_from_scopes` but the
         # parser didn't classify it as a join). The CTE's tables and
         # internal edges still belong to this view's shape; the OUTER
-        # scope's driver is connected to the CTE's driver so the tree
-        # stays unified rather than splitting into disconnected
-        # subgraphs.
+        # scope's driver is connected to the CTE's anchors so the
+        # tree stays unified rather than splitting into disconnected
+        # subgraphs. Same fan-out logic as the joins block.
+        if not left:
+            # No anchor to emit edges from -- the outer scope itself
+            # has no base-table driver. Each referenced scope is
+            # iterated separately in the outer scope loop, so this is
+            # not a data loss; just no cross-scope edge from THIS
+            # scope's level.
+            continue
         for ref in (scope.get("reads_from_scopes") or []):
             bare_ref = _scope_bare_name(ref)
             inner = scope_lookup.get(bare_ref.lower())
@@ -321,11 +377,11 @@ def view_extended_tree(view: dict) -> tuple[set[str], set[tuple[str, str]]]:
             # reads_from_scopes if main references them).
             if (inner.get("kind") or "") in ("exists", "in"):
                 continue
-            ref_driver = _scope_driver(inner, scope_lookup)
-            if not ref_driver or ref_driver == left:
-                continue
-            nodes.add(ref_driver)
-            edges.add(tuple(sorted([left, ref_driver])))
+            for anchor in _inner_scope_anchors(inner, scope_lookup):
+                if not anchor or anchor == left:
+                    continue
+                nodes.add(anchor)
+                edges.add(tuple(sorted([left, anchor])))
 
     return nodes, edges
 

@@ -258,6 +258,127 @@ class TestViewExtendedTree(unittest.TestCase):
         self.assertEqual(nodes, {"PAT_ENC"})
         self.assertEqual(edges, set())
 
+    def test_union_cte_both_branches_connect_outward(self):
+        """Regression: a CTE whose body is a UNION of single-table
+        SELECTs gets its branches' tables merged into the CTE's own
+        reads_from_tables (per extract.py commit fc904a6). The CTE has
+        no internal joins, so a join from main to the CTE used to emit
+        only ONE edge -- to the FIRST base table. The second branch's
+        table landed as an orphan node.
+
+        Fix: fan out the cross-scope edge to ALL the CTE's base
+        tables when the CTE has no internal joins.
+
+            WITH combined AS (SELECT PAT_ID FROM PAT_ENC
+                              UNION
+                              SELECT PAT_ID FROM PAT_ENC_HSP)
+            SELECT C.PAT_ID, P.NAME
+            FROM combined C
+            JOIN PATIENT P ON C.PAT_ID = P.PAT_ID
+        """
+        view = {
+            "view_name": "VW_UNION_CTE",
+            "view_outputs": ["main"],
+            "scopes": [
+                {
+                    "id": "main", "kind": "main",
+                    "reads_from_tables": ["PATIENT"],
+                    "reads_from_scopes": ["cte:combined"],
+                    "joins": [{
+                        "right_table": "PATIENT",
+                        "join_type": "INNER JOIN",
+                        "on_expression": "C.PAT_ID = P.PAT_ID",
+                        "columns": [
+                            # The C.PAT_ID ref is on the CTE side --
+                            # alias_to_real doesn't include CTE aliases,
+                            # so the resolver leaves table empty.
+                            {"column": "PAT_ID", "table": "",
+                             "table_alias": "C"},
+                            {"column": "PAT_ID", "table": "PATIENT",
+                             "table_alias": "P"},
+                        ],
+                    }],
+                    "columns": [],
+                },
+                {
+                    "id": "cte:combined", "kind": "cte",
+                    # Both branches' tables merged into the CTE's
+                    # reads_from_tables (fc904a6). Internal joins
+                    # stay empty (each UNION branch was a single-
+                    # table SELECT with no joins).
+                    "reads_from_tables": ["PAT_ENC", "PAT_ENC_HSP"],
+                    "reads_from_scopes": [],
+                    "joins": [],
+                    "columns": [],
+                },
+            ],
+        }
+        nodes, edges = view_extended_tree(view)
+        self.assertEqual(nodes, {"PAT_ENC", "PAT_ENC_HSP", "PATIENT"})
+        # Both branches must connect outward to PATIENT, not just the
+        # first one. Edges canonicalize via Python sort.
+        self.assertIn(("PATIENT", "PAT_ENC"), edges)
+        self.assertIn(("PATIENT", "PAT_ENC_HSP"), edges)
+
+    def test_non_union_cte_does_not_overfanout(self):
+        """A normal CTE (one with its own internal joins) must NOT
+        fan out. Its non-driver base tables are reachable via the
+        CTE's internal join edges; emitting extra cross-scope edges
+        would over-connect the graph and misrepresent the join shape.
+        """
+        view = {
+            "view_name": "VW_NORMAL_CTE",
+            "view_outputs": ["main"],
+            "scopes": [
+                {
+                    "id": "main", "kind": "main",
+                    "reads_from_tables": ["ZC_STATUS"],
+                    "reads_from_scopes": ["cte:enc_pat"],
+                    "joins": [{
+                        "right_table": "ZC_STATUS",
+                        "join_type": "INNER JOIN",
+                        "on_expression": "E.STATUS_C = Z.STATUS_C",
+                        "columns": [
+                            {"column": "STATUS_C", "table": "",
+                             "table_alias": "E"},
+                            {"column": "STATUS_C", "table": "ZC_STATUS",
+                             "table_alias": "Z"},
+                        ],
+                    }],
+                    "columns": [],
+                },
+                {
+                    "id": "cte:enc_pat", "kind": "cte",
+                    "reads_from_tables": ["PAT_ENC", "PATIENT"],
+                    "reads_from_scopes": [],
+                    "joins": [{
+                        "right_table": "PATIENT",
+                        "join_type": "INNER JOIN",
+                        "on_expression": "PE.PAT_ID = P.PAT_ID",
+                        "columns": [
+                            {"column": "PAT_ID", "table": "PAT_ENC",
+                             "table_alias": "PE"},
+                            {"column": "PAT_ID", "table": "PATIENT",
+                             "table_alias": "P"},
+                        ],
+                    }],
+                    "columns": [],
+                },
+            ],
+        }
+        nodes, edges = view_extended_tree(view)
+        self.assertEqual(nodes,
+                          {"PAT_ENC", "PATIENT", "ZC_STATUS"})
+        # CTE's internal join is preserved.
+        self.assertIn(("PATIENT", "PAT_ENC"), edges)
+        # Main joins to CTE via the driver only -- PATIENT (the other
+        # base table) is reachable through the internal edge above,
+        # so we do NOT also emit (PATIENT, ZC_STATUS).
+        self.assertIn(("PAT_ENC", "ZC_STATUS"), edges)
+        self.assertNotIn(("PATIENT", "ZC_STATUS"), edges)
+        # Exactly two edges total (no over-connection).
+        self.assertEqual(len(edges), 2)
+
     def test_exists_subquery_scope_skipped(self):
         """EXISTS/IN subqueries reference tables but are filter
         dependencies, not join data flow -- excluded from the shape."""

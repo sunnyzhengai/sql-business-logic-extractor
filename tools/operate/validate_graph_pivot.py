@@ -545,7 +545,24 @@ def run_validation(
     shapes_dir = output_dir / "community_shapes"
     shapes_dir.mkdir(parents=True, exist_ok=True)
     view_by_name = {v.get("view_name"): v for v in views if v.get("view_name")}
-    shape_paths: list[str] = []
+    # Pre-compute the view-of-view link map. Two passes:
+    # 1. Build the full set of corpus view names (so view_shape can
+    #    detect foreign-view references).
+    # 2. Walk each community to know which file each view ends up
+    #    in, so we can construct relative URLs of the form
+    #    `community_NN_<safe_top>_shapes.html#view-<anchor>`.
+    corpus_view_names = set(view_by_name.keys())
+
+    # Bare-name -> anchor-encoded view URL. The bare-name key
+    # matches what `view_shape._bare_view_key` produces, so foreign
+    # references like `FROM V_FOO` in another view's SQL find the
+    # right link target even when the view is registered with a
+    # qualified name like `Reporting.V_FOO.View`.
+    from tools.p50_present.view_shape import _bare_view_key, _anchor_id
+
+    # view_name (canonical corpus name) -> "<filename>#<anchor>"
+    view_links_full: dict[str, str] = {}
+    community_files: list[tuple[int, str, list[str]]] = []
     for community_index, analysis in enumerate(analyses):
         top_label = (analysis["top_tables"][0][0]
                      if analysis["top_tables"]
@@ -553,6 +570,19 @@ def run_validation(
         safe = _safe_filename(top_label)
         fname = f"community_{community_index:02d}_{safe}_shapes.html"
         primary_views = sorted(community_to_primary.get(community_index, set()))
+        for vn in primary_views:
+            if vn in view_by_name:
+                view_links_full[vn] = f"{fname}#{_anchor_id(vn)}"
+        community_files.append((community_index, fname, primary_views))
+
+    # view_shape resolves foreign references by BARE key, so we also
+    # need a bare-key -> url map. Pass the full map; view_shape's
+    # build_view_shape internally normalizes for matching.
+    shape_paths: list[str] = []
+    for community_index, fname, primary_views in community_files:
+        top_label = (analyses[community_index]["top_tables"][0][0]
+                     if analyses[community_index]["top_tables"]
+                     else f"community_{community_index}")
         community_views = [view_by_name[vn] for vn in primary_views
                             if vn in view_by_name]
         if not community_views:
@@ -561,6 +591,8 @@ def run_validation(
             community_views,
             output_path=shapes_dir / fname,
             community_label=f"Community {community_index:02d} -- {top_label}",
+            corpus_view_names=corpus_view_names,
+            view_links=view_links_full,
         )
         shape_paths.append(str(shape_path))
 

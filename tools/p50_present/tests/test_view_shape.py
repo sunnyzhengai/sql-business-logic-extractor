@@ -336,6 +336,72 @@ class TestBuildViewShape(unittest.TestCase):
         self.assertIn("CTE: combined", b0.label)
         self.assertIn("UNION branch 0", b0.label)
 
+    def test_cte_join_produces_placeholder_in_main(self):
+        """Q1: when main JOINs to a CTE, main should contain a
+        placeholder ShapeNode (kind='scope_ref') representing the
+        CTE consumption. The placeholder targets the inner scope;
+        a cross-scope edge connects them."""
+        shape = build_view_shape(_make_view_cte())
+        main = shape.scope_by_id("main")
+        # main should have two nodes: PATIENT (real FROM-driver-ish
+        # from the corpus shape) and a placeholder for the CTE.
+        kinds_in_main = [n.kind for n in main.nodes]
+        self.assertIn("scope_ref", kinds_in_main,
+                       "main should have at least one scope_ref placeholder")
+        placeholder = next(n for n in main.nodes if n.kind == "scope_ref")
+        self.assertEqual(placeholder.target_scope_id, "cte:EncDept")
+        # Cross-scope edge originates from the placeholder, not from
+        # the prior table-node directly.
+        cse = [e for e in shape.cross_scope_edges
+                if e.kind == "cross_scope"]
+        self.assertTrue(
+            any(e.source_id == placeholder.id for e in cse),
+            "cross-scope edge should originate from the placeholder"
+        )
+
+    def test_view_of_view_emits_placeholder_with_target_view_name(self):
+        """Q2: when a view's FROM references another view in the
+        corpus, that reference is recognized as a foreign view and
+        rendered as a scope_ref placeholder with target_view_name
+        set so the renderer can hyperlink it."""
+        view = {
+            "view_name": "VW_USES_FOUNDATION",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["V_FOO"],
+                "reads_from_scopes": [],
+                "joins": [],
+                "columns": [],
+            }],
+        }
+        corpus_views = {"V_FOO", "VW_USES_FOUNDATION", "OTHER_VIEW"}
+        shape = build_view_shape(view, corpus_view_names=corpus_views)
+        main = shape.scope_by_id("main")
+        self.assertEqual(len(main.nodes), 1)
+        n = main.nodes[0]
+        self.assertEqual(n.kind, "scope_ref")
+        self.assertEqual(n.target_view_name, "V_FOO")
+
+    def test_view_of_view_skipped_when_target_not_in_corpus(self):
+        """If `FROM SomeTable` and SomeTable is NOT in the corpus
+        view set, treat it as a plain base table (no placeholder)."""
+        view = {
+            "view_name": "VW_LOCAL_ONLY",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["PAT_ENC"],
+                "reads_from_scopes": [],
+                "joins": [],
+                "columns": [],
+            }],
+        }
+        corpus_views = {"VW_LOCAL_ONLY"}  # no PAT_ENC
+        shape = build_view_shape(view, corpus_view_names=corpus_views)
+        main = shape.scope_by_id("main")
+        self.assertEqual(main.nodes[0].kind, "table")
+
     def test_cross_apply_lateral_renders_as_separate_scope(self):
         """CROSS APPLY -- the lateral:sub scope is rendered alongside
         main; cross-scope edge connects main's driver to the
@@ -413,6 +479,42 @@ class TestSVGRendering(unittest.TestCase):
         # Cluster label appears in plain text.
         self.assertIn("CTE: EncDept", svg)
         self.assertIn("main", svg)
+
+    def test_view_of_view_placeholder_gets_hyperlink(self):
+        """When a scope_ref placeholder's target_view_name is in the
+        view_links map, the renderer wraps the placeholder's <g> in
+        an <a xlink:href>."""
+        view = {
+            "view_name": "VW_HOST",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["V_FOO"],
+                "reads_from_scopes": [],
+                "joins": [],
+                "columns": [],
+            }],
+        }
+        corpus_views = {"V_FOO", "VW_HOST"}
+        shape = build_view_shape(view, corpus_view_names=corpus_views)
+        view_links = {"V_FOO": "../community_03_v_foo_shapes.html#view-V_FOO"}
+        svg = render_view_shape_panel(shape, view_links=view_links)
+        # The placeholder's target view is in the link map -> the
+        # node's <g> should be wrapped in <a xlink:href>.
+        self.assertIn(
+            'xlink:href="../community_03_v_foo_shapes.html#view-V_FOO"',
+            svg,
+        )
+
+    def test_placeholder_renders_as_rounded_rectangle(self):
+        """Scope_ref placeholders get a rounded <rect> instead of a
+        <circle>; the modeler distinguishes 'real table' from
+        'consumed scope' visually."""
+        shape = build_view_shape(_make_view_cte())
+        svg = render_view_shape_panel(shape)
+        # At least one <rect rx="6" ry="6"> appears (the placeholder).
+        self.assertIn('<rect ', svg)
+        self.assertIn('rx="6"', svg)
 
     def test_join_type_label_omitted_for_inner_join(self):
         """INNER / plain JOIN doesn't get a label drawn (saves

@@ -104,25 +104,90 @@ def _is_scope_ref(name: str, scope_lookup: dict[str, dict]) -> bool:
     return bool(name) and name.lower() in scope_lookup
 
 
+def _bare_view_key(view_name: str) -> str:
+    """Normalize a view name to a bare lookup key.
+
+    `Reporting.V_FOO.View`            -> `V_FOO`
+    `[Reporting].[V_FOO]`             -> `V_FOO`
+    `V_FOO`                            -> `V_FOO`
+
+    The last segment (after dots) is kept, brackets stripped,
+    uppercased. Trailing '.View' / '.dbo' decorations don't count
+    as the last segment.
+    """
+    if not view_name:
+        return ""
+    parts = [
+        p.strip().strip("[]").strip()
+        for p in view_name.split(".")
+    ]
+    parts = [p for p in parts
+              if p and p.lower() not in ("view", "dbo")]
+    if not parts:
+        return view_name.strip().upper()
+    return parts[-1].upper()
+
+
+def _build_foreign_view_lookup(
+    corpus_view_names: set[str] | None,
+    own_name: str,
+) -> dict[str, str]:
+    """Map BARE uppercase view-name -> canonical corpus view_name
+    for every view in the corpus EXCEPT this view itself.
+
+    Used to detect view-of-view references inside the current view:
+    when `FROM SomeFoundationView` appears in SQL, we check the bare
+    key 'SOMEFOUNDATIONVIEW' against this map; a hit means treat the
+    reference as a scope_ref placeholder targeting that foreign view.
+    """
+    if not corpus_view_names:
+        return {}
+    own_bare = _bare_view_key(own_name)
+    out: dict[str, str] = {}
+    for name in corpus_view_names:
+        bare = _bare_view_key(name)
+        if not bare or bare == own_bare:
+            continue
+        # Last-write-wins on collisions; shouldn't happen in practice
+        # since corpus view names are unique modulo schema.
+        out[bare] = name
+    return out
+
+
 # ===========================================================================
 # Data model: each view's shape is a forest of ShapeScopes
 # ===========================================================================
 
 @dataclass
 class ShapeNode:
-    """One table occurrence in the SQL.
+    """One table occurrence (or scope-reference placeholder) in the SQL.
 
     `id` is unique within the ViewShape. `table` is the bare base
-    table name (e.g. PAT_ENC). `alias` is the SQL author's alias
-    (e.g. 'A'); empty when unaliased. `scope_id` is the corpus scope
-    this node belongs to. `role` is 'from' for the FROM-clause
-    driver, 'join' for a JOIN'd table.
+    table name (e.g. PAT_ENC) for `kind='table'`, OR the scope's
+    bare name (e.g. 'foo' for `cte:foo`) for `kind='scope_ref'`.
+    `alias` is the SQL author's alias; empty when unaliased.
+    `scope_id` is the corpus scope this node belongs to (where the
+    node lives in the visual layout). `role` is 'from' for the
+    FROM-clause driver, 'join' for a JOIN'd target.
+
+    `kind='scope_ref'` marks a placeholder node that stands in for a
+    consumed CTE / derived subquery / JOIN-subquery / CROSS APPLY /
+    view-of-view. The placeholder appears in the OUTER scope's flow
+    (so the SQL reads top-to-bottom: 'FROM PATIENT JOIN foo'), and a
+    cross-scope edge connects the placeholder to the inner scope's
+    driver. `target_scope_id` records which scope it references so
+    cross-scope edges can be routed; for view-of-view refs that
+    don't have a local scope, it's empty and `target_view_name`
+    holds the foreign view's name (for hyperlink resolution).
     """
     id: str
     table: str
     alias: str
     scope_id: str
     role: str  # 'from' | 'join'
+    kind: str = "table"          # 'table' | 'scope_ref'
+    target_scope_id: str = ""    # set for kind='scope_ref' (local scope)
+    target_view_name: str = ""   # set for kind='scope_ref' (foreign view-of-view)
 
 
 @dataclass(frozen=True)
@@ -192,7 +257,11 @@ class ViewShape:
 _FILTER_SCOPE_KINDS = ("exists", "in")
 
 
-def build_view_shape(view: dict) -> ViewShape:
+def build_view_shape(
+    view: dict,
+    *,
+    corpus_view_names: set[str] | None = None,
+) -> ViewShape:
     """Convert a corpus ViewV1 dict into a ViewShape forest.
 
     Strategy:
@@ -203,13 +272,17 @@ def build_view_shape(view: dict) -> ViewShape:
         the new one. Self-joins produce two distinct nodes (one per
         SQL alias).
       - When a JOIN's right side is another scope (CTE / derived /
-        join-subquery), no node is added in the outer scope -- instead
-        a cross_scope edge points from the most-recent outer node to
-        the inner scope's driver.
-      - `reads_from_scopes` entries (CTE refs that aren't via JOIN,
-        e.g. `FROM combined C` without a JOIN keyword) produce a
-        cross_scope edge from the FROM driver to the inner scope's
-        driver.
+        join-subquery / lateral), the outer scope gets a PLACEHOLDER
+        ShapeNode (kind='scope_ref') AND a cross-scope edge to the
+        inner scope's driver. The modeler sees the consumed scope
+        in the outer flow.
+      - When a JOIN's right side is itself a VIEW (another view in
+        our corpus, matched via `corpus_view_names`), the outer
+        scope gets a placeholder with `target_view_name` set so the
+        renderer can emit a hyperlink to the foreign view's shape
+        HTML.
+      - `reads_from_scopes` entries (CTE refs not via explicit JOIN)
+        produce a placeholder + cross-scope edge.
 
     The result preserves SQL author intent: each table occurrence is
     its own node, scopes are kept as nested clusters, edges are
@@ -217,6 +290,11 @@ def build_view_shape(view: dict) -> ViewShape:
     """
     shape = ViewShape(view_name=view.get("view_name") or "")
     scope_lookup = _build_scope_lookup(view)
+    # Normalized lookup of corpus view names for view-of-view
+    # detection. The keys are the BARE last segment, uppercased --
+    # this is what `FROM SomeView` in another view's SQL parses to.
+    own_name = (view.get("view_name") or "").strip()
+    foreign_view_lookup = _build_foreign_view_lookup(corpus_view_names, own_name)
 
     # Counter for unique node IDs across the whole view.
     counter = {"n": 0}
@@ -255,7 +333,10 @@ def build_view_shape(view: dict) -> ViewShape:
             # Wrapper scope -- delegate rendering to its child branches.
             continue
 
-        sscope = _build_scope(raw_scope, scope_lookup, _new_node, shape)
+        sscope = _build_scope(
+            raw_scope, scope_lookup, _new_node, shape,
+            foreign_view_lookup=foreign_view_lookup,
+        )
         if sscope is not None:
             shape.scopes.append(sscope)
 
@@ -276,6 +357,8 @@ def _build_scope(
     scope_lookup: dict[str, dict],
     _new_node,
     shape: ViewShape,
+    *,
+    foreign_view_lookup: dict[str, str] | None = None,
 ) -> ShapeScope | None:
     """Build one ShapeScope from a corpus scope dict.
 
@@ -309,7 +392,17 @@ def _build_scope(
         from_alias = ""
 
     if from_table:
+        # Is the FROM-driver actually a foreign view? If so, mark
+        # it as a scope_ref placeholder so the renderer renders it
+        # as a rounded rectangle AND a hyperlink (when view_links
+        # has the target).
+        foreign_view = None
+        if foreign_view_lookup:
+            foreign_view = foreign_view_lookup.get(from_table.upper())
         from_node = _new_node(from_table, from_alias, scope_id, "from")
+        if foreign_view:
+            from_node.kind = "scope_ref"
+            from_node.target_view_name = foreign_view
         sscope.nodes.append(from_node)
         sscope.driver_node_id = from_node.id
 
@@ -328,22 +421,44 @@ def _build_scope(
         join_type = (join.get("join_type") or "JOIN")
 
         # Check scope-ref FIRST -- the corpus drops the cte:/derived:/
-        # join: prefix on join.right_table (so right_table='sub' may
-        # actually refer to scope 'join:sub'). _bare_table would
-        # happily accept 'sub' as a base-table identifier, which would
-        # create a phantom in-scope node. The scope_lookup check has
-        # to win.
+        # join:/lateral: prefix on join.right_table (so right_table=
+        # 'sub' may actually refer to scope 'join:sub'). _bare_table
+        # would happily accept 'sub' as a base-table identifier, which
+        # would create a phantom in-scope node. The scope_lookup check
+        # has to win.
         scope_ref_name = (right_raw or "").split(".")[-1].strip().strip("[]")
         if _is_scope_ref(scope_ref_name, scope_lookup):
             inner_scope_id = scope_lookup[scope_ref_name.lower()].get("id") or ""
             inner_kind = (scope_lookup[scope_ref_name.lower()].get("kind") or "").lower()
             if inner_kind in _FILTER_SCOPE_KINDS:
                 continue
-            if last_in_scope_node_id and inner_scope_id:
-                # Cross-scope edge: outer node -> inner scope's driver
-                # (resolved to a real node after all scopes are built).
-                shape.cross_scope_edges.append(ShapeEdge(
+            # Emit a PLACEHOLDER node in the outer scope so main's
+            # flow reads top-to-bottom as the SQL author wrote it
+            # ('FROM PATIENT JOIN foo'). The placeholder represents
+            # the consumed scope; the cross-scope edge connects it
+            # to the inner scope's actual driver node (drawn dashed
+            # in the renderer).
+            placeholder = _new_node(
+                scope_ref_name, right_alias, scope_id, "join",
+            )
+            placeholder.kind = "scope_ref"
+            placeholder.target_scope_id = inner_scope_id
+            sscope.nodes.append(placeholder)
+            if last_in_scope_node_id:
+                sscope.edges.append(ShapeEdge(
                     source_id=last_in_scope_node_id,
+                    target_id=placeholder.id,
+                    join_type=join_type,
+                    scope_id=scope_id,
+                    kind="join",
+                ))
+            else:
+                # No anchor yet -- the placeholder becomes the driver.
+                sscope.driver_node_id = placeholder.id
+            last_in_scope_node_id = placeholder.id
+            if inner_scope_id:
+                shape.cross_scope_edges.append(ShapeEdge(
+                    source_id=placeholder.id,
                     target_id=f"scope:{inner_scope_id}",
                     join_type=join_type,
                     scope_id=scope_id,
@@ -353,8 +468,15 @@ def _build_scope(
 
         right_bare = _bare_table(right_raw)
         if right_bare:
-            # Plain base table on the right -- add a new in-scope node.
+            # Plain base table on the right OR a foreign view-of-view
+            # reference. Foreign-view detection means the modeler can
+            # click through to that view's shape HTML.
             new_node = _new_node(right_bare, right_alias, scope_id, "join")
+            if foreign_view_lookup:
+                foreign_view = foreign_view_lookup.get(right_bare.upper())
+                if foreign_view:
+                    new_node.kind = "scope_ref"
+                    new_node.target_view_name = foreign_view
             sscope.nodes.append(new_node)
             if last_in_scope_node_id:
                 sscope.edges.append(ShapeEdge(
@@ -373,8 +495,9 @@ def _build_scope(
             continue
 
     # `reads_from_scopes` entries that aren't covered by an explicit
-    # JOIN (typically: `FROM derived_alias` style). Emit one cross-
-    # scope edge per ref from the FROM driver to the referenced scope.
+    # JOIN (typically: `FROM cte_foo C` style without a JOIN keyword).
+    # Emit a placeholder ShapeNode + cross-scope edge so the FROM
+    # reference is visible in the outer scope's flow.
     for ref in (raw_scope.get("reads_from_scopes") or []):
         bare_ref = _scope_bare_name(ref)
         inner = scope_lookup.get(bare_ref.lower())
@@ -384,23 +507,44 @@ def _build_scope(
         if inner_kind in _FILTER_SCOPE_KINDS:
             continue
         inner_scope_id = inner.get("id") or ""
-        # Skip if this scope ref was already covered by a JOIN-based
-        # cross-scope edge above. Match on (source, target_scope).
         target_marker = f"scope:{inner_scope_id}"
+        # Skip if this scope ref was already covered by a JOIN above
+        # (which emitted its own placeholder + cross-scope edge).
         already = any(
             e.scope_id == scope_id and e.target_id == target_marker
             for e in shape.cross_scope_edges
         )
         if already:
             continue
-        if sscope.driver_node_id and inner_scope_id:
-            shape.cross_scope_edges.append(ShapeEdge(
+        if not inner_scope_id:
+            continue
+        # Emit a placeholder in this scope. With no JOIN context the
+        # placeholder hangs off the existing driver via a synthetic
+        # FROM-style edge; if there's no driver yet, the placeholder
+        # itself becomes the driver.
+        placeholder = _new_node(
+            bare_ref, "", scope_id, "join" if sscope.driver_node_id else "from",
+        )
+        placeholder.kind = "scope_ref"
+        placeholder.target_scope_id = inner_scope_id
+        sscope.nodes.append(placeholder)
+        if sscope.driver_node_id:
+            sscope.edges.append(ShapeEdge(
                 source_id=sscope.driver_node_id,
-                target_id=target_marker,
+                target_id=placeholder.id,
                 join_type="",   # implicit FROM-style reference
                 scope_id=scope_id,
-                kind="cross_scope",
+                kind="join",
             ))
+        else:
+            sscope.driver_node_id = placeholder.id
+        shape.cross_scope_edges.append(ShapeEdge(
+            source_id=placeholder.id,
+            target_id=target_marker,
+            join_type="",
+            scope_id=scope_id,
+            kind="cross_scope",
+        ))
 
     if not sscope.nodes:
         return None
@@ -654,6 +798,8 @@ def _scope_internal_layout(
 # in-scope nodes; scope clusters get a faint background tint.
 _NODE_FILL = "#2c7fb8"
 _NODE_STROKE = "#1a5d8a"
+_PLACEHOLDER_FILL = "#fef3c7"    # warm amber -- scope_ref placeholder
+_PLACEHOLDER_STROKE = "#b45309"
 _LABEL_COLOR = "#1a1a1a"
 _EDGE_COLOR = "#5a5a5a"          # intra-scope joins
 _CROSS_EDGE_COLOR = "#999"        # cross-scope (CTE consume) edges
@@ -666,12 +812,20 @@ def render_view_shape_panel(
     shape: ViewShape,
     *,
     title_suffix: str = "",
+    view_links: dict[str, str] | None = None,
 ) -> str:
     """Render ONE view's unfolded shape as an SVG string.
 
     Cluster boxes are drawn first (so nodes/edges sit on top); then
     cross-scope edges (dashed grey, on top of cluster boundaries);
-    then intra-scope edges; then nodes with their labels below.
+    then intra-scope edges; then nodes with their labels.
+
+    Parameters
+    ----------
+    view_links : optional dict view_name -> relative URL ('file.html#anchor').
+        When set, any scope_ref placeholder whose target_view_name
+        matches a key gets wrapped in an `<a xlink:href>` so the
+        modeler can click through to the foreign view's shape HTML.
     """
     coords, boxes, width, height = layout_shape(shape)
     if not coords:
@@ -684,9 +838,12 @@ def render_view_shape_panel(
         )
 
     parts: list[str] = []
+    # xmlns:xlink is required for <a xlink:href="..."> wrapping
+    # scope_ref placeholders (the hyperlink-to-foreign-view feature).
     parts.append(
         f'<svg width="{width}" height="{height}" '
         f'viewBox="0 0 {width} {height}" '
+        f'xmlns:xlink="http://www.w3.org/1999/xlink" '
         f'xmlns="http://www.w3.org/2000/svg" '
         f'style="background:#ffffff; border:1px solid #d0d0d0; '
         f'border-radius:4px; display:block;">'
@@ -755,9 +912,12 @@ def render_view_shape_panel(
                     f'fill="#666">{html.escape(jt)}</text>'
                 )
 
-    # 4. Nodes. Labels render to the RIGHT of each circle so each row
-    # gets the full width of the panel for its table name -- no more
-    # horizontal collisions between sibling labels.
+    # 4. Nodes. Base-table nodes (kind='table') render as circles;
+    # scope-reference placeholders (kind='scope_ref') render as
+    # rounded rectangles so the modeler instantly distinguishes
+    # "real table" from "consumed CTE / subquery / view". Labels
+    # render to the RIGHT in both cases so each row gets the full
+    # panel width for its name -- no horizontal collisions.
     for sscope in shape.scopes:
         for n in sscope.nodes:
             xy = coords.get(n.id)
@@ -768,27 +928,68 @@ def render_view_shape_panel(
             if n.alias and n.alias.upper() != n.table.upper():
                 label = f"{n.table} ({n.alias})"
             label_html = html.escape(label)
-            tooltip = html.escape(
-                f"{n.table}"
-                + (f" alias={n.alias}" if n.alias else "")
-                + f" -- role={n.role} -- scope={n.scope_id}"
-            )
-            parts.append(
-                f'<g>'
-                f'<title>{tooltip}</title>'
-                f'<circle cx="{x}" cy="{y}" r="{_NODE_RADIUS}" '
-                f'fill="{_NODE_FILL}" stroke="{_NODE_STROKE}" '
-                f'stroke-width="1.5" />'
+            tooltip_parts = [n.table]
+            if n.alias:
+                tooltip_parts.append(f"alias={n.alias}")
+            tooltip_parts.append(f"role={n.role}")
+            tooltip_parts.append(f"scope={n.scope_id}")
+            if n.kind == "scope_ref":
+                tooltip_parts.append(f"kind=scope_ref")
+                if n.target_scope_id:
+                    tooltip_parts.append(f"target={n.target_scope_id}")
+                if n.target_view_name:
+                    tooltip_parts.append(f"view={n.target_view_name}")
+            tooltip = html.escape(" -- ".join(tooltip_parts))
+
+            shape_svg = _render_node_shape(n, x, y)
+            label_svg = (
                 f'<text x="{x + _NODE_RADIUS + _LABEL_LEFT_PAD}" '
                 f'y="{y + 4}" '
                 f'font-family="sans-serif" font-size="11" '
                 f'font-weight="bold" '
                 f'fill="{_LABEL_COLOR}">{label_html}</text>'
-                f'</g>'
             )
+            inner = f'<title>{tooltip}</title>{shape_svg}{label_svg}'
+
+            # Hyperlink wrap: if this is a scope_ref placeholder AND
+            # the target view is in our view_links map, wrap the
+            # whole node in an <a xlink:href="..."> so clicking jumps
+            # to the foreign view's shape HTML.
+            href = None
+            if n.kind == "scope_ref" and n.target_view_name and view_links:
+                href = view_links.get(n.target_view_name)
+            if href:
+                parts.append(
+                    f'<a xlink:href="{html.escape(href)}" target="_blank">'
+                    f'<g>{inner}</g></a>'
+                )
+            else:
+                parts.append(f'<g>{inner}</g>')
 
     parts.append("</svg>")
     return "".join(parts)
+
+
+def _render_node_shape(n: ShapeNode, x: int, y: int) -> str:
+    """SVG for the node's primary shape -- circle for kind='table',
+    rounded rectangle for kind='scope_ref' placeholder."""
+    if n.kind == "scope_ref":
+        # Rounded rectangle centered on (x, y). Width comes from a
+        # base + per-character heuristic so short scope names like
+        # 'foo' don't sit in an oversized box.
+        rect_w = max(_NODE_RADIUS * 2 + 6, 10 + len(n.table) * 7)
+        rect_h = _NODE_RADIUS * 2
+        return (
+            f'<rect x="{x - rect_w // 2}" y="{y - rect_h // 2}" '
+            f'width="{rect_w}" height="{rect_h}" rx="6" ry="6" '
+            f'fill="{_PLACEHOLDER_FILL}" stroke="{_PLACEHOLDER_STROKE}" '
+            f'stroke-width="1.5" />'
+        )
+    return (
+        f'<circle cx="{x}" cy="{y}" r="{_NODE_RADIUS}" '
+        f'fill="{_NODE_FILL}" stroke="{_NODE_STROKE}" '
+        f'stroke-width="1.5" />'
+    )
 
 
 def _tree_list_edge_path(src: tuple[int, int], tgt: tuple[int, int]) -> str:
@@ -900,6 +1101,8 @@ def write_community_shapes(
     output_path: str | Path,
     *,
     community_label: str = "",
+    corpus_view_names: set[str] | None = None,
+    view_links: dict[str, str] | None = None,
 ) -> Path:
     """Render one HTML file per community with N unfolded shape panels.
 
@@ -908,6 +1111,18 @@ def write_community_shapes(
     panel is its own complete tree, not a masked subset of a shared
     layout. Comparison is now eyeballed across two side-by-side
     panels.
+
+    Parameters
+    ----------
+    corpus_view_names : set of every view_name in the broader corpus
+        (not just this community). Drives view-of-view detection:
+        when a SQL `FROM SomeView` matches an entry, the placeholder
+        is marked as a foreign-view reference.
+    view_links : dict view_name -> relative URL of that view's shape
+        HTML, with anchor (`../foo_shapes.html#view-bar`). The
+        renderer wraps foreign-view placeholders in `<a>` so the
+        modeler can click through. Optional; without it, foreign
+        refs still render as placeholders but aren't clickable.
     """
     output_path = Path(output_path)
 
@@ -917,7 +1132,9 @@ def write_community_shapes(
         name = v.get("view_name") or ""
         if not name:
             continue
-        shape_by_name[name] = build_view_shape(v)
+        shape_by_name[name] = build_view_shape(
+            v, corpus_view_names=corpus_view_names,
+        )
     sorted_view_names = sorted(shape_by_name)
 
     # Per-view panels, each wrapped in `<div data-view="...">` so the
@@ -929,7 +1146,9 @@ def write_community_shapes(
         n_nodes = sum(len(s.nodes) for s in shape.scopes)
         n_scopes = len(shape.scopes)
         suffix = f"  ({n_nodes} nodes, {n_scopes} scope(s))"
-        panel_svg = render_view_shape_panel(shape, title_suffix=suffix)
+        panel_svg = render_view_shape_panel(
+            shape, title_suffix=suffix, view_links=view_links,
+        )
         escaped = html.escape(view_name)
         panels.append(
             f'<div class="panel" data-view="{escaped}" '

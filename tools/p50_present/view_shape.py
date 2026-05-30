@@ -912,9 +912,24 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   function showPair() {{
     var a = document.getElementById('cmp-a').value;
     var b = document.getElementById('cmp-b').value;
+    // Place the LEFT dropdown's choice in flex order=1 and the RIGHT
+    // dropdown's choice in order=2 so the on-screen layout matches the
+    // labels. Without this, panels would render in alphabetic DOM
+    // order regardless of which side the user picked them on -- e.g.
+    // picking VW_C as Left and VW_B as Right would still show VW_B
+    // on the left of the screen.
     document.querySelectorAll('[data-view]').forEach(function(el) {{
       var v = el.getAttribute('data-view');
-      el.classList.toggle('hidden', v !== a && v !== b);
+      if (v === a) {{
+        el.classList.remove('hidden');
+        el.style.order = '1';
+      }} else if (v === b) {{
+        el.classList.remove('hidden');
+        el.style.order = '2';
+      }} else {{
+        el.classList.add('hidden');
+        el.style.order = '';
+      }}
     }});
     document.getElementById('pair-section').classList.remove('hidden');
     document.getElementById('overlay-section').classList.remove('active');
@@ -924,8 +939,11 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   }}
 
   function showAll() {{
+    // Reset any per-panel order so the scroll-through view reverts to
+    // the original alphabetic DOM order.
     document.querySelectorAll('[data-view]').forEach(function(el) {{
       el.classList.remove('hidden');
+      el.style.order = '';
     }});
     document.getElementById('pair-section').classList.remove('hidden');
     document.getElementById('overlay-section').classList.remove('active');

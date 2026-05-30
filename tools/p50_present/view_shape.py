@@ -473,16 +473,15 @@ def hierarchical_layout(
 # SVG panel renderer
 # ---------------------------------------------------------------------------
 
-# Layout constants. Spacing leaves room for table-name labels rendered
-# BELOW each circle (rather than inside, where long names like
-# `PATIENT_MYC` got truncated against the circle boundary).
-_COL_SPACING = 150       # horizontal pixels between BFS columns
-_ROW_SPACING = 80        # vertical pixels between rows (incl. label space)
-_NODE_RADIUS = 16        # circle radius (smaller now that text is external)
-_LABEL_OFFSET = 18       # pixels below circle center to baseline of label
-_PAD_X = 40              # canvas padding (left + right margin)
-_PAD_Y = 30              # canvas padding (top + bottom margin)
-_TITLE_HEIGHT = 28       # vertical room for the panel title
+# Layout constants. Tuned so two typical panels fit comfortably
+# side-by-side on a ~1100px-wide browser (compare-mode default).
+_COL_SPACING = 105       # horizontal pixels between BFS columns
+_ROW_SPACING = 64        # vertical pixels between rows (incl. label space)
+_NODE_RADIUS = 13        # circle radius (smaller now that text is external)
+_LABEL_OFFSET = 14       # pixels below circle center to baseline of label
+_PAD_X = 30              # canvas padding (left + right margin)
+_PAD_Y = 24              # canvas padding (top + bottom margin)
+_TITLE_HEIGHT = 24       # vertical room for the panel title
 
 # Color scheme: minimal, two states per element (lit / faded). Labels
 # are rendered OUTSIDE the circles in dark text on the white panel
@@ -650,43 +649,67 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   body {{ font-family: sans-serif; margin: 24px; color: #333; background: #fafafa; }}
   h1 {{ font-size: 18px; margin: 0 0 6px; }}
   p.meta {{ color: #666; font-size: 13px; margin: 0 0 18px; }}
-  section {{ margin-bottom: 28px; }}
+  section {{ margin-bottom: 24px; }}
   section h2 {{ font-size: 14px; margin: 0 0 8px; color: #555; }}
-  /* TOC: list of view-name anchors so a reader can jump straight to
-     a panel of interest. Useful when a community has 7+ views and the
-     grid is tall enough to require scrolling. */
-  .toc {{ background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
-          padding: 10px 14px; }}
-  .toc ul {{ margin: 6px 0 0; padding-left: 18px; }}
-  .toc li {{ margin: 2px 0; font-size: 13px; }}
-  .toc a {{ color: #2c7fb8; text-decoration: none; }}
-  .toc a:hover {{ text-decoration: underline; }}
-  /* Panels render at their natural SVG pixel size -- no CSS width
-     override -- so each one is consistently readable regardless of
-     how many sit beside it. flex-wrap lets them share a row when
-     space permits and drop to the next row when it doesn't. */
-  .grid {{ display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }}
+  /* Compare picker: two dropdowns + a Show-all toggle. Default state
+     hides everything except the first two views so the page opens
+     "ready to compare" rather than "wall of panels". */
+  .controls {{ background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
+               padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 16px;
+               align-items: center; }}
+  .controls label {{ font-size: 13px; }}
+  .controls select {{ font-family: sans-serif; font-size: 13px; padding: 3px 6px;
+                       min-width: 220px; max-width: 360px; }}
+  .controls button {{ font-family: sans-serif; font-size: 13px; padding: 4px 10px;
+                       cursor: pointer; }}
+  /* Each per-view panel sits inside .panel-grid as flex-wrapping. JS
+     toggles each panel's display based on the dropdown selection. */
+  .panel-grid {{ display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }}
   .panel {{ scroll-margin-top: 12px; }}
-  .panel-header {{ display: none; }}  /* title is inside the SVG */
+  .panel.hidden {{ display: none; }}
 </style>
 </head>
 <body>
 <h1>{title}</h1>
 <p class="meta">{meta}</p>
-<section class="toc">
-  <h2>Views in this community ({n_views})</h2>
-  <ul>{toc_items}</ul>
+<section class="controls">
+  <label>Left:&nbsp;<select id="cmp-a">{view_options_a}</select></label>
+  <label>Right:&nbsp;<select id="cmp-b">{view_options_b}</select></label>
+  <button id="cmp-all" type="button">Show all</button>
+  <button id="cmp-pair" type="button">Show selected pair</button>
 </section>
 <section>
-  <h2>Shared substrate (union of all views' tables and joins)</h2>
-  <div class="grid">{substrate_svg}</div>
-</section>
-<section>
-  <h2>Per-view panels (lit = used by this view, faded = unused)</h2>
-  <div class="grid">
+  <div class="panel-grid">
 {panels}
   </div>
 </section>
+<script>
+(function() {{
+  // Pick exactly two panels to display (the L/R dropdown values);
+  // everything else is hidden via the .hidden class.
+  function showPair() {{
+    var a = document.getElementById('cmp-a').value;
+    var b = document.getElementById('cmp-b').value;
+    document.querySelectorAll('[data-view]').forEach(function(el) {{
+      var v = el.getAttribute('data-view');
+      el.classList.toggle('hidden', v !== a && v !== b);
+    }});
+  }}
+  // Drop the .hidden class everywhere -- the scroll-through view.
+  function showAll() {{
+    document.querySelectorAll('[data-view]').forEach(function(el) {{
+      el.classList.remove('hidden');
+    }});
+  }}
+  document.getElementById('cmp-a').addEventListener('change', showPair);
+  document.getElementById('cmp-b').addEventListener('change', showPair);
+  document.getElementById('cmp-all').addEventListener('click', showAll);
+  document.getElementById('cmp-pair').addEventListener('click', showPair);
+  // Initial state: show only the first two views (the default
+  // dropdown values). Single-view communities just show the one.
+  showPair();
+}})();
+</script>
 </body>
 </html>
 """
@@ -716,27 +739,20 @@ def write_community_shapes(
     nodes, edges, per_view = community_substrate(views)
     coords = hierarchical_layout(nodes, edges)
 
-    # Substrate-only "reference" panel: everything lit, since the
-    # substrate itself IS the union.
-    substrate_svg = render_view_shape_panel(
-        view_name=community_label or "Substrate",
-        view_nodes=nodes,
-        view_edges=edges,
-        substrate_nodes=nodes,
-        substrate_edges=edges,
-        coords=coords,
-    )
-
-    # Per-view panels + TOC anchors. Sort by view_name so output
-    # order is stable across reruns (dict-iteration order for newly-
-    # extracted corpora could flip otherwise and the diff looks noisy).
+    # Per-view panels. Sort by view_name so output order is stable
+    # across reruns (dict-iteration order could flip otherwise and the
+    # diff looks noisy). Each panel is wrapped in a `data-view` div so
+    # the compare-picker JS can toggle visibility by view name. The
+    # substrate-only reference panel is intentionally NOT rendered
+    # here -- every per-view panel already shows the substrate as the
+    # faded grey background, so a separate "everything lit" panel
+    # would be visually redundant.
     sorted_view_names = sorted(per_view)
     panels: list[str] = []
-    toc_items: list[str] = []
-    for view_name in sorted_view_names:
+    view_options: list[str] = []
+    for i, view_name in enumerate(sorted_view_names):
         v_nodes, v_edges = per_view[view_name]
         suffix = f"  ({len(v_nodes)}/{len(nodes)} tables)"
-        anchor = _anchor_id(view_name)
         panel_svg = render_view_shape_panel(
             view_name=view_name,
             view_nodes=v_nodes,
@@ -746,11 +762,36 @@ def write_community_shapes(
             coords=coords,
             title_suffix=suffix,
         )
-        panels.append(f'<div class="panel" id="{anchor}">{panel_svg}</div>')
-        toc_items.append(
-            f'<li><a href="#{anchor}">{html.escape(view_name)}</a> '
-            f'<span style="color:#888;">({len(v_nodes)}/{len(nodes)} tables)</span></li>'
+        escaped = html.escape(view_name)
+        panels.append(
+            f'<div class="panel" data-view="{escaped}" id="{_anchor_id(view_name)}">'
+            f'{panel_svg}</div>'
         )
+        # Default selection: first view -> Left, second view -> Right.
+        # Single-view communities just default both to the same one.
+        # The JS hides everything except those two on initial load.
+        view_options.append(
+            f'<option value="{escaped}">{escaped}</option>'
+        )
+
+    options_html = "".join(view_options)
+
+    # Pre-select the first two views as the default compare pair by
+    # marking them with `selected` in the dropdowns. JS reads the
+    # values on load and hides the other panels.
+    default_a = sorted_view_names[0] if sorted_view_names else ""
+    default_b = (sorted_view_names[1] if len(sorted_view_names) > 1
+                  else default_a)
+    options_a = options_html.replace(
+        f'<option value="{html.escape(default_a)}">',
+        f'<option value="{html.escape(default_a)}" selected>',
+        1,
+    )
+    options_b = options_html.replace(
+        f'<option value="{html.escape(default_b)}">',
+        f'<option value="{html.escape(default_b)}" selected>',
+        1,
+    )
 
     title = (
         f"View shapes -- {community_label}" if community_label
@@ -758,14 +799,15 @@ def write_community_shapes(
     )
     meta = (
         f"{len(views)} view(s)  &middot;  {len(nodes)} substrate table(s)  "
-        f"&middot;  {len(edges)} substrate edge(s)"
+        f"&middot;  {len(edges)} substrate edge(s)  &middot;  "
+        f"Use the Left/Right dropdowns to pick a pair; "
+        f"<b>Show all</b> to scroll through all panels."
     )
     html_body = _HTML_TEMPLATE.format(
         title=html.escape(title),
         meta=meta,
-        n_views=len(sorted_view_names),
-        toc_items="".join(toc_items),
-        substrate_svg=substrate_svg,
+        view_options_a=options_a,
+        view_options_b=options_b,
         panels="\n".join(panels),
     )
 

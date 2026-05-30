@@ -7,45 +7,69 @@
   body { font-family: sans-serif; margin: 24px; color: #333; background: #fafafa; }
   h1 { font-size: 18px; margin: 0 0 6px; }
   p.meta { color: #666; font-size: 13px; margin: 0 0 18px; }
-  section { margin-bottom: 28px; }
+  section { margin-bottom: 24px; }
   section h2 { font-size: 14px; margin: 0 0 8px; color: #555; }
-  /* TOC: list of view-name anchors so a reader can jump straight to
-     a panel of interest. Useful when a community has 7+ views and the
-     grid is tall enough to require scrolling. */
-  .toc { background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
-          padding: 10px 14px; }
-  .toc ul { margin: 6px 0 0; padding-left: 18px; }
-  .toc li { margin: 2px 0; font-size: 13px; }
-  .toc a { color: #2c7fb8; text-decoration: none; }
-  .toc a:hover { text-decoration: underline; }
-  /* Panels render at their natural SVG pixel size -- no CSS width
-     override -- so each one is consistently readable regardless of
-     how many sit beside it. flex-wrap lets them share a row when
-     space permits and drop to the next row when it doesn't. */
-  .grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  /* Compare picker: two dropdowns + a Show-all toggle. Default state
+     hides everything except the first two views so the page opens
+     "ready to compare" rather than "wall of panels". */
+  .controls { background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
+               padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 16px;
+               align-items: center; }
+  .controls label { font-size: 13px; }
+  .controls select { font-family: sans-serif; font-size: 13px; padding: 3px 6px;
+                       min-width: 220px; max-width: 360px; }
+  .controls button { font-family: sans-serif; font-size: 13px; padding: 4px 10px;
+                       cursor: pointer; }
+  /* Each per-view panel sits inside .panel-grid as flex-wrapping. JS
+     toggles each panel's display based on the dropdown selection. */
+  .panel-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
   .panel { scroll-margin-top: 12px; }
-  .panel-header { display: none; }  /* title is inside the SVG */
+  .panel.hidden { display: none; }
 </style>
 </head>
 <body>
 <h1>View shapes -- Demo community (4 mock views)</h1>
-<p class="meta">4 view(s)  &middot;  4 substrate table(s)  &middot;  3 substrate edge(s)</p>
-<section class="toc">
-  <h2>Views in this community (4)</h2>
-  <ul><li><a href="#view-VW_A">VW_A</a> <span style="color:#888;">(2/4 tables)</span></li><li><a href="#view-VW_B">VW_B</a> <span style="color:#888;">(2/4 tables)</span></li><li><a href="#view-VW_C">VW_C</a> <span style="color:#888;">(3/4 tables)</span></li><li><a href="#view-VW_D">VW_D</a> <span style="color:#888;">(4/4 tables)</span></li></ul>
+<p class="meta">4 view(s)  &middot;  4 substrate table(s)  &middot;  3 substrate edge(s)  &middot;  Use the Left/Right dropdowns to pick a pair; <b>Show all</b> to scroll through all panels.</p>
+<section class="controls">
+  <label>Left:&nbsp;<select id="cmp-a"><option value="VW_A" selected>VW_A</option><option value="VW_B">VW_B</option><option value="VW_C">VW_C</option><option value="VW_D">VW_D</option></select></label>
+  <label>Right:&nbsp;<select id="cmp-b"><option value="VW_A">VW_A</option><option value="VW_B" selected>VW_B</option><option value="VW_C">VW_C</option><option value="VW_D">VW_D</option></select></label>
+  <button id="cmp-all" type="button">Show all</button>
+  <button id="cmp-pair" type="button">Show selected pair</button>
 </section>
 <section>
-  <h2>Shared substrate (union of all views' tables and joins)</h2>
-  <div class="grid"><svg width="530" height="248" viewBox="0 0 530 248" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="265" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">Demo community (4 mock views)</text><path d="M386,74 L236,74" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M86,74 L236,74" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M86,74 L236,154" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="386" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="386" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">CLARITY_DEP</text></g><g><title>PATIENT</title><circle cx="86" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="86" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="236" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="236" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="236" cy="154" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="236" y="188" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">ZC_PATIENT_STATUS</text></g></svg></div>
-</section>
-<section>
-  <h2>Per-view panels (lit = used by this view, faded = unused)</h2>
-  <div class="grid">
-<div class="panel" id="view-VW_A"><svg width="530" height="248" viewBox="0 0 530 248" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="265" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_A  (2/4 tables)</text><path d="M386,74 L236,74" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M86,74 L236,154" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M86,74 L236,74" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="386" cy="74" r="16" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="386" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">CLARITY_DEP</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="236" cy="154" r="16" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="236" y="188" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g><g><title>PATIENT</title><circle cx="86" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="86" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="236" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="236" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g></svg></div>
-<div class="panel" id="view-VW_B"><svg width="530" height="248" viewBox="0 0 530 248" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="265" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_B  (2/4 tables)</text><path d="M386,74 L236,74" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M86,74 L236,154" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M86,74 L236,74" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="386" cy="74" r="16" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="386" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">CLARITY_DEP</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="236" cy="154" r="16" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="236" y="188" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g><g><title>PATIENT</title><circle cx="86" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="86" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="236" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="236" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g></svg></div>
-<div class="panel" id="view-VW_C"><svg width="530" height="248" viewBox="0 0 530 248" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="265" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_C  (3/4 tables)</text><path d="M86,74 L236,154" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M386,74 L236,74" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M86,74 L236,74" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>ZC_PATIENT_STATUS</title><circle cx="236" cy="154" r="16" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="236" y="188" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g><g><title>CLARITY_DEP</title><circle cx="386" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="386" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">CLARITY_DEP</text></g><g><title>PATIENT</title><circle cx="86" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="86" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="236" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="236" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g></svg></div>
-<div class="panel" id="view-VW_D"><svg width="530" height="248" viewBox="0 0 530 248" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="265" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_D  (4/4 tables)</text><path d="M386,74 L236,74" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M86,74 L236,74" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M86,74 L236,154" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="386" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="386" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">CLARITY_DEP</text></g><g><title>PATIENT</title><circle cx="86" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="86" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="236" cy="74" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="236" y="108" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="236" cy="154" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="236" y="188" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">ZC_PATIENT_STATUS</text></g></svg></div>
+  <div class="panel-grid">
+<div class="panel" data-view="VW_A" id="view-VW_A"><svg width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_A  (2/4 tables)</text><path d="M283,61 L178,61" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,125" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">CLARITY_DEP</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g><g><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g></svg></div>
+<div class="panel" data-view="VW_B" id="view-VW_B"><svg width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_B  (2/4 tables)</text><path d="M283,61 L178,61" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,125" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">CLARITY_DEP</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g><g><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g></svg></div>
+<div class="panel" data-view="VW_C" id="view-VW_C"><svg width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_C  (3/4 tables)</text><path d="M73,61 L178,125" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M283,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M73,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g><g><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">CLARITY_DEP</text></g><g><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g></svg></div>
+<div class="panel" data-view="VW_D" id="view-VW_D"><svg width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_D  (4/4 tables)</text><path d="M283,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M73,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M73,61 L178,125" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">CLARITY_DEP</text></g><g><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">ZC_PATIENT_STATUS</text></g></svg></div>
   </div>
 </section>
+<script>
+(function() {
+  // Pick exactly two panels to display (the L/R dropdown values);
+  // everything else is hidden via the .hidden class.
+  function showPair() {
+    var a = document.getElementById('cmp-a').value;
+    var b = document.getElementById('cmp-b').value;
+    document.querySelectorAll('[data-view]').forEach(function(el) {
+      var v = el.getAttribute('data-view');
+      el.classList.toggle('hidden', v !== a && v !== b);
+    });
+  }
+  // Drop the .hidden class everywhere -- the scroll-through view.
+  function showAll() {
+    document.querySelectorAll('[data-view]').forEach(function(el) {
+      el.classList.remove('hidden');
+    });
+  }
+  document.getElementById('cmp-a').addEventListener('change', showPair);
+  document.getElementById('cmp-b').addEventListener('change', showPair);
+  document.getElementById('cmp-all').addEventListener('click', showAll);
+  document.getElementById('cmp-pair').addEventListener('click', showPair);
+  // Initial state: show only the first two views (the default
+  // dropdown values). Single-view communities just show the one.
+  showPair();
+})();
+</script>
 </body>
 </html>

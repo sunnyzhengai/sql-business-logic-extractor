@@ -404,15 +404,25 @@ class TestSVGRendering(unittest.TestCase):
             )
             self.assertTrue(written.exists())
             content = written.read_text(encoding="utf-8")
-            # Header + meta + substrate section + grid of N panels.
             self.assertIn("Community 5", content)
             for view_name in ("VW_A", "VW_B", "VW_C", "VW_D"):
                 self.assertIn(view_name, content)
-            # Substrate panel + 4 view panels + 0 (each panel is one
-            # <svg> element). Substrate-section anchor distinguishes
-            # the reference panel from the per-view grid.
-            self.assertIn("Shared substrate", content)
-            self.assertEqual(content.count("<svg "), 5)
+            # v2: substrate panel was removed (every per-view panel
+            # already shows the substrate as the faded background).
+            # 4 view panels = 4 <svg> elements.
+            self.assertEqual(content.count("<svg "), 4)
+            # v2: compare-picker controls are present.
+            self.assertIn('id="cmp-a"', content)
+            self.assertIn('id="cmp-b"', content)
+            self.assertIn('id="cmp-all"', content)
+            # Each panel carries its data-view attribute so the JS
+            # toggle can target it by view name.
+            for view_name in ("VW_A", "VW_B", "VW_C", "VW_D"):
+                self.assertIn(f'data-view="{view_name}"', content)
+            # First two views (alphabetic = VW_A, VW_B) are selected
+            # by default so the page opens in compare mode.
+            self.assertIn('value="VW_A" selected', content)
+            self.assertIn('value="VW_B" selected', content)
 
 
 if __name__ == "__main__":

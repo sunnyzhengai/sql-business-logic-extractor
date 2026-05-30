@@ -50,6 +50,9 @@ Output artifacts (in `output_dir`):
   - communities/community_NN_<top>.html        per-community focused HTMLs
   - communities/index.html                     linking page for the above
   - communities.md                             per-community steward-readable markdown
+  - modeling_specs/community_NN_<top>.md       per-community modeling brief
+  - community_matrices/community_NN_<top>_matrix.md   3-matrix feature view
+  - community_shapes/community_NN_<top>_shapes.html   side-by-side per-view join graphs
   - validation_report.md                       PASS / INCONCLUSIVE / REVIEW NEEDED verdict
 
 Historical note
@@ -142,6 +145,7 @@ from tools.p50_present.community_matrix import (
     build_view_data,
     write_community_matrix,
 )
+from tools.p50_present.view_shape import write_community_shapes
 
 
 def write_validation_report(
@@ -526,11 +530,46 @@ def run_validation(
         )
         matrix_paths.append(matrix_path)
 
+    # Phase 5: per-community view-shape graphs. One self-contained HTML
+    # per community with a CSS grid of N panels, one per primary view,
+    # all sharing the same hierarchical layout so a steward can scan
+    # left-to-right and see exactly which tables/joins each view
+    # adds or drops vs. the others.
+    #
+    # Parallel structure to the matrix loop above: same naming
+    # convention (community_NN_<top_table>_shapes.html), iterates the
+    # same `analyses`, filters to the same `primary_views`. Built from
+    # the FULL ViewV1 dicts (not the matrix-renderer's flattened
+    # view_data) because the shape extractor needs to walk scopes,
+    # joins, and base_columns lineage to flatten CTE wrappers.
+    shapes_dir = output_dir / "community_shapes"
+    shapes_dir.mkdir(parents=True, exist_ok=True)
+    view_by_name = {v.get("view_name"): v for v in views if v.get("view_name")}
+    shape_paths: list[str] = []
+    for community_index, analysis in enumerate(analyses):
+        top_label = (analysis["top_tables"][0][0]
+                     if analysis["top_tables"]
+                     else f"community_{community_index}")
+        safe = _safe_filename(top_label)
+        fname = f"community_{community_index:02d}_{safe}_shapes.html"
+        primary_views = sorted(community_to_primary.get(community_index, set()))
+        community_views = [view_by_name[vn] for vn in primary_views
+                            if vn in view_by_name]
+        if not community_views:
+            continue
+        shape_path = write_community_shapes(
+            community_views,
+            output_path=shapes_dir / fname,
+            community_label=f"Community {community_index:02d} -- {top_label}",
+        )
+        shape_paths.append(str(shape_path))
+
     print(f"      graph.html (overview)     -> {overview_html}")
     print(f"      communities/index.html    -> {index_html}")
     print(f"      communities.md            -> {communities_md}")
     print(f"      modeling_specs/           -> {specs_dir} ({len(spec_paths)} spec(s))")
     print(f"      community_matrices/       -> {matrices_dir} ({len(matrix_paths)} matrix(es))")
+    print(f"      community_shapes/         -> {shapes_dir} ({len(shape_paths)} shape(s))")
     print(f"      validation_report.md      -> {report_md}")
 
     return {
@@ -539,6 +578,7 @@ def run_validation(
         "communities_md": communities_md,
         "modeling_specs": spec_paths,
         "community_matrices": matrix_paths,
+        "community_shapes": shape_paths,
         "validation_report": report_md,
         "n_views_total": len(all_views),
         "n_views_business": len(views),

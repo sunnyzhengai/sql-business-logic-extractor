@@ -130,6 +130,10 @@ class TestEndToEndOrchestration(unittest.TestCase):
             # The communities/ dir should contain at least one per-community HTML.
             community_htmls = list((output_dir / "communities").glob("community_*.html"))
             self.assertGreater(len(community_htmls), 0)
+            # Phase 5: per-community shape HTMLs (side-by-side join graphs).
+            shape_htmls = list((output_dir / "community_shapes").glob("community_*_shapes.html"))
+            self.assertGreater(len(shape_htmls), 0)
+            self.assertEqual(len(result["community_shapes"]), len(shape_htmls))
             # Sanity-check the report content.
             report = Path(result["validation_report"]).read_text(encoding="utf-8")
             self.assertIn("Verdict", report)

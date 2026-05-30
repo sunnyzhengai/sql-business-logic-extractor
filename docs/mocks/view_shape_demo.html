@@ -2,16 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>View shapes -- Demo community (4 mock views)</title>
+<title>View shapes -- Demo community (v4 unfolding model)</title>
 <style>
   body { font-family: sans-serif; margin: 24px; color: #333; background: #fafafa; }
   h1 { font-size: 18px; margin: 0 0 6px; }
   p.meta { color: #666; font-size: 13px; margin: 0 0 18px; }
   section { margin-bottom: 24px; }
   section h2 { font-size: 14px; margin: 0 0 8px; color: #555; }
-  /* Compare picker: two dropdowns + three mode buttons. Default
-     mode is "selected pair" (side-by-side) with the first two
-     views chosen alphabetically. */
   .controls { background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
                padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 16px;
                align-items: center; }
@@ -21,215 +18,68 @@
   .controls button { font-family: sans-serif; font-size: 13px; padding: 4px 10px;
                        cursor: pointer; }
   .controls button.active { background: #2c7fb8; color: #fff; border-color: #1a5d8a; }
-  /* Color legend appears below the controls only when overlay mode
-     is active -- explains the tri-color encoding to a first-time
-     reader. */
-  .legend { display: none; padding: 6px 14px; background: #fff;
-             border: 1px solid #e0e0e0; border-radius: 4px; margin-top: 8px;
-             font-size: 12px; color: #555; }
-  .legend.active { display: flex; gap: 18px; align-items: center; }
-  .legend .swatch { display: inline-block; width: 14px; height: 14px;
-                     vertical-align: middle; margin-right: 6px; border-radius: 3px; }
-  /* Per-view panel grid + overlay container. Each mode hides the
-     other via display:none. */
   .panel-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
   .panel { scroll-margin-top: 12px; }
   .panel.hidden { display: none; }
-  #overlay-section { display: none; }
-  #overlay-section.active { display: block; }
-  #pair-section.hidden { display: none; }
 </style>
 </head>
 <body>
-<h1>View shapes -- Demo community (4 mock views)</h1>
-<p class="meta">4 view(s)  &middot;  4 substrate table(s)  &middot;  3 substrate edge(s)  &middot;  Use the Left/Right dropdowns to pick a pair; <b>Show all</b> to scroll through all panels.</p>
+<h1>View shapes -- Demo community (v4 unfolding model)</h1>
+<p class="meta">4 view(s)  &middot;  11 total occurrence node(s)  &middot;  Each table occurrence is its own node; CTEs and subqueries appear as their own clusters.</p>
 <section class="controls">
-  <label>Left:&nbsp;<select id="cmp-a"><option value="VW_A" selected>VW_A</option><option value="VW_B">VW_B</option><option value="VW_C">VW_C</option><option value="VW_D">VW_D</option></select></label>
-  <label>Right:&nbsp;<select id="cmp-b"><option value="VW_A">VW_A</option><option value="VW_B" selected>VW_B</option><option value="VW_C">VW_C</option><option value="VW_D">VW_D</option></select></label>
+  <label>Left:&nbsp;<select id="cmp-a"><option value="VW_A" selected>VW_A</option><option value="VW_CTE">VW_CTE</option><option value="VW_JSUB">VW_JSUB</option><option value="VW_SELF">VW_SELF</option></select></label>
+  <label>Right:&nbsp;<select id="cmp-b"><option value="VW_A">VW_A</option><option value="VW_CTE" selected>VW_CTE</option><option value="VW_JSUB">VW_JSUB</option><option value="VW_SELF">VW_SELF</option></select></label>
   <button id="cmp-pair" type="button" class="active">Show selected pair</button>
-  <button id="cmp-overlay" type="button">Overlay pair</button>
   <button id="cmp-all" type="button">Show all</button>
 </section>
-<div id="legend" class="legend">
-  <span><span class="swatch" style="background:#2c7fb8;"></span>In both views</span>
-  <span><span class="swatch" style="background:#16a085;"></span>Left only</span>
-  <span><span class="swatch" style="background:#e67e22;"></span>Right only</span>
-  <span><span class="swatch" style="background:#dcdcdc;"></span>Neither (substrate)</span>
-</div>
-<section id="pair-section">
+<section>
   <div class="panel-grid">
-<div class="panel" data-view="VW_A" id="view-VW_A"><svg width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_A  (2/4 tables)</text><path d="M283,61 L178,61" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,125" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">CLARITY_DEP</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g><g><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g></svg></div>
-<div class="panel" data-view="VW_B" id="view-VW_B"><svg width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_B  (2/4 tables)</text><path d="M283,61 L178,61" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,125" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M73,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">CLARITY_DEP</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g><g><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g></svg></div>
-<div class="panel" data-view="VW_C" id="view-VW_C"><svg width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_C  (3/4 tables)</text><path d="M73,61 L178,125" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="4,4" fill="none" /><path d="M283,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M73,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#f0f0f0" stroke="#bdbdbd" stroke-width="1.5" stroke-dasharray="3,3" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g><g><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">CLARITY_DEP</text></g><g><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g></svg></div>
-<div class="panel" data-view="VW_D" id="view-VW_D"><svg width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_D  (4/4 tables)</text><path d="M283,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M73,61 L178,61" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><path d="M73,61 L178,125" stroke="#2c7fb8" stroke-width="2.4" fill="none" /><g><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">CLARITY_DEP</text></g><g><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g><g><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">ZC_PATIENT_STATUS</text></g></svg></div>
+<div class="panel" data-view="VW_A" id="view-VW_A"><svg width="344" height="184" viewBox="0 0 344 184" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="172" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_A  (2 nodes, 1 scope(s))</text><rect x="30" y="48" width="284" height="116" fill="#f7fafc" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="5,3" rx="6" ry="6" /><text x="40" y="64" font-family="sans-serif" font-size="11" font-weight="bold" fill="#4a5568">main</text><path d="M62,98 L192,98" stroke="#5a5a5a" stroke-width="2" fill="none" /><g><title>PAT_ENC -- role=from -- scope=main</title><circle cx="62" cy="98" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="62" y="130" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g><g><title>PATIENT alias=P -- role=join -- scope=main</title><circle cx="192" cy="98" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="192" y="130" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT (P)</text></g></svg></div>
+<div class="panel" data-view="VW_CTE" id="view-VW_CTE"><svg width="344" height="350" viewBox="0 0 344 350" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="172" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_CTE  (4 nodes, 2 scope(s))</text><rect x="30" y="48" width="284" height="116" fill="#f7fafc" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="5,3" rx="6" ry="6" /><text x="40" y="64" font-family="sans-serif" font-size="11" font-weight="bold" fill="#4a5568">main</text><rect x="30" y="214" width="284" height="116" fill="#f7fafc" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="5,3" rx="6" ry="6" /><text x="40" y="230" font-family="sans-serif" font-size="11" font-weight="bold" fill="#4a5568">CTE: EncDept</text><path d="M62,98 L62,264" stroke="#999" stroke-width="1.4" stroke-dasharray="6,3" fill="none" /><path d="M62,98 L192,98" stroke="#5a5a5a" stroke-width="2" fill="none" /><path d="M62,264 L192,264" stroke="#5a5a5a" stroke-width="2" fill="none" /><g><title>PATIENT -- role=from -- scope=main</title><circle cx="62" cy="98" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="62" y="130" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PATIENT alias=P -- role=join -- scope=main</title><circle cx="192" cy="98" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="192" y="130" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT (P)</text></g><g><title>PAT_ENC -- role=from -- scope=cte:EncDept</title><circle cx="62" cy="264" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="62" y="296" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g><g><title>CLARITY_DEP alias=D -- role=join -- scope=cte:EncDept</title><circle cx="192" cy="264" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="192" y="296" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">CLARITY_DEP (D)</text></g></svg></div>
+<div class="panel" data-view="VW_JSUB" id="view-VW_JSUB"><svg width="344" height="350" viewBox="0 0 344 350" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="172" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_JSUB  (3 nodes, 2 scope(s))</text><rect x="30" y="48" width="154" height="116" fill="#f7fafc" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="5,3" rx="6" ry="6" /><text x="40" y="64" font-family="sans-serif" font-size="11" font-weight="bold" fill="#4a5568">main</text><rect x="30" y="214" width="284" height="116" fill="#f7fafc" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="5,3" rx="6" ry="6" /><text x="40" y="230" font-family="sans-serif" font-size="11" font-weight="bold" fill="#4a5568">JOIN subquery: sub</text><path d="M62,98 L62,264" stroke="#999" stroke-width="1.4" stroke-dasharray="6,3" fill="none" /><path d="M62,264 L192,264" stroke="#5a5a5a" stroke-width="2" fill="none" /><g><title>PATIENT -- role=from -- scope=main</title><circle cx="62" cy="98" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="62" y="130" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PATIENT</text></g><g><title>PAT_ENC -- role=from -- scope=join:sub</title><circle cx="62" cy="264" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="62" y="296" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g><g><title>CLARITY_DEP alias=d -- role=join -- scope=join:sub</title><circle cx="192" cy="264" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="192" y="296" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">CLARITY_DEP (d)</text></g></svg></div>
+<div class="panel" data-view="VW_SELF" id="view-VW_SELF"><svg width="344" height="184" viewBox="0 0 344 184" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="172" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">VW_SELF  (2 nodes, 1 scope(s))</text><rect x="30" y="48" width="284" height="116" fill="#f7fafc" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="5,3" rx="6" ry="6" /><text x="40" y="64" font-family="sans-serif" font-size="11" font-weight="bold" fill="#4a5568">main</text><path d="M62,98 L192,98" stroke="#5a5a5a" stroke-width="2" fill="none" /><g><title>PAT_ENC -- role=from -- scope=main</title><circle cx="62" cy="98" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="62" y="130" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC</text></g><g><title>PAT_ENC alias=B -- role=join -- scope=main</title><circle cx="192" cy="98" r="16" fill="#2c7fb8" stroke="#1a5d8a" stroke-width="1.5" /><text x="192" y="130" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1a1a1a">PAT_ENC (B)</text></g></svg></div>
   </div>
 </section>
-<section id="overlay-section">
-  <svg id="overlay-svg" width="375" height="200" viewBox="0 0 375 200" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text id="overlay-title" x="187" y="18" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">Overlay (pick a pair)</text><path data-edge="CLARITY_DEP||PAT_ENC" d="M283,61 L178,61" stroke="#dcdcdc" stroke-width="2" stroke-dasharray="4,4" fill="none" /><path data-edge="PATIENT||PAT_ENC" d="M73,61 L178,61" stroke="#dcdcdc" stroke-width="2" stroke-dasharray="4,4" fill="none" /><path data-edge="PATIENT||ZC_PATIENT_STATUS" d="M73,61 L178,125" stroke="#dcdcdc" stroke-width="2" stroke-dasharray="4,4" fill="none" /><g data-node="CLARITY_DEP"><title>CLARITY_DEP</title><circle cx="283" cy="61" r="13" fill="#dcdcdc" stroke="#dcdcdc" stroke-width="1.5" /><text x="283" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#9e9e9e">CLARITY_DEP</text></g><g data-node="PATIENT"><title>PATIENT</title><circle cx="73" cy="61" r="13" fill="#dcdcdc" stroke="#dcdcdc" stroke-width="1.5" /><text x="73" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#9e9e9e">PATIENT</text></g><g data-node="PAT_ENC"><title>PAT_ENC</title><circle cx="178" cy="61" r="13" fill="#dcdcdc" stroke="#dcdcdc" stroke-width="1.5" /><text x="178" y="88" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#9e9e9e">PAT_ENC</text></g><g data-node="ZC_PATIENT_STATUS"><title>ZC_PATIENT_STATUS</title><circle cx="178" cy="125" r="13" fill="#dcdcdc" stroke="#dcdcdc" stroke-width="1.5" /><text x="178" y="152" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#9e9e9e">ZC_PATIENT_STATUS</text></g></svg>
-</section>
-<script id="shape-data" type="application/json">{"VW_A":{"nodes":["PATIENT","PAT_ENC"],"edges":["PATIENT||PAT_ENC"]},"VW_B":{"nodes":["PATIENT","PAT_ENC"],"edges":["PATIENT||PAT_ENC"]},"VW_C":{"nodes":["CLARITY_DEP","PATIENT","PAT_ENC"],"edges":["CLARITY_DEP||PAT_ENC","PATIENT||PAT_ENC"]},"VW_D":{"nodes":["CLARITY_DEP","PATIENT","PAT_ENC","ZC_PATIENT_STATUS"],"edges":["CLARITY_DEP||PAT_ENC","PATIENT||PAT_ENC","PATIENT||ZC_PATIENT_STATUS"]}}</script>
 <script>
 (function() {
-  // Per-view membership data, embedded as JSON so the overlay
-  // recolor logic can look up which view contains which nodes/edges
-  // without a round-trip.
-  var SHAPE = JSON.parse(document.getElementById('shape-data').textContent);
-  var COLORS = {
-    both: '#2c7fb8',
-    onlyA: '#16a085',
-    onlyB: '#e67e22',
-    neither: '#dcdcdc',
-  };
-
-  // Mode = 'pair' | 'overlay' | 'all'. Drives which section is
-  // visible and how the dropdown handlers behave.
-  var mode = 'pair';
-
   function setActive(buttonId) {
-    ['cmp-pair', 'cmp-overlay', 'cmp-all'].forEach(function(id) {
+    ['cmp-pair', 'cmp-all'].forEach(function(id) {
       document.getElementById(id).classList.toggle('active', id === buttonId);
     });
   }
 
+  // Two panels visible; left dropdown choice -> order 1, right -> order 2,
+  // so the on-screen layout matches the dropdown labels regardless of
+  // alphabetic DOM order.
   function showPair() {
     var a = document.getElementById('cmp-a').value;
     var b = document.getElementById('cmp-b').value;
-    // Place the LEFT dropdown's choice in flex order=1 and the RIGHT
-    // dropdown's choice in order=2 so the on-screen layout matches the
-    // labels. Without this, panels would render in alphabetic DOM
-    // order regardless of which side the user picked them on -- e.g.
-    // picking VW_C as Left and VW_B as Right would still show VW_B
-    // on the left of the screen.
     document.querySelectorAll('[data-view]').forEach(function(el) {
       var v = el.getAttribute('data-view');
       if (v === a) {
-        el.classList.remove('hidden');
-        el.style.order = '1';
+        el.classList.remove('hidden'); el.style.order = '1';
       } else if (v === b) {
-        el.classList.remove('hidden');
-        el.style.order = '2';
+        el.classList.remove('hidden'); el.style.order = '2';
       } else {
-        el.classList.add('hidden');
-        el.style.order = '';
+        el.classList.add('hidden'); el.style.order = '';
       }
     });
-    document.getElementById('pair-section').classList.remove('hidden');
-    document.getElementById('overlay-section').classList.remove('active');
-    document.getElementById('legend').classList.remove('active');
     setActive('cmp-pair');
-    mode = 'pair';
   }
 
   function showAll() {
-    // Reset any per-panel order so the scroll-through view reverts to
-    // the original alphabetic DOM order.
     document.querySelectorAll('[data-view]').forEach(function(el) {
-      el.classList.remove('hidden');
-      el.style.order = '';
+      el.classList.remove('hidden'); el.style.order = '';
     });
-    document.getElementById('pair-section').classList.remove('hidden');
-    document.getElementById('overlay-section').classList.remove('active');
-    document.getElementById('legend').classList.remove('active');
     setActive('cmp-all');
-    mode = 'all';
   }
 
-  function showOverlay() {
-    renderOverlay();
-    document.getElementById('pair-section').classList.add('hidden');
-    document.getElementById('overlay-section').classList.add('active');
-    document.getElementById('legend').classList.add('active');
-    setActive('cmp-overlay');
-    mode = 'overlay';
-  }
-
-  // Recolor every overlay-svg element based on the currently-
-  // selected pair. Cheap -- runs in microseconds even for the
-  // largest community we have so far.
-  function renderOverlay() {
-    var nameA = document.getElementById('cmp-a').value;
-    var nameB = document.getElementById('cmp-b').value;
-    var A = SHAPE[nameA] || {nodes: [], edges: []};
-    var B = SHAPE[nameB] || {nodes: [], edges: []};
-    var nodesA = new Set(A.nodes);
-    var nodesB = new Set(B.nodes);
-    var edgesA = new Set(A.edges);
-    var edgesB = new Set(B.edges);
-
-    var title = document.getElementById('overlay-title');
-    if (title) {
-      title.textContent = nameA + '  vs.  ' + nameB;
-    }
-
-    document.querySelectorAll('#overlay-svg [data-node]').forEach(function(g) {
-      var name = g.getAttribute('data-node');
-      var inA = nodesA.has(name);
-      var inB = nodesB.has(name);
-      var color, labelColor, weight;
-      if (inA && inB) {
-        color = COLORS.both;
-        labelColor = '#1a1a1a';
-        weight = 'bold';
-      } else if (inA) {
-        color = COLORS.onlyA;
-        labelColor = '#1a1a1a';
-        weight = 'bold';
-      } else if (inB) {
-        color = COLORS.onlyB;
-        labelColor = '#1a1a1a';
-        weight = 'bold';
-      } else {
-        color = COLORS.neither;
-        labelColor = '#9e9e9e';
-        weight = 'normal';
-      }
-      var circle = g.querySelector('circle');
-      var text = g.querySelector('text');
-      if (circle) {
-        circle.setAttribute('fill', color);
-        circle.setAttribute('stroke', color);
-      }
-      if (text) {
-        text.setAttribute('fill', labelColor);
-        text.setAttribute('font-weight', weight);
-      }
-    });
-
-    document.querySelectorAll('#overlay-svg [data-edge]').forEach(function(path) {
-      var key = path.getAttribute('data-edge');
-      var inA = edgesA.has(key);
-      var inB = edgesB.has(key);
-      var color, width, dash;
-      if (inA && inB) {
-        color = COLORS.both; width = '2.4'; dash = '';
-      } else if (inA) {
-        color = COLORS.onlyA; width = '2.4'; dash = '';
-      } else if (inB) {
-        color = COLORS.onlyB; width = '2.4'; dash = '';
-      } else {
-        color = COLORS.neither; width = '1.2'; dash = '4,4';
-      }
-      path.setAttribute('stroke', color);
-      path.setAttribute('stroke-width', width);
-      path.setAttribute('stroke-dasharray', dash);
-    });
-  }
-
-  // Wire up the dropdowns to all three modes.
-  function onPickChange() {
-    if (mode === 'overlay') renderOverlay();
-    else if (mode === 'pair') showPair();
-    // 'all' mode is independent of the pair -- no change needed.
-  }
-
-  document.getElementById('cmp-a').addEventListener('change', onPickChange);
-  document.getElementById('cmp-b').addEventListener('change', onPickChange);
+  document.getElementById('cmp-a').addEventListener('change', showPair);
+  document.getElementById('cmp-b').addEventListener('change', showPair);
   document.getElementById('cmp-pair').addEventListener('click', showPair);
-  document.getElementById('cmp-overlay').addEventListener('click', showOverlay);
   document.getElementById('cmp-all').addEventListener('click', showAll);
 
-  // Initial render: pair mode with the default dropdown selection.
-  showPair();
+  showPair();  // Initial render: pair mode.
 })();
 </script>
 </body>

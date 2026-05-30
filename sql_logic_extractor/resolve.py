@@ -596,8 +596,17 @@ class LineageResolver:
         derived_alias_to_id: dict[str, str] = {}
         for sq in logic.get("subqueries", []) or []:
             alias = sq.get("alias")
-            if alias and (sq.get("context") in ("from", None) or False):
+            ctx = sq.get("context") or ""
+            if not alias:
+                continue
+            if ctx in ("from", "", None):
                 derived_alias_to_id[alias.lower()] = f"derived:{alias}"
+            elif ctx == "join":
+                # JOIN-clause subqueries (post bug-1 fix in extract.py).
+                # Map alias -> alias-based scope id so the join-resolution
+                # block below routes through scope refs rather than
+                # treating the alias as a table name.
+                derived_alias_to_id[alias.lower()] = f"join:{alias}"
 
         # --- reads_from_tables / reads_from_scopes ---
         lateral_count = 0
@@ -693,7 +702,8 @@ class LineageResolver:
             if cte_name and cte_logic:
                 self._emit_scope_recursive(cte_logic, f"cte:{cte_name}", "cte", emit, known_ctes)
 
-        # Subqueries: WHERE-EXISTS, IN, scalar, derived. Synthesize IDs.
+        # Subqueries: WHERE-EXISTS, IN, scalar, derived (FROM-clause),
+        # join (JOIN-clause). Synthesize IDs.
         ctx_counters: dict[str, int] = {}
         for sq in logic.get("subqueries", []) or []:
             ctx = sq.get("context") or "subquery"
@@ -702,6 +712,12 @@ class LineageResolver:
             if alias and ctx in ("from", None):
                 sub_id = f"derived:{alias}"
                 sub_kind = "derived"
+            elif alias and ctx == "join":
+                # JOIN-subqueries also use alias-based ids so the
+                # parent scope's right_alias resolves cleanly (the
+                # derived_alias_to_id map above stays in lockstep).
+                sub_id = f"join:{alias}"
+                sub_kind = "join"
             else:
                 idx = ctx_counters.get(ctx, 0)
                 ctx_counters[ctx] = idx + 1

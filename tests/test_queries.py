@@ -502,6 +502,44 @@ class TestLevel7_Subquery:
         # Should find the derived table as a source
         assert any(s["type"] == "subquery" for s in r.get("sources", []))
 
+    def test_23b_join_clause_subquery_descended(self):
+        """JOIN-clause subquery (`JOIN (SELECT ... FROM A JOIN B ON ...)
+        sub ON ...`) must descend the same way as FROM-clause subqueries
+        do. Otherwise the inner tables (A, B) and their join structure
+        get lost -- which makes the shape graph show them as orphans
+        with no edges to anything.
+        """
+        sql = """
+        SELECT p.PAT_NAME, sub.recent_visit
+        FROM PATIENT p
+        INNER JOIN (
+            SELECT e.PAT_ID, MAX(e.CONTACT_DATE) AS recent_visit
+            FROM PAT_ENC e
+            INNER JOIN CLARITY_DEP d ON e.DEPARTMENT_ID = d.DEPARTMENT_ID
+            WHERE d.SPECIALTY = 'Cardiology'
+            GROUP BY e.PAT_ID
+        ) sub ON p.PAT_ID = sub.PAT_ID
+        """
+        r = extract(sql)
+        # The inner subquery must appear as a recorded subquery so the
+        # resolver can emit it as its own scope. context='join' is the
+        # signal that it came from a JOIN clause specifically.
+        join_subqs = [s for s in r.get("subqueries") or []
+                      if s.get("context") == "join"]
+        assert len(join_subqs) == 1, (
+            f"expected exactly 1 join-context subquery, "
+            f"got {len(join_subqs)}: {[s.get('context') for s in r.get('subqueries') or []]}"
+        )
+        inner = join_subqs[0]["logic"]
+        # The inner extraction must capture both base tables.
+        inner_tables = {s["name"] for s in (inner.get("sources") or [])}
+        assert "PAT_ENC" in inner_tables
+        assert "CLARITY_DEP" in inner_tables
+        # And the inner join must be captured.
+        inner_joins = inner.get("joins") or []
+        assert len(inner_joins) == 1
+        assert inner_joins[0]["right_table"] == "CLARITY_DEP"
+
 
 # ============================================================
 # LEVEL 8: Set operations
@@ -688,10 +726,17 @@ class TestLevel9_Complex:
         assert t["collection_rate_pct"] == "case"
         assert t["los_category"] == "case"
         assert len(r["joins"]) >= 5
-        # Derived table in JOIN -- may appear as subquery source or as a join with subquery content
+        # Derived table in JOIN -- after the JOIN-subquery-descent fix
+        # (commit fixing bug 1), the subquery is recorded as a JOIN-
+        # context entry in `subqueries` and the parent join's
+        # right_table is the alias (not the embedded SELECT). Accept
+        # either the pre-fix shape OR the post-fix shape.
         has_subquery_source = any(s["type"] == "subquery" for s in r.get("sources", []))
+        has_join_subquery = any(
+            s.get("context") == "join" for s in r.get("subqueries", []) or []
+        )
         has_subquery_join = any("SELECT" in j.get("right_table", "") for j in r.get("joins", []))
-        assert has_subquery_source or has_subquery_join
+        assert has_subquery_source or has_join_subquery or has_subquery_join
 
     def test_28_medication_timing(self):
         """Window + CTE + CASE -- medication administration timing analysis."""

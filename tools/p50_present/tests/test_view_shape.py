@@ -1,41 +1,41 @@
-"""Tests for tools.p50_present.view_shape.
+"""Tests for tools.p50_present.view_shape (v4 -- query-unfolding model).
 
-Covers the four mock views from the design conversation:
+The v3 deduped-substrate model is tagged `view_shape_v3` and the
+tests for that model are preserved at that tag. This file tests the
+v4 model where:
 
-  A - flat: PAT_ENC + PATIENT
-  B - CTE wraps a filter: same shape as A (CTE is invisible)
-  C - CTE pre-joins CLARITY_DEP: adds one edge over A/B
-  D - flat: extends C with ZC_PATIENT_STATUS
-
-Key correctness invariants:
-  - A and B produce identical extended trees (CTE wrapping irrelevant)
-  - C extends A/B with one additional edge (PAT_ENC -- CLARITY_DEP)
-  - D extends C with one additional edge (PATIENT -- ZC_PATIENT_STATUS)
-  - Substrate union covers all 4 distinct tables and 3 distinct edges
-  - Hierarchical layout is deterministic across runs
-  - SVG output marks the right nodes / edges as lit vs faded
+  - Each SQL occurrence of a table is its own ShapeNode (self-joins
+    produce two nodes; same table in CTE + main produces two nodes).
+  - CTEs and subqueries appear as separate ShapeScopes (clusters).
+  - Edges respect SQL join order; cross-scope edges connect a
+    consumer node to the referenced scope's driver_node.
 """
 
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
 from tools.p50_present.view_shape import (
-    community_substrate,
-    hierarchical_layout,
+    ShapeEdge,
+    ShapeNode,
+    ShapeScope,
+    ViewShape,
+    build_view_shape,
+    layout_shape,
     render_view_shape_panel,
-    view_extended_tree,
     write_community_shapes,
-    _pick_root,
+    _resolve_cross_scope_edges,
 )
 
 
 # ---------------------------------------------------------------------------
-# Mock corpus dicts -- ViewV1 shape minus the fields shape doesn't use.
+# Mock corpus dicts (ViewV1 shape, only the fields the shape model uses)
 # ---------------------------------------------------------------------------
 
 def _make_view_a() -> dict:
-    """Flat: SELECT ... FROM PAT_ENC PE JOIN PATIENT P ON ..."""
+    """Flat two-table join."""
     return {
         "view_name": "VW_A",
         "view_outputs": ["main"],
@@ -44,131 +44,106 @@ def _make_view_a() -> dict:
                 "id": "main", "kind": "main",
                 "reads_from_tables": ["PAT_ENC", "PATIENT"],
                 "reads_from_scopes": [],
-                "joins": [
-                    {"right_table": "PATIENT", "join_type": "INNER JOIN",
-                     "on_expression": "PE.PAT_ID = P.PAT_ID"},
-                ],
+                "joins": [{
+                    "right_table": "PATIENT", "right_alias": "P",
+                    "join_type": "INNER JOIN",
+                    "on_expression": "PE.PAT_ID = P.PAT_ID",
+                    "columns": [],
+                }],
                 "columns": [],
             },
         ],
     }
 
 
-def _make_view_b() -> dict:
-    """CTE wraps a filter; shape is equivalent to A.
-
-    WITH ActiveEnc AS (SELECT ... FROM PAT_ENC WHERE STATUS_C = 2)
-    SELECT ... FROM ActiveEnc AE JOIN PATIENT P ON AE.PAT_ID = P.PAT_ID
-    """
+def _make_view_self_join() -> dict:
+    """Self-join: PAT_ENC A JOIN PAT_ENC B -- v4 must produce TWO
+    PAT_ENC nodes (one per alias), unlike v3 which deduped."""
     return {
-        "view_name": "VW_B",
+        "view_name": "VW_SELF",
         "view_outputs": ["main"],
         "scopes": [
             {
                 "id": "main", "kind": "main",
-                "reads_from_tables": ["PATIENT"],
-                "reads_from_scopes": ["cte:ActiveEnc"],
-                "joins": [
-                    # Join from main to the CTE (right_table is the bare
-                    # CTE name, no `cte:` prefix -- corpus convention).
-                    {"right_table": "PATIENT", "join_type": "INNER JOIN",
-                     "on_expression": "AE.PAT_ID = P.PAT_ID"},
-                ],
-                "columns": [],
-            },
-            {
-                "id": "cte:ActiveEnc", "kind": "cte",
                 "reads_from_tables": ["PAT_ENC"],
                 "reads_from_scopes": [],
-                "joins": [],
+                "joins": [{
+                    "right_table": "PAT_ENC", "right_alias": "B",
+                    "join_type": "INNER JOIN",
+                    "on_expression": "A.PAT_ID = B.PARENT_PAT_ID",
+                    "columns": [],
+                }],
                 "columns": [],
             },
         ],
     }
 
 
-def _make_view_c() -> dict:
-    """CTE pre-joins PAT_ENC + CLARITY_DEP; main joins PATIENT.
-
-    WITH EncDept AS (SELECT ... FROM PAT_ENC PE JOIN CLARITY_DEP D ON ...)
-    SELECT ... FROM EncDept ED JOIN PATIENT P ON ED.PAT_ID = P.PAT_ID
-    """
+def _make_view_cte() -> dict:
+    """CTE wrapping a join, consumed from main."""
     return {
-        "view_name": "VW_C",
+        "view_name": "VW_CTE",
         "view_outputs": ["main"],
         "scopes": [
             {
                 "id": "main", "kind": "main",
                 "reads_from_tables": ["PATIENT"],
                 "reads_from_scopes": ["cte:EncDept"],
-                "joins": [
-                    {"right_table": "PATIENT", "join_type": "INNER JOIN",
-                     "on_expression": "ED.PAT_ID = P.PAT_ID"},
-                ],
+                "joins": [{
+                    "right_table": "PATIENT", "right_alias": "P",
+                    "join_type": "INNER JOIN",
+                    "on_expression": "ED.PAT_ID = P.PAT_ID",
+                    "columns": [],
+                }],
                 "columns": [],
             },
             {
                 "id": "cte:EncDept", "kind": "cte",
                 "reads_from_tables": ["PAT_ENC", "CLARITY_DEP"],
                 "reads_from_scopes": [],
-                "joins": [
-                    {"right_table": "CLARITY_DEP", "join_type": "INNER JOIN",
-                     "on_expression": "PE.DEPARTMENT_ID = D.DEPARTMENT_ID"},
-                ],
+                "joins": [{
+                    "right_table": "CLARITY_DEP", "right_alias": "D",
+                    "join_type": "INNER JOIN",
+                    "on_expression": "PE.DEPARTMENT_ID = D.DEPARTMENT_ID",
+                    "columns": [],
+                }],
                 "columns": [],
             },
         ],
     }
 
 
-def _make_view_d() -> dict:
-    """Flat extension of C: adds ZC_PATIENT_STATUS as a lookup.
-
-    SELECT ... FROM PAT_ENC PE
-    JOIN CLARITY_DEP D ON ...
-    JOIN PATIENT P ON ...
-    LEFT JOIN ZC_PATIENT_STATUS ZC ON P.STATUS_C = ZC.PAT_STATUS_C
-    """
+def _make_view_join_subquery() -> dict:
+    """JOIN-clause subquery -- the bug 1 case. After the extract.py +
+    resolve.py fixes: the join's right_table is the subquery's alias
+    ('sub'), reads_from_scopes lists 'join:sub' (alias-based id), and
+    the subquery scope itself has id 'join:sub' with kind 'join'."""
     return {
-        "view_name": "VW_D",
+        "view_name": "VW_JSUB",
         "view_outputs": ["main"],
         "scopes": [
             {
                 "id": "main", "kind": "main",
-                "reads_from_tables": ["PAT_ENC", "CLARITY_DEP", "PATIENT",
-                                       "ZC_PATIENT_STATUS"],
+                "reads_from_tables": ["PATIENT"],
+                "reads_from_scopes": ["join:sub"],
+                "joins": [{
+                    "right_table": "sub", "right_alias": "sub",
+                    "join_type": "INNER JOIN",
+                    "on_expression": "p.PAT_ID = sub.PAT_ID",
+                    "columns": [],
+                }],
+                "columns": [],
+            },
+            {
+                "id": "join:sub", "kind": "join",
+                "reads_from_tables": ["PAT_ENC", "CLARITY_DEP"],
                 "reads_from_scopes": [],
-                "joins": [
-                    {"right_table": "CLARITY_DEP", "join_type": "INNER JOIN",
-                     "on_expression": "PE.DEPARTMENT_ID = D.DEPARTMENT_ID",
-                     "columns": [
-                         {"column": "DEPARTMENT_ID", "table": "PAT_ENC",
-                          "table_alias": "PE"},
-                         {"column": "DEPARTMENT_ID", "table": "CLARITY_DEP",
-                          "table_alias": "D"},
-                     ]},
-                    {"right_table": "PATIENT", "join_type": "INNER JOIN",
-                     "on_expression": "PE.PAT_ID = P.PAT_ID",
-                     "columns": [
-                         {"column": "PAT_ID", "table": "PAT_ENC",
-                          "table_alias": "PE"},
-                         {"column": "PAT_ID", "table": "PATIENT",
-                          "table_alias": "P"},
-                     ]},
-                    # Third join chains off PATIENT, not the scope's
-                    # FROM-clause driver -- this is the case that
-                    # exposes the "always use scope driver" bug.
-                    {"right_table": "ZC_PATIENT_STATUS",
-                     "join_type": "LEFT JOIN",
-                     "on_expression": "P.STATUS_C = ZC.PAT_STATUS_C",
-                     "columns": [
-                         {"column": "STATUS_C", "table": "PATIENT",
-                          "table_alias": "P"},
-                         {"column": "PAT_STATUS_C",
-                          "table": "ZC_PATIENT_STATUS",
-                          "table_alias": "ZC"},
-                     ]},
-                ],
+                "joins": [{
+                    "right_table": "CLARITY_DEP", "right_alias": "d",
+                    "join_type": "INNER JOIN",
+                    "on_expression": "e.DEPARTMENT_ID = d.DEPARTMENT_ID",
+                    "columns": [],
+                }],
                 "columns": [],
             },
         ],
@@ -176,463 +151,190 @@ def _make_view_d() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Per-view extended-tree tests
+# build_view_shape: occurrence-as-node semantics
 # ---------------------------------------------------------------------------
 
-class TestViewExtendedTree(unittest.TestCase):
+class TestBuildViewShape(unittest.TestCase):
 
-    def test_view_a_simple_two_table_join(self):
-        nodes, edges = view_extended_tree(_make_view_a())
-        self.assertEqual(nodes, {"PAT_ENC", "PATIENT"})
-        # Edges canonicalize via Python sort: '_' (ASCII 95) comes after
-        # letters, so 'PATIENT' < 'PAT_ENC' and the tuple is in that order.
-        self.assertEqual(edges, {("PATIENT", "PAT_ENC")})
+    def test_two_table_join_produces_two_nodes_one_edge(self):
+        shape = build_view_shape(_make_view_a())
+        self.assertEqual(len(shape.scopes), 1)
+        main = shape.scopes[0]
+        self.assertEqual(main.id, "main")
+        # Two occurrence nodes: PAT_ENC (from), PATIENT (join).
+        self.assertEqual([n.table for n in main.nodes], ["PAT_ENC", "PATIENT"])
+        self.assertEqual([n.role for n in main.nodes], ["from", "join"])
+        # One join edge.
+        self.assertEqual(len(main.edges), 1)
+        e = main.edges[0]
+        self.assertEqual(e.source_id, main.nodes[0].id)
+        self.assertEqual(e.target_id, main.nodes[1].id)
+        self.assertEqual(e.join_type, "INNER JOIN")
 
-    def test_view_b_cte_wrapping_is_invisible(self):
-        """B has a CTE that just filters PAT_ENC. The shape should
-        match A exactly -- this is the WHOLE POINT of the extended-
-        tree concept (semantically equivalent SQL -> identical shape).
-        """
-        nodes_a, edges_a = view_extended_tree(_make_view_a())
-        nodes_b, edges_b = view_extended_tree(_make_view_b())
-        self.assertEqual(nodes_a, nodes_b)
-        self.assertEqual(edges_a, edges_b)
+    def test_self_join_produces_two_distinct_nodes_same_table(self):
+        """Self-joins are the canonical v4-vs-v3 difference."""
+        shape = build_view_shape(_make_view_self_join())
+        main = shape.scopes[0]
+        # Two nodes, both PAT_ENC, but distinct IDs and one carries
+        # the SQL alias ('B').
+        self.assertEqual(len(main.nodes), 2)
+        self.assertEqual({n.table for n in main.nodes}, {"PAT_ENC"})
+        self.assertNotEqual(main.nodes[0].id, main.nodes[1].id)
+        self.assertEqual(main.nodes[1].alias, "B")
+        # And one edge connecting them -- in v3 this got dropped as a
+        # degenerate self-loop; in v4 it's a real edge between two
+        # distinct occurrence nodes.
+        self.assertEqual(len(main.edges), 1)
 
-    def test_view_c_cte_pre_join_extends_into_main_tree(self):
-        """C's CTE adds CLARITY_DEP and its join inside the CTE. The
-        extended tree should reflect both edges, and the CTE-result's
-        consumption by main should connect to PATIENT via PAT_ENC."""
-        nodes, edges = view_extended_tree(_make_view_c())
-        self.assertEqual(
-            nodes, {"PAT_ENC", "PATIENT", "CLARITY_DEP"},
+    def test_cte_appears_as_its_own_scope_with_cross_edge(self):
+        shape = build_view_shape(_make_view_cte())
+        # main + cte:EncDept = 2 scopes.
+        self.assertEqual(len(shape.scopes), 2)
+        scope_ids = {s.id for s in shape.scopes}
+        self.assertEqual(scope_ids, {"main", "cte:EncDept"})
+        # main has PATIENT as FROM-driver and PATIENT-as-JOIN... wait,
+        # actually main's reads_from_tables=[PATIENT] (FROM) and the
+        # JOIN's right_table is also PATIENT? Let me re-check mock:
+        # the mock has FROM combined C JOIN PATIENT P, so the
+        # corpus's main reads_from_tables=[PATIENT] (the JOIN target,
+        # since `combined` goes to reads_from_scopes). So we get one
+        # main node (PATIENT, role='from') and the JOIN to PATIENT
+        # creates a second PATIENT node. That's mock-design quirky
+        # but the v4 model is correct: each SQL appearance is a node.
+        main = shape.scope_by_id("main")
+        cte = shape.scope_by_id("cte:EncDept")
+        self.assertIsNotNone(main)
+        self.assertIsNotNone(cte)
+        # CTE has two nodes: PAT_ENC (from), CLARITY_DEP (join).
+        self.assertEqual([n.table for n in cte.nodes],
+                          ["PAT_ENC", "CLARITY_DEP"])
+        # Cross-scope edge: main has a reads_from_scopes ref to the
+        # CTE, so we expect at least one cross-scope edge whose
+        # target resolves to the CTE's driver.
+        resolved = _resolve_cross_scope_edges(shape)
+        self.assertTrue(
+            any(e.kind == "cross_scope"
+                and e.target_id == cte.driver_node_id
+                for e in resolved),
+            f"no cross-scope edge to CTE driver in {resolved}"
         )
-        self.assertEqual(
-            edges,
-            {
-                ("PATIENT", "PAT_ENC"),        # main -> CTE_driver(PAT_ENC)
-                ("CLARITY_DEP", "PAT_ENC"),    # CTE's internal join
-            },
+
+    def test_join_subquery_renders_as_separate_scope(self):
+        shape = build_view_shape(_make_view_join_subquery())
+        scope_ids = {s.id for s in shape.scopes}
+        self.assertEqual(scope_ids, {"main", "join:sub"})
+        jsub = shape.scope_by_id("join:sub")
+        self.assertEqual([n.table for n in jsub.nodes],
+                          ["PAT_ENC", "CLARITY_DEP"])
+        # Cross-scope edge exists from main to the join-subquery's
+        # driver.
+        resolved = _resolve_cross_scope_edges(shape)
+        self.assertTrue(
+            any(e.kind == "cross_scope"
+                and e.target_id == jsub.driver_node_id
+                for e in resolved)
         )
-
-    def test_view_d_extends_c_with_one_lookup(self):
-        nodes, edges = view_extended_tree(_make_view_d())
-        self.assertEqual(
-            nodes,
-            {"PAT_ENC", "PATIENT", "CLARITY_DEP", "ZC_PATIENT_STATUS"},
-        )
-        self.assertEqual(
-            edges,
-            {
-                ("CLARITY_DEP", "PAT_ENC"),
-                ("PATIENT", "PAT_ENC"),
-                ("PATIENT", "ZC_PATIENT_STATUS"),
-            },
-        )
-
-    def test_c_subset_of_d(self):
-        """The variance/coverage story: D contains all of C's edges
-        plus one new lookup edge."""
-        _, edges_c = view_extended_tree(_make_view_c())
-        _, edges_d = view_extended_tree(_make_view_d())
-        self.assertTrue(edges_c.issubset(edges_d))
-        self.assertEqual(edges_d - edges_c,
-                          {("PATIENT", "ZC_PATIENT_STATUS")})
-
-    def test_self_join_emits_no_edge(self):
-        """Self-joins on the same base table produce a self-loop,
-        which the renderer skips (no visible variance signal)."""
-        view = {
-            "view_name": "VW_SELF",
-            "view_outputs": ["main"],
-            "scopes": [{
-                "id": "main", "kind": "main",
-                "reads_from_tables": ["PAT_ENC"],
-                "reads_from_scopes": [],
-                "joins": [{"right_table": "PAT_ENC", "join_type": "INNER JOIN",
-                            "on_expression": "A.PAT_ID = B.PARENT_PAT_ID",
-                            "right_alias": "B"}],
-                "columns": [],
-            }],
-        }
-        nodes, edges = view_extended_tree(view)
-        self.assertEqual(nodes, {"PAT_ENC"})
-        self.assertEqual(edges, set())
-
-    def test_union_cte_both_branches_connect_outward(self):
-        """Regression: a CTE whose body is a UNION of single-table
-        SELECTs gets its branches' tables merged into the CTE's own
-        reads_from_tables (per extract.py commit fc904a6). The CTE has
-        no internal joins, so a join from main to the CTE used to emit
-        only ONE edge -- to the FIRST base table. The second branch's
-        table landed as an orphan node.
-
-        Fix: fan out the cross-scope edge to ALL the CTE's base
-        tables when the CTE has no internal joins.
-
-            WITH combined AS (SELECT PAT_ID FROM PAT_ENC
-                              UNION
-                              SELECT PAT_ID FROM PAT_ENC_HSP)
-            SELECT C.PAT_ID, P.NAME
-            FROM combined C
-            JOIN PATIENT P ON C.PAT_ID = P.PAT_ID
-        """
-        view = {
-            "view_name": "VW_UNION_CTE",
-            "view_outputs": ["main"],
-            "scopes": [
-                {
-                    "id": "main", "kind": "main",
-                    "reads_from_tables": ["PATIENT"],
-                    "reads_from_scopes": ["cte:combined"],
-                    "joins": [{
-                        "right_table": "PATIENT",
-                        "join_type": "INNER JOIN",
-                        "on_expression": "C.PAT_ID = P.PAT_ID",
-                        "columns": [
-                            # The C.PAT_ID ref is on the CTE side --
-                            # alias_to_real doesn't include CTE aliases,
-                            # so the resolver leaves table empty.
-                            {"column": "PAT_ID", "table": "",
-                             "table_alias": "C"},
-                            {"column": "PAT_ID", "table": "PATIENT",
-                             "table_alias": "P"},
-                        ],
-                    }],
-                    "columns": [],
-                },
-                {
-                    "id": "cte:combined", "kind": "cte",
-                    # Both branches' tables merged into the CTE's
-                    # reads_from_tables (fc904a6). Internal joins
-                    # stay empty (each UNION branch was a single-
-                    # table SELECT with no joins).
-                    "reads_from_tables": ["PAT_ENC", "PAT_ENC_HSP"],
-                    "reads_from_scopes": [],
-                    "joins": [],
-                    "columns": [],
-                },
-            ],
-        }
-        nodes, edges = view_extended_tree(view)
-        self.assertEqual(nodes, {"PAT_ENC", "PAT_ENC_HSP", "PATIENT"})
-        # Both branches must connect outward to PATIENT, not just the
-        # first one. Edges canonicalize via Python sort.
-        self.assertIn(("PATIENT", "PAT_ENC"), edges)
-        self.assertIn(("PATIENT", "PAT_ENC_HSP"), edges)
-
-    def test_non_union_cte_does_not_overfanout(self):
-        """A normal CTE (one with its own internal joins) must NOT
-        fan out. Its non-driver base tables are reachable via the
-        CTE's internal join edges; emitting extra cross-scope edges
-        would over-connect the graph and misrepresent the join shape.
-        """
-        view = {
-            "view_name": "VW_NORMAL_CTE",
-            "view_outputs": ["main"],
-            "scopes": [
-                {
-                    "id": "main", "kind": "main",
-                    "reads_from_tables": ["ZC_STATUS"],
-                    "reads_from_scopes": ["cte:enc_pat"],
-                    "joins": [{
-                        "right_table": "ZC_STATUS",
-                        "join_type": "INNER JOIN",
-                        "on_expression": "E.STATUS_C = Z.STATUS_C",
-                        "columns": [
-                            {"column": "STATUS_C", "table": "",
-                             "table_alias": "E"},
-                            {"column": "STATUS_C", "table": "ZC_STATUS",
-                             "table_alias": "Z"},
-                        ],
-                    }],
-                    "columns": [],
-                },
-                {
-                    "id": "cte:enc_pat", "kind": "cte",
-                    "reads_from_tables": ["PAT_ENC", "PATIENT"],
-                    "reads_from_scopes": [],
-                    "joins": [{
-                        "right_table": "PATIENT",
-                        "join_type": "INNER JOIN",
-                        "on_expression": "PE.PAT_ID = P.PAT_ID",
-                        "columns": [
-                            {"column": "PAT_ID", "table": "PAT_ENC",
-                             "table_alias": "PE"},
-                            {"column": "PAT_ID", "table": "PATIENT",
-                             "table_alias": "P"},
-                        ],
-                    }],
-                    "columns": [],
-                },
-            ],
-        }
-        nodes, edges = view_extended_tree(view)
-        self.assertEqual(nodes,
-                          {"PAT_ENC", "PATIENT", "ZC_STATUS"})
-        # CTE's internal join is preserved.
-        self.assertIn(("PATIENT", "PAT_ENC"), edges)
-        # Main joins to CTE via the driver only -- PATIENT (the other
-        # base table) is reachable through the internal edge above,
-        # so we do NOT also emit (PATIENT, ZC_STATUS).
-        self.assertIn(("PAT_ENC", "ZC_STATUS"), edges)
-        self.assertNotIn(("PATIENT", "ZC_STATUS"), edges)
-        # Exactly two edges total (no over-connection).
-        self.assertEqual(len(edges), 2)
-
-    def test_sql_fragments_in_reads_from_tables_get_filtered(self):
-        """The extractor occasionally captures filter predicates
-        ('HSP_ACCOUNT_ID IS NULL WHERE 1 = 1') or other SQL fragments
-        as 'tables' in reads_from_tables. The shape renderer must
-        reject these the same way the matrix renderer does, otherwise
-        the shape graph surfaces ghost nodes with predicate text as
-        their label.
-        """
-        view = {
-            "view_name": "VW_LEAKY",
-            "view_outputs": ["main"],
-            "scopes": [{
-                "id": "main", "kind": "main",
-                # Mix of real tables and parser garbage.
-                "reads_from_tables": [
-                    "PAT_ENC",
-                    "HSP_ACCOUNT_ID IS NULL WHERE 1 = 1",  # filter leak
-                    "PATIENT",
-                    "1 = 1",                                # tautology leak
-                    "DAY_OF_MONTH = 1) AS DD",              # CTE-fragment leak
-                ],
-                "reads_from_scopes": [],
-                "joins": [{
-                    "right_table": "PATIENT",
-                    "join_type": "INNER JOIN",
-                    "on_expression": "PE.PAT_ID = P.PAT_ID",
-                    "columns": [
-                        {"column": "PAT_ID", "table": "PAT_ENC",
-                         "table_alias": "PE"},
-                        {"column": "PAT_ID", "table": "PATIENT",
-                         "table_alias": "P"},
-                    ],
-                }],
-                "columns": [],
-            }],
-        }
-        nodes, edges = view_extended_tree(view)
-        # Only the real tables survive. The three garbage strings get
-        # filtered out at _bare_table.
-        self.assertEqual(nodes, {"PAT_ENC", "PATIENT"})
-        # The real join still produces its edge.
-        self.assertEqual(edges, {("PATIENT", "PAT_ENC")})
-
-    def test_exists_subquery_scope_skipped(self):
-        """EXISTS/IN subqueries reference tables but are filter
-        dependencies, not join data flow -- excluded from the shape."""
-        view = {
-            "view_name": "VW_EXISTS",
-            "view_outputs": ["main"],
-            "scopes": [
-                {
-                    "id": "main", "kind": "main",
-                    "reads_from_tables": ["PAT_ENC"],
-                    "reads_from_scopes": ["exists:0"],
-                    "joins": [],
-                    "columns": [],
-                },
-                {
-                    "id": "exists:0", "kind": "exists",
-                    "reads_from_tables": ["PHARMACY"],
-                    "reads_from_scopes": [],
-                    "joins": [],
-                    "columns": [],
-                },
-            ],
-        }
-        nodes, _ = view_extended_tree(view)
-        # PHARMACY (from the EXISTS subquery) must NOT appear; only
-        # the main scope's base tables count.
-        self.assertEqual(nodes, {"PAT_ENC"})
 
 
 # ---------------------------------------------------------------------------
-# Community substrate tests
+# Layout: deterministic across runs, scope clusters don't overlap
 # ---------------------------------------------------------------------------
 
-class TestCommunitySubstrate(unittest.TestCase):
+class TestLayout(unittest.TestCase):
 
-    def test_substrate_unions_nodes_and_edges_across_views(self):
-        views = [_make_view_a(), _make_view_b(), _make_view_c(), _make_view_d()]
-        nodes, edges, per_view = community_substrate(views)
-        self.assertEqual(
-            nodes,
-            {"PAT_ENC", "PATIENT", "CLARITY_DEP", "ZC_PATIENT_STATUS"},
-        )
-        self.assertEqual(
-            edges,
-            {
-                ("PATIENT", "PAT_ENC"),
-                ("CLARITY_DEP", "PAT_ENC"),
-                ("PATIENT", "ZC_PATIENT_STATUS"),
-            },
-        )
-        # per_view round-trips: each view's set is correctly indexed.
-        self.assertEqual(per_view["VW_A"][1], {("PATIENT", "PAT_ENC")})
-        self.assertEqual(per_view["VW_A"], per_view["VW_B"])
-
-
-# ---------------------------------------------------------------------------
-# Layout tests
-# ---------------------------------------------------------------------------
-
-class TestHierarchicalLayout(unittest.TestCase):
-
-    def test_root_is_most_connected_table(self):
-        """In the four-view substrate, PAT_ENC and PATIENT both have
-        degree 2. Alphabetic tie-break uses Python string sort
-        (underscores after letters), so PATIENT < PAT_ENC."""
-        nodes = {"PAT_ENC", "PATIENT", "CLARITY_DEP", "ZC_PATIENT_STATUS"}
-        edges = {
-            ("PATIENT", "PAT_ENC"),
-            ("CLARITY_DEP", "PAT_ENC"),
-            ("PATIENT", "ZC_PATIENT_STATUS"),
-        }
-        self.assertEqual(_pick_root(nodes, edges), "PATIENT")
-
-    def test_layout_is_deterministic_across_runs(self):
-        """Same input -> identical coordinate map. Critical because
-        the substrate layout is computed once and reused across panels;
-        any nondeterminism makes panels misalign across reruns."""
-        nodes = {"PAT_ENC", "PATIENT", "CLARITY_DEP", "ZC_PATIENT_STATUS"}
-        edges = {
-            ("PATIENT", "PAT_ENC"),
-            ("CLARITY_DEP", "PAT_ENC"),
-            ("PATIENT", "ZC_PATIENT_STATUS"),
-        }
-        coords_a = hierarchical_layout(nodes, edges)
-        coords_b = hierarchical_layout(nodes, edges)
+    def test_layout_is_deterministic(self):
+        shape = build_view_shape(_make_view_cte())
+        coords_a, boxes_a, w_a, h_a = layout_shape(shape)
+        coords_b, boxes_b, w_b, h_b = layout_shape(shape)
         self.assertEqual(coords_a, coords_b)
+        self.assertEqual(boxes_a, boxes_b)
+        self.assertEqual((w_a, h_a), (w_b, h_b))
 
-    def test_root_at_column_zero(self):
-        nodes = {"PAT_ENC", "PATIENT", "CLARITY_DEP", "ZC_PATIENT_STATUS"}
-        edges = {
-            ("PATIENT", "PAT_ENC"),
-            ("CLARITY_DEP", "PAT_ENC"),
-            ("PATIENT", "ZC_PATIENT_STATUS"),
-        }
-        coords = hierarchical_layout(nodes, edges, root="PAT_ENC")
-        self.assertEqual(coords["PAT_ENC"][0], 0)
-        # Direct neighbors land at column 1.
-        self.assertEqual(coords["PATIENT"][0], 1)
-        self.assertEqual(coords["CLARITY_DEP"][0], 1)
-        # Two hops away.
-        self.assertEqual(coords["ZC_PATIENT_STATUS"][0], 2)
+    def test_scope_clusters_dont_vertically_overlap(self):
+        shape = build_view_shape(_make_view_cte())
+        _, boxes, _, _ = layout_shape(shape)
+        # Sort scope boxes top-to-bottom; each one's bottom must be
+        # <= the next one's top (or equal at exactly the seam).
+        sorted_boxes = sorted(boxes.values(), key=lambda b: b[1])
+        for i in range(len(sorted_boxes) - 1):
+            x1, y1, w1, h1 = sorted_boxes[i]
+            x2, y2, w2, h2 = sorted_boxes[i + 1]
+            self.assertLessEqual(y1 + h1, y2,
+                                  "scope clusters overlap vertically")
 
 
 # ---------------------------------------------------------------------------
-# SVG / HTML rendering tests
+# SVG renderer
 # ---------------------------------------------------------------------------
 
 class TestSVGRendering(unittest.TestCase):
 
-    def test_panel_marks_lit_and_faded_correctly(self):
-        """For view A inside the four-view substrate, PAT_ENC + PATIENT
-        should be drawn lit (colored fill), and CLARITY_DEP +
-        ZC_PATIENT_STATUS should be drawn faded (faded fill, dashed
-        stroke)."""
-        views = [_make_view_a(), _make_view_b(), _make_view_c(), _make_view_d()]
-        nodes, edges, per_view = community_substrate(views)
-        coords = hierarchical_layout(nodes, edges)
-        v_nodes, v_edges = per_view["VW_A"]
-        svg = render_view_shape_panel(
-            view_name="VW_A",
-            view_nodes=v_nodes, view_edges=v_edges,
-            substrate_nodes=nodes, substrate_edges=edges,
-            coords=coords,
-        )
-        # Sanity: the SVG mentions every substrate node by name.
-        for table in nodes:
-            self.assertIn(table, svg)
-        # Lit fill appears (used by lit nodes); faded fill appears
-        # (used by faded nodes).
-        self.assertIn("#2c7fb8", svg)   # lit fill
-        self.assertIn("#f0f0f0", svg)   # faded fill
-        # Dashed stroke marker is present (faded nodes use it).
-        self.assertIn("stroke-dasharray", svg)
+    def test_panel_includes_each_occurrence_node_label(self):
+        shape = build_view_shape(_make_view_self_join())
+        svg = render_view_shape_panel(shape)
+        # Both PAT_ENC occurrences should appear (one as plain, one
+        # with the (B) alias suffix).
+        self.assertIn("PAT_ENC", svg)
+        self.assertIn("(B)", svg)
 
-    def test_write_community_shapes_creates_html(self):
-        import tempfile
-        from pathlib import Path
+    def test_panel_renders_cluster_label_for_cte(self):
+        shape = build_view_shape(_make_view_cte())
+        svg = render_view_shape_panel(shape)
+        # Cluster label appears in plain text.
+        self.assertIn("CTE: EncDept", svg)
+        self.assertIn("main", svg)
 
-        views = [_make_view_a(), _make_view_b(), _make_view_c(), _make_view_d()]
+    def test_join_type_label_omitted_for_inner_join(self):
+        """INNER / plain JOIN doesn't get a label drawn (saves
+        visual noise); other types do."""
+        shape = build_view_shape(_make_view_a())
+        svg = render_view_shape_panel(shape)
+        # 'INNER JOIN' text should NOT appear as an edge label.
+        # (It still appears inside the <title> tooltip metadata,
+        # but not as a standalone SVG text label.)
+        # Strip <title> tags and check.
+        import re
+        no_titles = re.sub(r"<title>[^<]*</title>", "", svg)
+        self.assertNotIn(">INNER JOIN<", no_titles)
+
+
+# ---------------------------------------------------------------------------
+# HTML wrapper
+# ---------------------------------------------------------------------------
+
+class TestWriteHTML(unittest.TestCase):
+
+    def test_write_community_shapes_emits_expected_structure(self):
+        views = [
+            _make_view_a(),
+            _make_view_self_join(),
+            _make_view_cte(),
+            _make_view_join_subquery(),
+        ]
         with tempfile.TemporaryDirectory() as td:
-            out = Path(td) / "community_05_PAT_ENC_shapes.html"
+            out = Path(td) / "community_demo_shapes.html"
             written = write_community_shapes(
-                views, out, community_label="Community 5",
+                views, out, community_label="Demo community",
             )
             self.assertTrue(written.exists())
             content = written.read_text(encoding="utf-8")
-            self.assertIn("Community 5", content)
-            for view_name in ("VW_A", "VW_B", "VW_C", "VW_D"):
-                self.assertIn(view_name, content)
-            # v3: 4 per-view panels + 1 overlay skeleton = 5 <svg>.
-            self.assertEqual(content.count("<svg "), 5)
-            # Compare-picker controls (all three modes).
+            # All four views appear by name.
+            for name in ("VW_A", "VW_SELF", "VW_CTE", "VW_JSUB"):
+                self.assertIn(name, content)
+                self.assertIn(f'data-view="{name}"', content)
+            # Compare picker present, overlay button NOT present (v4
+            # dropped overlay mode).
             self.assertIn('id="cmp-a"', content)
             self.assertIn('id="cmp-b"', content)
             self.assertIn('id="cmp-pair"', content)
-            self.assertIn('id="cmp-overlay"', content)
             self.assertIn('id="cmp-all"', content)
-            # Each per-view panel carries data-view so the JS
-            # toggle can target it by view name.
-            for view_name in ("VW_A", "VW_B", "VW_C", "VW_D"):
-                self.assertIn(f'data-view="{view_name}"', content)
-            # First two views (alphabetic = VW_A, VW_B) are selected
-            # by default so the page opens in pair mode comparing them.
+            self.assertNotIn('id="cmp-overlay"', content)
+            # First two views (alphabetic = VW_A, VW_CTE) get the
+            # default selection.
             self.assertIn('value="VW_A" selected', content)
-            self.assertIn('value="VW_B" selected', content)
-            # Overlay skeleton has the addressable id and data-* hooks.
-            self.assertIn('id="overlay-svg"', content)
-            # Per-view shape data is embedded as JSON for the overlay
-            # recolor logic.
-            self.assertIn('id="shape-data"', content)
-            # Color legend (visible only when overlay mode is active).
-            self.assertIn('id="legend"', content)
-
-
-# ---------------------------------------------------------------------------
-# Overlay-mode tests
-# ---------------------------------------------------------------------------
-
-class TestOverlaySkeleton(unittest.TestCase):
-
-    def test_overlay_has_data_node_and_data_edge_per_substrate_element(self):
-        """The overlay SVG draws every substrate node and edge as a
-        recolor-target. The JS finds them via [data-node] / [data-edge]
-        selectors, so missing attributes would break overlay mode
-        silently."""
-        from tools.p50_present.view_shape import render_overlay_skeleton_svg
-
-        views = [_make_view_a(), _make_view_b(), _make_view_c(), _make_view_d()]
-        nodes, edges, _ = community_substrate(views)
-        coords = hierarchical_layout(nodes, edges)
-        svg = render_overlay_skeleton_svg(nodes, edges, coords)
-        for table in nodes:
-            self.assertIn(f'data-node="{table}"', svg)
-        for (a, b) in edges:
-            self.assertIn(f'data-edge="{a}||{b}"', svg)
-        # Title bar is the slot the JS rewrites to show the pair.
-        self.assertIn('id="overlay-title"', svg)
-
-    def test_overlay_initial_color_is_neither(self):
-        """Skeleton starts painted as 'neither' (faded grey); JS
-        recolors on first render. This is just defensive -- if JS
-        fails to load, the user sees a sensible greyed-out shape
-        rather than a coloured but stale one."""
-        from tools.p50_present.view_shape import render_overlay_skeleton_svg
-
-        nodes = {"PAT_ENC", "PATIENT"}
-        edges = {("PATIENT", "PAT_ENC")}
-        coords = hierarchical_layout(nodes, edges)
-        svg = render_overlay_skeleton_svg(nodes, edges, coords)
-        # The 'neither' grey appears on both circles and the edge.
-        self.assertIn('#dcdcdc', svg)
+            self.assertIn('value="VW_CTE" selected', content)
+            # 4 SVG panels (no separate overlay skeleton in v4).
+            self.assertEqual(content.count("<svg "), 4)
 
 
 if __name__ == "__main__":

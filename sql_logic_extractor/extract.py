@@ -522,8 +522,14 @@ class SQLBusinessLogicExtractor:
                 right_name = right.name
                 right_alias = right.alias if right.alias != right.name else None
             elif isinstance(right, exp.Subquery):
-                right_name = _sql(right.this, dialect=self.dialect)
+                # Use the SQL author's alias as the right_table
+                # identifier so downstream code sees a clean scope
+                # reference, not a multi-line SQL body. The subquery
+                # body itself is captured separately via
+                # `_decompose_any` below as its own scope; the
+                # right_table field is just the join's reference name.
                 right_alias = right.alias
+                right_name = right_alias or "?subquery"
             else:
                 right_name = _sql(right, dialect=self.dialect)
 
@@ -537,6 +543,18 @@ class SQLBusinessLogicExtractor:
             ))
             if on_expr:
                 logic.filters.append(Filter(expression=on_sql, scope="join", columns=cols))
+
+            # If the right side is a derived subquery (`JOIN (SELECT ...
+            # FROM A JOIN B ON ...) sub ON ...`), recurse into its body
+            # so the inner sources / joins / filters end up captured as
+            # their own scope rather than being lost. FROM-clause
+            # derived tables, WHERE EXISTS, IN, and scalar subqueries
+            # all go through `_decompose_any` -- JOIN-clause subqueries
+            # were the one entry point that didn't, which produced
+            # orphaned tables in the shape graph (their internal joins
+            # never made it into the corpus).
+            if isinstance(right, exp.Subquery):
+                self._decompose_any(right, "join", logic)
 
     def _extract_outputs(self, select, logic: QueryLogic):
         for expr in select.expressions:

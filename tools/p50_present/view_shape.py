@@ -1,89 +1,69 @@
-"""Per-view structural shape rendering (the "side-by-side compare" artifact).
+"""Per-view structural shape rendering (v4 -- query-unfolding model).
 
-Goal: help a Fabric modeler eyeball the variance/coverage across the
-views inside one community. Each view is reduced to its "extended
-tree" -- the set of base tables it touches plus the join edges between
-them -- with CTE / derived subquery wrappers flattened away, so two
-views that express the same relational shape with different SQL
-patterns (one inline, one CTE-wrapped) end up with identical trees.
+Replaces the v3 deduped-flatten model. Goals from Yang's review of v3:
 
-For each community we then compute the UNION of all primary views'
-extended trees: that is the "shared substrate" -- all tables and all
-joins anyone in the community touches. We lay out the substrate ONCE
-with a deterministic hierarchical algorithm (left-to-right BFS from
-the most-connected table), then render N panels -- one per view --
-each re-using the exact same node positions. In each panel, the
-view's own subset is LIT (solid stroke, full color, bold label) and
-the complement is FADED (light grey, dashed, low opacity).
+  1. Each SQL occurrence of a table is its OWN node. Self-joins
+     produce two distinct nodes; using PAT_ENC inside a CTE AND in
+     main produces two nodes (one per usage site).
+  2. CTEs and subqueries appear as nested clusters with their own
+     bounding box and label, not flattened into the base-table
+     graph. The structure is the artifact.
+  3. Layout reads like the SQL unfolds: start at the FROM-clause
+     table on the left, JOIN'd tables fan to the right in join
+     order, sub-queries / CTEs hang below as their own sub-trees
+     connecting in at their consume point.
 
-The output is a single HTML file per community with the N panels
-arranged in a CSS grid. A steward scanning left-to-right sees at a
-glance: "View A uses 4 tables, View B is the same 4 + ENCOUNTER, View
-C drops ZC_STATUS and adds DEPARTMENT." The variance/coverage read is
-immediate; modeling decisions ("which of these tables belong in the
-certified model?") stay with the human.
+This model trades the cheap lit/faded comparison of v3 for SQL-
+structural fidelity. Side-by-side compare still works -- the panels
+are full trees rather than masked subsets of a shared substrate.
+The v3 overlay tri-color mode is dropped because there's no longer
+a shared layout for two views to project onto.
 
 Public entry points
 -------------------
-- view_extended_tree(view)        -> (nodes, edges)
-- community_substrate(views)      -> (nodes, edges, per_view)
-- hierarchical_layout(nodes, edges, root)
-- render_view_shape_panel(...)    -> SVG string
-- write_community_shapes(views, output_path, ...)
+- build_view_shape(view)     -> ViewShape  (corpus dict -> tree model)
+- layout_shape(shape)        -> dict node_id -> (x, y)  pixel coords
+- render_view_shape_panel(shape, coords) -> SVG string
+- write_community_shapes(views, output_path, *, community_label)
 
-What is intentionally NOT here (yet)
-------------------------------------
-- Coloring lookup vs fact tables differently (Yang: "for now don't
-  differentiate, modeler can read the tree themselves"; revisit when
-  we see real graphs and decide it's actionable).
-- EXISTS / IN subquery tables (filter dependencies, not join data
-  flow). They reference tables but those tables don't shape the join
-  graph; surfacing them would over-promise structure.
-- Interactivity / pyvis. Pyvis defeats deterministic layout; SVG with
-  fixed coords compares cleanly side-by-side.
+Reverting
+---------
+The v3 model (deduped substrate, lit/faded panels, tri-color overlay)
+is tagged `view_shape_v3` (commit 380ce57). To restore:
+    git checkout view_shape_v3 -- tools/p50_present/view_shape.py
+v1 and v2 are also tagged (`view_shape_v1`, `view_shape_v2`).
 """
 
 from __future__ import annotations
 
 import html
 import json
-from collections import defaultdict, deque
+from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 
-# Reuse the matrix renderer's "is this string a real table identifier?"
+# Reuse the matrix renderer's "is this a real table identifier?"
 # heuristic so the shape graph and the table matrix accept/reject the
-# same set of names. The extractor occasionally captures SQL fragments
-# (filter clauses, `1 = 1` placeholders, etc.) as "tables" in
-# reads_from_tables; without this guard those strings would show up as
-# named nodes in the shape graph -- e.g. a node literally labelled
-# "HSP_ACCOUNT_ID IS NULL WHERE 1 = 1".
+# same set of names. The extractor occasionally records SQL fragments
+# (filter clauses, '1=1' tautologies) in reads_from_tables; without
+# this guard those would surface as ghost nodes.
 from tools.p50_present.community_matrix import _is_real_table_name
 
 
-# ---------------------------------------------------------------------------
-# Helpers for the corpus dict shape
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# Helpers for reading the corpus dict shape
+# ===========================================================================
 
 def _bare_table(qualified: str) -> str:
-    """Strip schema/database prefix and bracket quoting -- AND reject
-    anything that doesn't look like a real table identifier.
+    """Strip schema/database prefix and bracket quoting; reject
+    anything that isn't a real table identifier.
 
-    Examples:
-        Clarity.dbo.PAT_ENC                 -> 'PAT_ENC'
-        [PAT_ENC]                            -> 'PAT_ENC'
-        PAT_ENC                              -> 'PAT_ENC'
-        'HSP_ACCOUNT_ID IS NULL WHERE 1=1'   -> '' (rejected: SQL fragment)
-        '1 = 1'                              -> '' (rejected: literal predicate)
-
-    Returns the empty string when the input doesn't survive the
-    real-table check; every caller in this module already guards with
-    `if bare:` so an empty return naturally skips fake nodes.
+    Returns "" for empty / unparseable / SQL-fragment inputs so every
+    caller can filter with the existing `if bare: ...` idiom.
     """
     if not qualified:
         return ""
     bare = qualified.split(".")[-1].strip().strip("[]").strip()
-    # Apply the same SQL-fragment guard the matrix renderer uses so the
-    # shape graph never surfaces extractor noise as a table node.
     if not _is_real_table_name(qualified):
         return ""
     if not _is_real_table_name(bare):
@@ -94,552 +74,549 @@ def _bare_table(qualified: str) -> str:
 def _scope_bare_name(scope_id: str) -> str:
     """Return the bare scope name (the part after the last `:`).
 
-    `cte:EncDept`     -> `EncDept`
-    `derived:t0`      -> `t0`
-    `union:0`         -> `0`
-    `main`            -> `main`
-
-    Used to match a join's `right_table` (which the corpus stores
-    without the prefix) against a scope ID (which has the prefix).
+    `cte:EncDept`   -> `EncDept`
+    `derived:t0`    -> `t0`
+    `union:0`       -> `0`
+    `main`          -> `main`
     """
     return (scope_id or "").split(":")[-1].strip()
 
 
 def _build_scope_lookup(view: dict) -> dict[str, dict]:
-    """Map bare scope name (lowercased) -> scope dict for this view.
-
-    `right_table` in `joins` and entries in `reads_from_scopes` both
-    refer to scopes by their bare name; this lookup is how we resolve
-    those references back to the full scope dict so we can recurse
-    into the CTE's own joins / sources.
+    """Map both bare scope name AND full scope id (lowercased) -> the
+    scope dict for this view. join.right_table refers by bare name
+    while reads_from_scopes uses the full id, so we key by both.
     """
     out: dict[str, dict] = {}
     for s in view.get("scopes") or []:
         bare = _scope_bare_name(s.get("id") or "")
         if bare:
             out[bare.lower()] = s
-        # Also key by the full scope ID so callers can look up by id.
         full = s.get("id") or ""
         if full:
             out[full.lower()] = s
     return out
 
 
-# ---------------------------------------------------------------------------
-# Per-view extended tree
-# ---------------------------------------------------------------------------
-
-def _scope_driver(
-    scope: dict,
-    scope_lookup: dict[str, dict],
-    visited: set[str] | None = None,
-) -> str:
-    """Return the bare base-table name that "drives" this scope.
-
-    The driver is the FROM-clause table -- conventionally the first
-    entry in `scope.reads_from_tables`. If the scope reads only from
-    other scopes (e.g., a CTE that selects from another CTE), we
-    recursively descend into the first scope reference to find the
-    base table at the bottom of the chain.
-
-    Returns the empty string if no base-table driver can be found
-    (e.g., a scope with no sources, or a cycle -- shouldn't happen in
-    valid SQL but we defend against it via `visited`).
-    """
-    if visited is None:
-        visited = set()
-    scope_id = scope.get("id") or ""
-    if scope_id in visited:
-        return ""
-    visited.add(scope_id)
-
-    # Prefer a direct base-table source.
-    for t in (scope.get("reads_from_tables") or []):
-        bare = _bare_table(t)
-        if bare:
-            return bare
-
-    # No direct base table -- descend into the first scope reference.
-    for ref in (scope.get("reads_from_scopes") or []):
-        bare_ref = _scope_bare_name(ref)
-        inner = scope_lookup.get(bare_ref.lower())
-        if inner is not None:
-            d = _scope_driver(inner, scope_lookup, visited)
-            if d:
-                return d
-
-    return ""
-
-
 def _is_scope_ref(name: str, scope_lookup: dict[str, dict]) -> bool:
-    """True if `name` (a join's right_table, bare) matches a scope in
-    this view rather than a base table."""
+    """True if `name` matches a scope (CTE / derived / etc.) in this
+    view rather than a base table."""
     return bool(name) and name.lower() in scope_lookup
 
 
-def _inner_scope_anchors(
-    inner_scope: dict,
-    scope_lookup: dict[str, dict],
-) -> list[str]:
-    """Return the base-table anchors a cross-scope edge should connect
-    THROUGH this scope.
+# ===========================================================================
+# Data model: each view's shape is a forest of ShapeScopes
+# ===========================================================================
 
-    Two cases:
-      - The inner scope has its own joins -- its base tables are
-        internally connected via those joins, so a single edge to the
-        scope's primary driver is enough; the other base tables are
-        reachable through the internal edge chain.
-      - The inner scope has NO joins but multiple base tables --
-        this is the UNION-bodied scope case (post-fc904a6, branches'
-        sources merge into the parent CTE's reads_from_tables but
-        their internal join-emptiness remains). The branches are
-        parallel anchors with no internal connectivity, so each one
-        independently terminates whatever cross-scope edge consumes
-        the CTE result. Without fanning out here, the second/third/...
-        branch's tables end up as orphan nodes in the shape graph.
+@dataclass
+class ShapeNode:
+    """One table occurrence in the SQL.
+
+    `id` is unique within the ViewShape. `table` is the bare base
+    table name (e.g. PAT_ENC). `alias` is the SQL author's alias
+    (e.g. 'A'); empty when unaliased. `scope_id` is the corpus scope
+    this node belongs to. `role` is 'from' for the FROM-clause
+    driver, 'join' for a JOIN'd table.
     """
-    has_internal_joins = bool(inner_scope.get("joins") or [])
-    bases = [
-        _bare_table(t) for t in (inner_scope.get("reads_from_tables") or [])
-        if _bare_table(t)
-    ]
-    if has_internal_joins or len(bases) <= 1:
-        d = _scope_driver(inner_scope, scope_lookup)
-        return [d] if d else []
-    return bases
+    id: str
+    table: str
+    alias: str
+    scope_id: str
+    role: str  # 'from' | 'join'
 
 
-def _join_left_table(
-    join: dict,
-    right_bare: str,
-    scope_driver: str,
-    scope_lookup: dict[str, dict],
-) -> str:
-    """Find the LEFT side of a join.
+@dataclass(frozen=True)
+class ShapeEdge:
+    """One join edge between two ShapeNodes.
 
-    Why this is non-trivial: a scope with N joins doesn't necessarily
-    chain them all off the FROM-clause table. `SELECT ... FROM A
-    JOIN B ON A.x = B.x JOIN C ON B.y = C.y` connects C to B, not C
-    to A. Picking the scope's driver as the left for every join would
-    produce the wrong shape (A-B and A-C instead of A-B and B-C).
-
-    The corpus's JoinV1.columns already carries every column reference
-    inside the ON clause with its resolved real table. We pick the
-    left side as: the first column reference whose table is NOT the
-    right side. If multiple candidates exist, prefer the scope's
-    driver (the FROM table) -- that mirrors the SQL author's usual
-    intent that the FROM-clause table is the join chain's anchor.
-
-    Fallback: if JoinV1.columns is empty (old corpus pre-dating the
-    columns field, or a column lookup that didn't resolve), return
-    the scope driver so we still get a connected graph.
+    `kind` distinguishes intra-scope joins (kind='join', with a
+    real `join_type`) from cross-scope consumption edges
+    (kind='cross_scope', `join_type` is the outer scope's join_type
+    when the cross-scope ref came via JOIN, or "" when it came via
+    `reads_from_scopes` without an explicit JOIN).
     """
-    candidates: list[str] = []
-    for cref in (join.get("columns") or []):
-        col_table_raw = (cref.get("table") or "").strip()
-        if not col_table_raw:
-            continue
-        # If the ref points at a CTE/derived scope, resolve to its
-        # driver -- same flattening rule as elsewhere in this module.
-        if col_table_raw.lower() in scope_lookup:
-            col_table_raw = _scope_driver(
-                scope_lookup[col_table_raw.lower()], scope_lookup,
-            )
-        bare = _bare_table(col_table_raw)
-        if not bare:
-            continue
-        if bare.lower() == right_bare.lower():
-            continue
-        candidates.append(bare)
-
-    if not candidates:
-        return scope_driver
-    # Prefer the scope driver if it appears in the candidates -- that's
-    # the SQL author's likely intent for the join's anchor table.
-    if scope_driver and scope_driver in candidates:
-        return scope_driver
-    return candidates[0]
+    source_id: str
+    target_id: str
+    join_type: str
+    scope_id: str
+    kind: str  # 'join' | 'cross_scope'
 
 
-def view_extended_tree(view: dict) -> tuple[set[str], set[tuple[str, str]]]:
-    """Flatten a view to its base-table-only join graph.
+@dataclass
+class ShapeScope:
+    """One SQL scope unfolded as a tree.
 
-    Walks every scope in the view (transitively via CTE/derived
-    references), emitting one undirected edge per JOIN. CTE/derived
-    wrappers are collapsed: a join from main to a CTE becomes a join
-    from main's driver to the CTE's driver, and the CTE's INTERNAL
-    joins are pulled into the same edge set. The result is the
-    "extended tree" -- one connected graph of base tables, regardless
-    of how the SQL author wrapped sub-expressions.
-
-    Edges are returned as undirected frozensets-as-tuples (sorted
-    alphabetically) so two equivalent shapes compared across views
-    dedupe correctly. Self-loops (PAT_ENC self-join) are dropped --
-    they don't contribute a visible variance/coverage signal.
-
-    Parameters
-    ----------
-    view : ViewV1 dict (as produced by corpus.jsonl)
-
-    Returns
-    -------
-    (nodes, edges)
-        nodes : set of bare base-table names
-        edges : set of (table_a, table_b) tuples, sorted alphabetically
-                so (PAT_ENC, PATIENT) and (PATIENT, PAT_ENC) are the
-                same edge
+    `nodes` are ordered by the SQL author's FROM/JOIN order so the
+    layout can preserve "read left-to-right". `driver_node_id` is
+    the node external consumers attach to (typically the first node,
+    the FROM-clause driver).
     """
-    nodes: set[str] = set()
-    edges: set[tuple[str, str]] = set()
+    id: str
+    kind: str       # 'main' | 'cte' | 'derived' | 'join_subq' | 'union' | ...
+    label: str      # display label (e.g. 'main', 'CTE: ActiveEnc')
+    nodes: list[ShapeNode] = field(default_factory=list)
+    edges: list[ShapeEdge] = field(default_factory=list)
+    driver_node_id: str = ""
 
+
+@dataclass
+class ViewShape:
+    """Complete unfolded shape of one view.
+
+    `root_scope_ids` lists the scopes whose nodes are user-visible
+    (typically ['main'] but for top-level UNION views it's
+    ['union:0', 'union:1', ...]). `cross_scope_edges` link a
+    consuming node (in some outer scope) to the driver_node of a
+    referenced inner scope.
+    """
+    view_name: str
+    scopes: list[ShapeScope] = field(default_factory=list)
+    root_scope_ids: list[str] = field(default_factory=list)
+    cross_scope_edges: list[ShapeEdge] = field(default_factory=list)
+
+    def scope_by_id(self, scope_id: str) -> ShapeScope | None:
+        for s in self.scopes:
+            if s.id == scope_id:
+                return s
+        return None
+
+
+# ===========================================================================
+# Build: walk a corpus view dict and produce a ViewShape
+# ===========================================================================
+
+# Scope kinds that are filter dependencies (not data flow); excluded
+# from the shape entirely. EXISTS/IN subqueries condition rows but
+# don't contribute to the join structure that a modeler is asking
+# about. Same convention as v3.
+_FILTER_SCOPE_KINDS = ("exists", "in")
+
+
+def build_view_shape(view: dict) -> ViewShape:
+    """Convert a corpus ViewV1 dict into a ViewShape forest.
+
+    Strategy:
+      - One ShapeScope per corpus scope (filter scopes excluded).
+      - Within a scope: the FIRST entry in reads_from_tables becomes
+        the FROM-driver ShapeNode. Each JOIN clause adds one more
+        ShapeNode and one ShapeEdge from the prior in-scope node to
+        the new one. Self-joins produce two distinct nodes (one per
+        SQL alias).
+      - When a JOIN's right side is another scope (CTE / derived /
+        join-subquery), no node is added in the outer scope -- instead
+        a cross_scope edge points from the most-recent outer node to
+        the inner scope's driver.
+      - `reads_from_scopes` entries (CTE refs that aren't via JOIN,
+        e.g. `FROM combined C` without a JOIN keyword) produce a
+        cross_scope edge from the FROM driver to the inner scope's
+        driver.
+
+    The result preserves SQL author intent: each table occurrence is
+    its own node, scopes are kept as nested clusters, edges are
+    ordered.
+    """
+    shape = ViewShape(view_name=view.get("view_name") or "")
     scope_lookup = _build_scope_lookup(view)
 
-    # Walk every scope (not just main / view_outputs). The corpus
-    # structure has one ScopeV1 per CTE / derived / etc., so iterating
-    # over all scopes already covers the transitive closure -- no need
-    # for a separate recursion. Each scope contributes:
-    #   1. Its base-table sources -> nodes
-    #   2. Its joins, with the right side either base or scope-ref
-    #   3. Scope refs -> emit edge (this_driver -> ref_driver) so the
-    #      CTE consumption is represented even when there's no JOIN
-    #      keyword (e.g., `FROM EncDept ED` without an explicit JOIN)
-    for scope in view.get("scopes") or []:
-        # Skip filter-only scopes (EXISTS / IN) -- they're filter
-        # predicates, not join sources. Including them would surface
-        # tables that condition rows but don't flow data.
-        if (scope.get("kind") or "") in ("exists", "in"):
+    # Counter for unique node IDs across the whole view.
+    counter = {"n": 0}
+
+    def _new_node(table: str, alias: str, scope_id: str, role: str) -> ShapeNode:
+        counter["n"] += 1
+        node_id = f"n{counter['n']}"
+        return ShapeNode(
+            id=node_id, table=table, alias=alias,
+            scope_id=scope_id, role=role,
+        )
+
+    # ----- per-scope tree construction ------------------------------------
+    for raw_scope in view.get("scopes") or []:
+        kind = (raw_scope.get("kind") or "").lower()
+        if kind in _FILTER_SCOPE_KINDS:
             continue
 
-        # Base-table sources contribute nodes regardless of joins.
-        for t in (scope.get("reads_from_tables") or []):
-            bare = _bare_table(t)
-            if bare:
-                nodes.add(bare)
+        sscope = _build_scope(raw_scope, scope_lookup, _new_node, shape)
+        if sscope is not None:
+            shape.scopes.append(sscope)
 
-        # The driver of THIS scope is the left side of every join
-        # emitted from inside it. May legitimately be empty for some
-        # scopes (e.g., a CTE whose body was a UNION whose branches
-        # have all merged tables into the CTE but no internal joins
-        # remained). We DON'T `continue` here -- _join_left_table can
-        # still derive the join's left side from its own column refs,
-        # which keeps the per-join edge logic working even without a
-        # scope-level driver. We only skip the reads_from_scopes edge
-        # block below when there's no left to anchor from.
-        left = _scope_driver(scope, scope_lookup)
+    # ----- root scopes: view_outputs OR fall back to 'main'/first ---------
+    declared_outputs = list(view.get("view_outputs") or [])
+    if declared_outputs:
+        shape.root_scope_ids = declared_outputs
+    elif any(s.id == "main" for s in shape.scopes):
+        shape.root_scope_ids = ["main"]
+    elif shape.scopes:
+        shape.root_scope_ids = [shape.scopes[0].id]
 
-        # Process explicit JOIN clauses. right_table may be a base
-        # table OR a bare scope name (the corpus drops the cte:/
-        # derived: prefix on right_table). When it's a scope ref,
-        # _inner_scope_anchors returns the base-table fan-out -- one
-        # anchor for normal CTEs (their internal joins connect the
-        # others through), N anchors for union-bodied CTEs (each
-        # branch independently terminates the outer edge).
-        for join in (scope.get("joins") or []):
-            right_raw = join.get("right_table") or ""
-            right_bare = _bare_table(right_raw)
-            if not right_bare:
+    return shape
+
+
+def _build_scope(
+    raw_scope: dict,
+    scope_lookup: dict[str, dict],
+    _new_node,
+    shape: ViewShape,
+) -> ShapeScope | None:
+    """Build one ShapeScope from a corpus scope dict.
+
+    Returns None when the scope has nothing renderable (no real
+    base-table sources AND no scope refs to draw).
+    """
+    scope_id = raw_scope.get("id") or ""
+    kind = (raw_scope.get("kind") or "").lower()
+    sscope = ShapeScope(
+        id=scope_id,
+        kind=kind,
+        label=_scope_label(scope_id, kind),
+    )
+
+    # FROM-clause driver: first non-CTE-named entry in reads_from_tables.
+    # We pull the alias from the corpus's `sources` field when we can
+    # so the node's alias matches what the SQL author wrote.
+    from_table = ""
+    from_alias = ""
+    for t in (raw_scope.get("reads_from_tables") or []):
+        bare = _bare_table(t)
+        if bare:
+            from_table = bare
+            break
+    if not from_table:
+        # No base-table FROM driver (might be a scope that reads only
+        # from another scope; e.g., `SELECT * FROM cte_foo` with no
+        # base tables of its own). For unfolding purposes we don't
+        # create a phantom node here -- the inner scope's nodes will
+        # be the visible structure.
+        from_alias = ""
+
+    if from_table:
+        from_node = _new_node(from_table, from_alias, scope_id, "from")
+        sscope.nodes.append(from_node)
+        sscope.driver_node_id = from_node.id
+
+    # JOIN clauses. Each contributes either a new in-scope node and
+    # join edge, or a cross-scope edge into an inner scope. We chain
+    # joins off the MOST-RECENT in-scope node (mirrors SQL author's
+    # "subsequent joins continue off the running result set" mental
+    # model). When the previous node was a cross-scope reference, the
+    # next join still chains off the outer scope's previous in-scope
+    # node -- the cross-scope ref doesn't become an in-scope node.
+    last_in_scope_node_id = sscope.driver_node_id
+
+    for join in (raw_scope.get("joins") or []):
+        right_raw = join.get("right_table") or ""
+        right_alias = (join.get("right_alias") or "")
+        join_type = (join.get("join_type") or "JOIN")
+
+        # Check scope-ref FIRST -- the corpus drops the cte:/derived:/
+        # join: prefix on join.right_table (so right_table='sub' may
+        # actually refer to scope 'join:sub'). _bare_table would
+        # happily accept 'sub' as a base-table identifier, which would
+        # create a phantom in-scope node. The scope_lookup check has
+        # to win.
+        scope_ref_name = (right_raw or "").split(".")[-1].strip().strip("[]")
+        if _is_scope_ref(scope_ref_name, scope_lookup):
+            inner_scope_id = scope_lookup[scope_ref_name.lower()].get("id") or ""
+            inner_kind = (scope_lookup[scope_ref_name.lower()].get("kind") or "").lower()
+            if inner_kind in _FILTER_SCOPE_KINDS:
                 continue
-            if _is_scope_ref(right_bare, scope_lookup):
-                inner = scope_lookup[right_bare.lower()]
-                right_anchors = _inner_scope_anchors(inner, scope_lookup)
+            if last_in_scope_node_id and inner_scope_id:
+                # Cross-scope edge: outer node -> inner scope's driver
+                # (resolved to a real node after all scopes are built).
+                shape.cross_scope_edges.append(ShapeEdge(
+                    source_id=last_in_scope_node_id,
+                    target_id=f"scope:{inner_scope_id}",
+                    join_type=join_type,
+                    scope_id=scope_id,
+                    kind="cross_scope",
+                ))
+            continue
+
+        right_bare = _bare_table(right_raw)
+        if right_bare:
+            # Plain base table on the right -- add a new in-scope node.
+            new_node = _new_node(right_bare, right_alias, scope_id, "join")
+            sscope.nodes.append(new_node)
+            if last_in_scope_node_id:
+                sscope.edges.append(ShapeEdge(
+                    source_id=last_in_scope_node_id,
+                    target_id=new_node.id,
+                    join_type=join_type,
+                    scope_id=scope_id,
+                    kind="join",
+                ))
             else:
-                right_anchors = [right_bare]
-            if not right_anchors:
-                continue
-            # Re-derive the LEFT side from this join's own column refs
-            # rather than always using the scope's driver -- otherwise
-            # join chains (FROM A JOIN B JOIN C ON B.y=C.y) get
-            # mis-rooted at A. Pass the first anchor as the "right"
-            # context for the column-based candidate filter.
-            join_left = _join_left_table(
-                join, right_anchors[0], left, scope_lookup,
-            )
-            if not join_left:
-                # No left side we can determine -- skip this edge
-                # entirely rather than emitting an edge with an empty
-                # endpoint that the matrix layer would render as a
-                # ghost node.
-                continue
-            for right in right_anchors:
-                if not right:
-                    continue
-                nodes.add(join_left)
-                nodes.add(right)
-                if join_left == right:
-                    # Self-join -- on-clause carries disambiguation
-                    # but as a shape edge it's degenerate.
-                    continue
-                edges.add(tuple(sorted([join_left, right])))
-
-        # Scope references that aren't via explicit JOIN (e.g.,
-        # `FROM EncDept ED` listed in `reads_from_scopes` but the
-        # parser didn't classify it as a join). The CTE's tables and
-        # internal edges still belong to this view's shape; the OUTER
-        # scope's driver is connected to the CTE's anchors so the
-        # tree stays unified rather than splitting into disconnected
-        # subgraphs. Same fan-out logic as the joins block.
-        if not left:
-            # No anchor to emit edges from -- the outer scope itself
-            # has no base-table driver. Each referenced scope is
-            # iterated separately in the outer scope loop, so this is
-            # not a data loss; just no cross-scope edge from THIS
-            # scope's level.
+                # No anchor yet (rare -- scope has no FROM table at
+                # all). The new node IS the anchor; later joins
+                # chain off it.
+                sscope.driver_node_id = new_node.id
+            last_in_scope_node_id = new_node.id
             continue
-        for ref in (scope.get("reads_from_scopes") or []):
-            bare_ref = _scope_bare_name(ref)
-            inner = scope_lookup.get(bare_ref.lower())
-            if inner is None:
+
+    # `reads_from_scopes` entries that aren't covered by an explicit
+    # JOIN (typically: `FROM derived_alias` style). Emit one cross-
+    # scope edge per ref from the FROM driver to the referenced scope.
+    for ref in (raw_scope.get("reads_from_scopes") or []):
+        bare_ref = _scope_bare_name(ref)
+        inner = scope_lookup.get(bare_ref.lower())
+        if inner is None:
+            continue
+        inner_kind = (inner.get("kind") or "").lower()
+        if inner_kind in _FILTER_SCOPE_KINDS:
+            continue
+        inner_scope_id = inner.get("id") or ""
+        # Skip if this scope ref was already covered by a JOIN-based
+        # cross-scope edge above. Match on (source, target_scope).
+        target_marker = f"scope:{inner_scope_id}"
+        already = any(
+            e.scope_id == scope_id and e.target_id == target_marker
+            for e in shape.cross_scope_edges
+        )
+        if already:
+            continue
+        if sscope.driver_node_id and inner_scope_id:
+            shape.cross_scope_edges.append(ShapeEdge(
+                source_id=sscope.driver_node_id,
+                target_id=target_marker,
+                join_type="",   # implicit FROM-style reference
+                scope_id=scope_id,
+                kind="cross_scope",
+            ))
+
+    if not sscope.nodes:
+        return None
+    return sscope
+
+
+def _scope_label(scope_id: str, kind: str) -> str:
+    """Human-readable label for a scope's cluster box."""
+    bare = _scope_bare_name(scope_id)
+    if kind == "main" or scope_id == "main":
+        return "main"
+    if kind == "cte":
+        return f"CTE: {bare}"
+    if kind == "derived":
+        return f"Derived: {bare}"
+    if kind in ("join", "join_subq"):
+        return f"JOIN subquery: {bare}"
+    if kind.startswith("union"):
+        # union:N kind comes from the corpus's set-op handling.
+        return f"UNION branch {bare}"
+    return f"{kind or 'scope'}: {bare}" if bare else (kind or scope_id)
+
+
+# ===========================================================================
+# Resolve cross-scope edge targets (scope marker -> real driver node id)
+# ===========================================================================
+
+def _resolve_cross_scope_edges(shape: ViewShape) -> list[ShapeEdge]:
+    """Map each cross_scope edge's target marker ("scope:<id>") to the
+    referenced scope's driver_node_id. Returns the resolved list,
+    skipping edges that can't be resolved (e.g., the referenced
+    scope had nothing renderable and was dropped)."""
+    resolved: list[ShapeEdge] = []
+    for e in shape.cross_scope_edges:
+        if e.target_id.startswith("scope:"):
+            inner_id = e.target_id[len("scope:"):]
+            inner = shape.scope_by_id(inner_id)
+            if inner is None or not inner.driver_node_id:
                 continue
-            # EXISTS / IN subqueries are filter dependencies, not data
-            # flow. Skip the inner scope's driver and its internal
-            # joins (the outer loop already skips them when iterating
-            # scopes, but they can still leak in via main's
-            # reads_from_scopes if main references them).
-            if (inner.get("kind") or "") in ("exists", "in"):
-                continue
-            for anchor in _inner_scope_anchors(inner, scope_lookup):
-                if not anchor or anchor == left:
-                    continue
-                nodes.add(anchor)
-                edges.add(tuple(sorted([left, anchor])))
-
-    return nodes, edges
+            resolved.append(ShapeEdge(
+                source_id=e.source_id,
+                target_id=inner.driver_node_id,
+                join_type=e.join_type,
+                scope_id=e.scope_id,
+                kind=e.kind,
+            ))
+        else:
+            resolved.append(e)
+    return resolved
 
 
-# ---------------------------------------------------------------------------
-# Community substrate (union across all views)
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# Layout: each scope is a horizontal tree; scopes stack vertically
+# ===========================================================================
 
-def community_substrate(
-    views: list[dict],
-) -> tuple[set[str], set[tuple[str, str]], dict[str, tuple[set[str], set[tuple[str, str]]]]]:
-    """Union nodes and edges across all `views`, plus return per-view
-    breakdowns so the panel renderer can quickly check membership.
+# Layout constants. Tuned so a typical view (2-3 scopes, 4-8 nodes
+# each) renders at ~600-800 px wide and fits comfortably side-by-side
+# with a sibling panel.
+_COL_SPACING = 130       # horizontal pixels between BFS columns
+_ROW_SPACING = 70        # vertical pixels between rows within a scope
+_SCOPE_GAP = 50          # vertical pixels between scope clusters
+_NODE_RADIUS = 16
+_LABEL_OFFSET = 16       # below circle center to label baseline
+_PAD_X = 30
+_PAD_Y = 20
+_TITLE_HEIGHT = 28
+_SCOPE_LABEL_HEIGHT = 22  # vertical room for the scope's cluster label
+_SCOPE_PAD = 12           # inner padding between cluster border and nodes
 
-    Parameters
-    ----------
-    views : list of ViewV1 dicts (typically: all primary views of one
-        community).
+
+def layout_shape(shape: ViewShape) -> tuple[
+    dict[str, tuple[int, int]],
+    dict[str, tuple[int, int, int, int]],
+    int,
+    int,
+]:
+    """Compute pixel positions for every node + bounding box for every
+    scope cluster.
 
     Returns
     -------
-    (substrate_nodes, substrate_edges, per_view)
-        substrate_nodes : union of all views' nodes
-        substrate_edges : union of all views' edges
-        per_view : dict view_name -> (its nodes, its edges)
+    (node_coords, scope_boxes, total_width, total_height)
+        node_coords  : dict node_id -> (x, y) pixel center
+        scope_boxes  : dict scope_id -> (x, y, w, h) cluster box
+        total_width  : pixel width of the whole layout
+        total_height : pixel height of the whole layout
     """
-    substrate_nodes: set[str] = set()
-    substrate_edges: set[tuple[str, str]] = set()
-    per_view: dict[str, tuple[set[str], set[tuple[str, str]]]] = {}
+    # Resolve cross-scope edges so we know which scopes feed which.
+    resolved_edges = _resolve_cross_scope_edges(shape)
+    # Map scope_id -> set of (consumer node_id, scope_id) that feed it.
+    # Currently unused beyond order hinting; future: drive cluster
+    # placement by consumer column.
 
-    for v in views:
-        name = v.get("view_name") or ""
-        if not name:
+    node_coords: dict[str, tuple[int, int]] = {}
+    scope_boxes: dict[str, tuple[int, int, int, int]] = {}
+
+    # Order scopes: root scopes first (typically 'main'), then the
+    # rest by id so output is deterministic across runs.
+    root_ids = list(shape.root_scope_ids)
+    rest = [s.id for s in shape.scopes if s.id not in root_ids]
+    rest.sort()
+    scope_order = [s for s in (root_ids + rest)
+                   if shape.scope_by_id(s) is not None]
+
+    # Lay each scope out as a horizontal tree from its driver_node.
+    # Stack scopes vertically with _SCOPE_GAP between them.
+    current_y = _PAD_Y + _TITLE_HEIGHT
+    max_x = _PAD_X
+
+    for scope_id in scope_order:
+        sscope = shape.scope_by_id(scope_id)
+        if sscope is None or not sscope.nodes:
             continue
-        nodes, edges = view_extended_tree(v)
-        per_view[name] = (nodes, edges)
-        substrate_nodes |= nodes
-        substrate_edges |= edges
+        col_of, row_of = _scope_internal_layout(sscope)
+        max_col = max(col_of.values()) if col_of else 0
+        max_row = max(row_of.values()) if row_of else 0
 
-    return substrate_nodes, substrate_edges, per_view
+        # Cluster box origin: leave room on the left for cluster
+        # padding; the cluster label sits on top of the box.
+        box_x = _PAD_X
+        box_y = current_y
+        box_w = _SCOPE_PAD * 2 + (max_col + 1) * _COL_SPACING
+        box_h = _SCOPE_LABEL_HEIGHT + _SCOPE_PAD * 2 + (max_row + 1) * _ROW_SPACING
+
+        for node in sscope.nodes:
+            col = col_of[node.id]
+            row = row_of[node.id]
+            x = box_x + _SCOPE_PAD + col * _COL_SPACING + _NODE_RADIUS + 4
+            y = (box_y + _SCOPE_LABEL_HEIGHT + _SCOPE_PAD
+                 + row * _ROW_SPACING + _NODE_RADIUS)
+            node_coords[node.id] = (x, y)
+
+        scope_boxes[scope_id] = (box_x, box_y, box_w, box_h)
+        max_x = max(max_x, box_x + box_w)
+        current_y = box_y + box_h + _SCOPE_GAP
+
+    total_width = max_x + _PAD_X
+    total_height = current_y - _SCOPE_GAP + _PAD_Y
+    if not scope_boxes:
+        total_width = 240
+        total_height = 80
+
+    return node_coords, scope_boxes, total_width, total_height
 
 
-# ---------------------------------------------------------------------------
-# Hierarchical layout (left-to-right BFS, deterministic across runs)
-# ---------------------------------------------------------------------------
+def _scope_internal_layout(
+    sscope: ShapeScope,
+) -> tuple[dict[str, int], dict[str, int]]:
+    """BFS from the scope's driver node; column = hop distance,
+    row = breadth-first ordering within a column.
 
-def _pick_root(
-    nodes: set[str],
-    edges: set[tuple[str, str]],
-) -> str:
-    """Choose the layout root: the table with the highest degree in
-    the substrate (most-connected = most-relevant anchor). Ties broken
-    alphabetically so the choice is deterministic across runs.
-
-    Falls back to the alphabetically first node when there are no
-    edges -- the layout will be a single column of disconnected
-    tables.
+    Joins are directed (source -> target) but for layout we treat
+    edges as undirected so cross-edges from middle-of-chain joins
+    place targets at the right column. Determinism via sorted
+    neighbor iteration.
     """
-    if not nodes:
-        return ""
-    degree: dict[str, int] = defaultdict(int)
-    for a, b in edges:
-        degree[a] += 1
-        degree[b] += 1
-    return min(nodes, key=lambda n: (-degree.get(n, 0), n))
+    col_of: dict[str, int] = {}
+    row_of: dict[str, int] = {}
+    if not sscope.nodes or not sscope.driver_node_id:
+        # Fall back: stack in declaration order, single column.
+        for i, n in enumerate(sscope.nodes):
+            col_of[n.id] = 0
+            row_of[n.id] = i
+        return col_of, row_of
 
-
-def hierarchical_layout(
-    nodes: set[str],
-    edges: set[tuple[str, str]],
-    root: str | None = None,
-) -> dict[str, tuple[int, int]]:
-    """Compute (col, row) integer coordinates for each node via BFS.
-
-    The root sits at column 0. Each node's column = its hop distance
-    from the root. Within a column, nodes are sorted alphabetically
-    and assigned ascending row indices. Disconnected components are
-    appended after the main BFS in alphabetic order; their internal
-    structure is also BFS-laid from their own most-connected node.
-
-    Returns
-    -------
-    dict node_name -> (col, row). Pixel coordinates are caller's
-    responsibility (multiply by panel column/row spacing).
-    """
-    if root is None or root not in nodes:
-        root = _pick_root(nodes, edges)
-    coords: dict[str, tuple[int, int]] = {}
-    if not nodes:
-        return coords
-
-    # Adjacency for BFS. Sorted neighbor lists -> deterministic order.
     adj: dict[str, set[str]] = defaultdict(set)
-    for a, b in edges:
-        adj[a].add(b)
-        adj[b].add(a)
+    for e in sscope.edges:
+        adj[e.source_id].add(e.target_id)
+        adj[e.target_id].add(e.source_id)
 
-    # Per-column buckets so we can sort+assign rows after BFS.
+    # Per-column buckets, populated by BFS.
     columns: dict[int, list[str]] = defaultdict(list)
-    visited: set[str] = set()
+    visited: set[str] = {sscope.driver_node_id}
+    queue: list[tuple[str, int]] = [(sscope.driver_node_id, 0)]
+    while queue:
+        node_id, col = queue.pop(0)
+        columns[col].append(node_id)
+        for neighbor in sorted(adj[node_id]):
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append((neighbor, col + 1))
 
-    def _bfs(start: str, base_col: int = 0) -> None:
-        """Visit a connected component starting at `start`; record
-        each node's column in the per-column bucket."""
-        q: deque[tuple[str, int]] = deque([(start, base_col)])
-        visited.add(start)
-        while q:
-            node, col = q.popleft()
-            columns[col].append(node)
-            for neighbor in sorted(adj[node]):
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    q.append((neighbor, col + 1))
+    # Any disconnected nodes (no edges) get appended to column 0 in
+    # declaration order.
+    for n in sscope.nodes:
+        if n.id not in visited:
+            columns[0].append(n.id)
+            visited.add(n.id)
 
-    _bfs(root)
-
-    # Handle disconnected components, if any. Each gets appended to
-    # the right of the main BFS so it doesn't visually intrude.
-    while True:
-        remaining = nodes - visited
-        if not remaining:
-            break
-        next_root = _pick_root(remaining, {(a, b) for (a, b) in edges
-                                            if a in remaining and b in remaining})
-        if not next_root:
-            # No edges among remaining -- just pile them in the next
-            # column in alphabetic order.
-            next_col = (max(columns) if columns else 0) + 2
-            for n in sorted(remaining):
-                columns[next_col].append(n)
-                visited.add(n)
-                next_col += 0   # all in the same column, stacked
-            break
-        offset = (max(columns) if columns else 0) + 2
-        _bfs(next_root, base_col=offset)
-
-    # Assign row index within each column alphabetically.
     for col, members in columns.items():
-        for row, name in enumerate(sorted(set(members))):
-            coords[name] = (col, row)
+        for row, nid in enumerate(members):
+            col_of[nid] = col
+            row_of[nid] = row
 
-    return coords
+    return col_of, row_of
 
 
-# ---------------------------------------------------------------------------
-# SVG panel renderer
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# SVG renderer
+# ===========================================================================
 
-# Layout constants. Tuned so two typical panels fit comfortably
-# side-by-side on a ~1100px-wide browser (compare-mode default).
-_COL_SPACING = 105       # horizontal pixels between BFS columns
-_ROW_SPACING = 64        # vertical pixels between rows (incl. label space)
-_NODE_RADIUS = 13        # circle radius (smaller now that text is external)
-_LABEL_OFFSET = 14       # pixels below circle center to baseline of label
-_PAD_X = 30              # canvas padding (left + right margin)
-_PAD_Y = 24              # canvas padding (top + bottom margin)
-_TITLE_HEIGHT = 24       # vertical room for the panel title
-
-# Color scheme: minimal, two states per element (lit / faded). Labels
-# are rendered OUTSIDE the circles in dark text on the white panel
-# background -- always readable, no white-on-blue collision.
-_LIT_NODE_FILL = "#2c7fb8"
-_LIT_NODE_STROKE = "#1a5d8a"
-_LIT_LABEL_COLOR = "#1a1a1a"
-_FADED_NODE_FILL = "#f0f0f0"
-_FADED_NODE_STROKE = "#bdbdbd"
-_FADED_LABEL_COLOR = "#9e9e9e"
-_LIT_EDGE_COLOR = "#2c7fb8"
-_FADED_EDGE_COLOR = "#dcdcdc"
-
-# Overlay mode: tri-color encoding for a 2-view diff in one SVG. The
-# overlay skeleton is rendered ONCE per community with stable
-# data-node/data-edge attributes; tiny JS rewrites fill/stroke based
-# on the selected pair so we don't have to pre-render all C(N,2)
-# overlays. Colors chosen for accessibility (distinguishable in
-# greyscale via lightness ordering too).
-_OVERLAY_BOTH = "#2c7fb8"        # blue: present in both views
-_OVERLAY_ONLY_A = "#16a085"      # teal: in Left view only
-_OVERLAY_ONLY_B = "#e67e22"      # orange: in Right view only
-_OVERLAY_NEITHER = "#dcdcdc"     # light grey: in the substrate, in neither chosen view
+# Color scheme. We don't differentiate fact / dim / lookup tables
+# (Yang: defer until real graphs surface the need). One color for all
+# in-scope nodes; scope clusters get a faint background tint.
+_NODE_FILL = "#2c7fb8"
+_NODE_STROKE = "#1a5d8a"
+_LABEL_COLOR = "#1a1a1a"
+_EDGE_COLOR = "#5a5a5a"          # intra-scope joins
+_CROSS_EDGE_COLOR = "#999"        # cross-scope (CTE consume) edges
+_CLUSTER_FILL = "#f7fafc"
+_CLUSTER_BORDER = "#cbd5e0"
+_CLUSTER_LABEL = "#4a5568"
 
 
 def render_view_shape_panel(
-    view_name: str,
-    view_nodes: set[str],
-    view_edges: set[tuple[str, str]],
-    substrate_nodes: set[str],
-    substrate_edges: set[tuple[str, str]],
-    coords: dict[str, tuple[int, int]],
+    shape: ViewShape,
     *,
     title_suffix: str = "",
 ) -> str:
-    """Render ONE view's panel as an SVG string.
+    """Render ONE view's unfolded shape as an SVG string.
 
-    Substrate edges are drawn at their shared layout position; ones
-    present in `view_edges` are lit, the rest faded. Same for nodes.
-    A small title bar identifies the view. Caller stacks N of these
-    in a CSS grid for the side-by-side view.
-
-    Parameters
-    ----------
-    view_name : the view's display name (used in the panel title).
-    view_nodes / view_edges : what THIS view actually uses.
-    substrate_nodes / substrate_edges : the union -- what gets drawn
-        at all (lit or faded).
-    coords : shared layout map (col, row) per node.
-    title_suffix : optional small text appended to the title (e.g.,
-        " (4/7 tables)" for coverage hint).
+    Cluster boxes are drawn first (so nodes/edges sit on top); then
+    cross-scope edges (dashed grey, on top of cluster boundaries);
+    then intra-scope edges; then nodes with their labels below.
     """
+    coords, boxes, width, height = layout_shape(shape)
     if not coords:
-        # Empty community -- emit a placeholder svg so the CSS layout
-        # doesn't collapse.
         return (
-            '<svg width="240" height="60" viewBox="0 0 240 60" '
-            'xmlns="http://www.w3.org/2000/svg">'
+            f'<svg width="240" height="60" viewBox="0 0 240 60" '
+            f'xmlns="http://www.w3.org/2000/svg">'
             f'<text x="120" y="35" text-anchor="middle" fill="#888" '
             f'font-family="sans-serif" font-size="13">'
-            f'{html.escape(view_name)} (empty)</text></svg>'
+            f'{html.escape(shape.view_name)} (empty)</text></svg>'
         )
 
-    max_col = max(c for (c, _) in coords.values())
-    max_row = max(r for (_, r) in coords.values())
-    width = _PAD_X * 2 + (max_col + 1) * _COL_SPACING
-    height = _PAD_Y * 2 + _TITLE_HEIGHT + (max_row + 1) * _ROW_SPACING
-
-    # Pixel coords per node. Title bar sits in the top _TITLE_HEIGHT
-    # band; the first row of nodes starts below that.
-    pixel: dict[str, tuple[int, int]] = {}
-    for node, (col, row) in coords.items():
-        x = _PAD_X + col * _COL_SPACING + _NODE_RADIUS + 30
-        y = _PAD_Y + _TITLE_HEIGHT + row * _ROW_SPACING + _NODE_RADIUS
-        pixel[node] = (x, y)
-
     parts: list[str] = []
-    # Set explicit width and height attributes so the SVG renders at
-    # its natural pixel size in the browser (no auto-scaling-to-
-    # container, which is what made dense panels unreadable when
-    # squeezed into narrow grid cells).
     parts.append(
         f'<svg width="{width}" height="{height}" '
         f'viewBox="0 0 {width} {height}" '
@@ -649,175 +626,102 @@ def render_view_shape_panel(
     )
 
     # Title bar.
-    title = html.escape(view_name + title_suffix)
+    title = html.escape(shape.view_name + title_suffix)
     parts.append(
         f'<text x="{width // 2}" y="18" text-anchor="middle" '
         f'font-family="sans-serif" font-size="13" font-weight="bold" '
         f'fill="#333">{title}</text>'
     )
 
-    # Edges first (so nodes draw on top). Faded edges first, then lit
-    # -- lit colors should sit visually above the faded ones.
-    def _edge_path(a: str, b: str) -> str | None:
-        if a not in pixel or b not in pixel:
-            return None
-        x1, y1 = pixel[a]
-        x2, y2 = pixel[b]
-        return f"M{x1},{y1} L{x2},{y2}"
-
-    for (a, b) in sorted(substrate_edges - view_edges):
-        path = _edge_path(a, b)
-        if path is None:
+    # 1. Scope cluster boxes (background layer).
+    for sscope in shape.scopes:
+        box = boxes.get(sscope.id)
+        if box is None:
             continue
+        x, y, w, h = box
         parts.append(
-            f'<path d="{path}" stroke="{_FADED_EDGE_COLOR}" '
-            f'stroke-width="1.2" stroke-dasharray="4,4" fill="none" />'
+            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" '
+            f'fill="{_CLUSTER_FILL}" stroke="{_CLUSTER_BORDER}" '
+            f'stroke-width="1" stroke-dasharray="5,3" rx="6" ry="6" />'
         )
-    for (a, b) in sorted(view_edges):
-        path = _edge_path(a, b)
-        if path is None:
-            continue
+        # Cluster label, top-left of the box.
         parts.append(
-            f'<path d="{path}" stroke="{_LIT_EDGE_COLOR}" '
-            f'stroke-width="2.4" fill="none" />'
+            f'<text x="{x + 10}" y="{y + 16}" '
+            f'font-family="sans-serif" font-size="11" font-weight="bold" '
+            f'fill="{_CLUSTER_LABEL}">{html.escape(sscope.label)}</text>'
         )
 
-    # Nodes. Labels render BELOW the circle in dark text on the
-    # white panel background -- always readable regardless of fill
-    # color, and unbounded so long table names don't get truncated by
-    # the circle radius. The <title> element gives the full table
-    # name as a native browser hover tooltip.
-    def _node_svg(name: str, lit: bool) -> str:
-        x, y = pixel[name]
-        label = html.escape(name)
-        if lit:
-            fill, stroke, stroke_dash = (
-                _LIT_NODE_FILL, _LIT_NODE_STROKE, ""
+    # 2. Cross-scope edges (dashed grey arrows between clusters).
+    for e in _resolve_cross_scope_edges(shape):
+        src = coords.get(e.source_id)
+        tgt = coords.get(e.target_id)
+        if src is None or tgt is None:
+            continue
+        parts.append(
+            f'<path d="M{src[0]},{src[1]} L{tgt[0]},{tgt[1]}" '
+            f'stroke="{_CROSS_EDGE_COLOR}" stroke-width="1.4" '
+            f'stroke-dasharray="6,3" fill="none" />'
+        )
+
+    # 3. Intra-scope join edges (solid). Label with the join type at
+    # the midpoint when it's not a plain INNER JOIN -- the modeler
+    # cares about LEFT/RIGHT/CROSS variants.
+    for sscope in shape.scopes:
+        for e in sscope.edges:
+            src = coords.get(e.source_id)
+            tgt = coords.get(e.target_id)
+            if src is None or tgt is None:
+                continue
+            parts.append(
+                f'<path d="M{src[0]},{src[1]} L{tgt[0]},{tgt[1]}" '
+                f'stroke="{_EDGE_COLOR}" stroke-width="2" fill="none" />'
             )
-            text_color = _LIT_LABEL_COLOR
-            text_weight = "bold"
-        else:
-            fill, stroke = _FADED_NODE_FILL, _FADED_NODE_STROKE
-            stroke_dash = ' stroke-dasharray="3,3"'
-            text_color = _FADED_LABEL_COLOR
-            text_weight = "normal"
-        return (
-            f'<g>'
-            f'<title>{label}</title>'
-            f'<circle cx="{x}" cy="{y}" r="{_NODE_RADIUS}" '
-            f'fill="{fill}" stroke="{stroke}" stroke-width="1.5"{stroke_dash} />'
-            f'<text x="{x}" y="{y + _NODE_RADIUS + _LABEL_OFFSET}" '
-            f'text-anchor="middle" font-family="sans-serif" '
-            f'font-size="11" font-weight="{text_weight}" '
-            f'fill="{text_color}">{label}</text>'
-            f'</g>'
-        )
+            jt = (e.join_type or "").upper().strip()
+            if jt and jt not in ("JOIN", "INNER JOIN"):
+                mx = (src[0] + tgt[0]) // 2
+                my = (src[1] + tgt[1]) // 2 - 4
+                parts.append(
+                    f'<text x="{mx}" y="{my}" text-anchor="middle" '
+                    f'font-family="sans-serif" font-size="9" '
+                    f'fill="#666">{html.escape(jt)}</text>'
+                )
 
-    for n in sorted(substrate_nodes - view_nodes):
-        if n in pixel:
-            parts.append(_node_svg(n, lit=False))
-    for n in sorted(view_nodes):
-        if n in pixel:
-            parts.append(_node_svg(n, lit=True))
-
-    parts.append("</svg>")
-    return "".join(parts)
-
-
-# ---------------------------------------------------------------------------
-# Overlay mode: tri-color compare in one SVG
-# ---------------------------------------------------------------------------
-
-def render_overlay_skeleton_svg(
-    substrate_nodes: set[str],
-    substrate_edges: set[tuple[str, str]],
-    coords: dict[str, tuple[int, int]],
-) -> str:
-    """Render the overlay-mode SVG skeleton (one per community).
-
-    Every element gets a stable `data-node` or `data-edge` attribute
-    so the page's JS can recolor it based on which pair the user picks
-    from the Left/Right dropdowns. Initial colors are placeholder
-    (the JS overwrites them immediately on page load); element
-    geometry / positions are baked in here and never change.
-
-    The skeleton draws the entire substrate -- every base table in the
-    community and every join across it. Coloring (overlap / A-only /
-    B-only / neither) is the only thing that changes between pairs.
-    """
-    if not coords:
-        return (
-            '<svg width="240" height="60" viewBox="0 0 240 60" '
-            'xmlns="http://www.w3.org/2000/svg">'
-            '<text x="120" y="35" text-anchor="middle" fill="#888" '
-            'font-family="sans-serif" font-size="13">'
-            '(empty community)</text></svg>'
-        )
-
-    max_col = max(c for (c, _) in coords.values())
-    max_row = max(r for (_, r) in coords.values())
-    width = _PAD_X * 2 + (max_col + 1) * _COL_SPACING
-    height = _PAD_Y * 2 + _TITLE_HEIGHT + (max_row + 1) * _ROW_SPACING
-
-    pixel: dict[str, tuple[int, int]] = {}
-    for node, (col, row) in coords.items():
-        x = _PAD_X + col * _COL_SPACING + _NODE_RADIUS + 30
-        y = _PAD_Y + _TITLE_HEIGHT + row * _ROW_SPACING + _NODE_RADIUS
-        pixel[node] = (x, y)
-
-    parts: list[str] = [
-        f'<svg id="overlay-svg" width="{width}" height="{height}" '
-        f'viewBox="0 0 {width} {height}" '
-        f'xmlns="http://www.w3.org/2000/svg" '
-        f'style="background:#ffffff; border:1px solid #d0d0d0; '
-        f'border-radius:4px; display:block;">',
-        f'<text id="overlay-title" x="{width // 2}" y="18" '
-        f'text-anchor="middle" font-family="sans-serif" font-size="13" '
-        f'font-weight="bold" fill="#333">Overlay (pick a pair)</text>',
-    ]
-
-    # Edges: each carries `data-edge="A||B"` so the JS can look up the
-    # edge in either view's set. Initial color is "neither" (faded
-    # grey, dashed); JS recolors on the first paint.
-    for (a, b) in sorted(substrate_edges):
-        if a not in pixel or b not in pixel:
-            continue
-        x1, y1 = pixel[a]
-        x2, y2 = pixel[b]
-        key = f"{a}||{b}"
-        parts.append(
-            f'<path data-edge="{html.escape(key)}" '
-            f'd="M{x1},{y1} L{x2},{y2}" '
-            f'stroke="{_OVERLAY_NEITHER}" stroke-width="2" '
-            f'stroke-dasharray="4,4" fill="none" />'
-        )
-
-    # Nodes: each <g> carries `data-node="<bare table name>"`. JS
-    # rewrites the inner <circle> fill/stroke and the <text> color.
-    for n in sorted(substrate_nodes):
-        if n not in pixel:
-            continue
-        x, y = pixel[n]
-        label = html.escape(n)
-        parts.append(
-            f'<g data-node="{label}">'
-            f'<title>{label}</title>'
-            f'<circle cx="{x}" cy="{y}" r="{_NODE_RADIUS}" '
-            f'fill="{_OVERLAY_NEITHER}" stroke="{_OVERLAY_NEITHER}" '
-            f'stroke-width="1.5" />'
-            f'<text x="{x}" y="{y + _NODE_RADIUS + _LABEL_OFFSET}" '
-            f'text-anchor="middle" font-family="sans-serif" '
-            f'font-size="11" fill="{_FADED_LABEL_COLOR}">{label}</text>'
-            f'</g>'
-        )
+    # 4. Nodes. Label below each circle with `TABLE` or `TABLE (alias)`.
+    for sscope in shape.scopes:
+        for n in sscope.nodes:
+            xy = coords.get(n.id)
+            if xy is None:
+                continue
+            x, y = xy
+            label = n.table
+            if n.alias and n.alias.upper() != n.table.upper():
+                label = f"{n.table} ({n.alias})"
+            label_html = html.escape(label)
+            tooltip = html.escape(
+                f"{n.table}"
+                + (f" alias={n.alias}" if n.alias else "")
+                + f" -- role={n.role} -- scope={n.scope_id}"
+            )
+            parts.append(
+                f'<g>'
+                f'<title>{tooltip}</title>'
+                f'<circle cx="{x}" cy="{y}" r="{_NODE_RADIUS}" '
+                f'fill="{_NODE_FILL}" stroke="{_NODE_STROKE}" '
+                f'stroke-width="1.5" />'
+                f'<text x="{x}" y="{y + _NODE_RADIUS + _LABEL_OFFSET}" '
+                f'text-anchor="middle" font-family="sans-serif" '
+                f'font-size="11" font-weight="bold" '
+                f'fill="{_LABEL_COLOR}">{label_html}</text>'
+                f'</g>'
+            )
 
     parts.append("</svg>")
     return "".join(parts)
 
 
-# ---------------------------------------------------------------------------
-# HTML wrapper: N panels in a CSS grid
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# HTML wrapper: compare picker (pair + show-all; overlay dropped)
+# ===========================================================================
 
 _HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -830,9 +734,6 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   p.meta {{ color: #666; font-size: 13px; margin: 0 0 18px; }}
   section {{ margin-bottom: 24px; }}
   section h2 {{ font-size: 14px; margin: 0 0 8px; color: #555; }}
-  /* Compare picker: two dropdowns + three mode buttons. Default
-     mode is "selected pair" (side-by-side) with the first two
-     views chosen alphabetically. */
   .controls {{ background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
                padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 16px;
                align-items: center; }}
@@ -842,23 +743,9 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   .controls button {{ font-family: sans-serif; font-size: 13px; padding: 4px 10px;
                        cursor: pointer; }}
   .controls button.active {{ background: #2c7fb8; color: #fff; border-color: #1a5d8a; }}
-  /* Color legend appears below the controls only when overlay mode
-     is active -- explains the tri-color encoding to a first-time
-     reader. */
-  .legend {{ display: none; padding: 6px 14px; background: #fff;
-             border: 1px solid #e0e0e0; border-radius: 4px; margin-top: 8px;
-             font-size: 12px; color: #555; }}
-  .legend.active {{ display: flex; gap: 18px; align-items: center; }}
-  .legend .swatch {{ display: inline-block; width: 14px; height: 14px;
-                     vertical-align: middle; margin-right: 6px; border-radius: 3px; }}
-  /* Per-view panel grid + overlay container. Each mode hides the
-     other via display:none. */
   .panel-grid {{ display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }}
   .panel {{ scroll-margin-top: 12px; }}
   .panel.hidden {{ display: none; }}
-  #overlay-section {{ display: none; }}
-  #overlay-section.active {{ display: block; }}
-  #pair-section.hidden {{ display: none; }}
 </style>
 </head>
 <body>
@@ -868,186 +755,53 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   <label>Left:&nbsp;<select id="cmp-a">{view_options_a}</select></label>
   <label>Right:&nbsp;<select id="cmp-b">{view_options_b}</select></label>
   <button id="cmp-pair" type="button" class="active">Show selected pair</button>
-  <button id="cmp-overlay" type="button">Overlay pair</button>
   <button id="cmp-all" type="button">Show all</button>
 </section>
-<div id="legend" class="legend">
-  <span><span class="swatch" style="background:#2c7fb8;"></span>In both views</span>
-  <span><span class="swatch" style="background:#16a085;"></span>Left only</span>
-  <span><span class="swatch" style="background:#e67e22;"></span>Right only</span>
-  <span><span class="swatch" style="background:#dcdcdc;"></span>Neither (substrate)</span>
-</div>
-<section id="pair-section">
+<section>
   <div class="panel-grid">
 {panels}
   </div>
 </section>
-<section id="overlay-section">
-  {overlay_svg}
-</section>
-<script id="shape-data" type="application/json">{shape_data_json}</script>
 <script>
 (function() {{
-  // Per-view membership data, embedded as JSON so the overlay
-  // recolor logic can look up which view contains which nodes/edges
-  // without a round-trip.
-  var SHAPE = JSON.parse(document.getElementById('shape-data').textContent);
-  var COLORS = {{
-    both: '#2c7fb8',
-    onlyA: '#16a085',
-    onlyB: '#e67e22',
-    neither: '#dcdcdc',
-  }};
-
-  // Mode = 'pair' | 'overlay' | 'all'. Drives which section is
-  // visible and how the dropdown handlers behave.
-  var mode = 'pair';
-
   function setActive(buttonId) {{
-    ['cmp-pair', 'cmp-overlay', 'cmp-all'].forEach(function(id) {{
+    ['cmp-pair', 'cmp-all'].forEach(function(id) {{
       document.getElementById(id).classList.toggle('active', id === buttonId);
     }});
   }}
 
+  // Two panels visible; left dropdown choice -> order 1, right -> order 2,
+  // so the on-screen layout matches the dropdown labels regardless of
+  // alphabetic DOM order.
   function showPair() {{
     var a = document.getElementById('cmp-a').value;
     var b = document.getElementById('cmp-b').value;
-    // Place the LEFT dropdown's choice in flex order=1 and the RIGHT
-    // dropdown's choice in order=2 so the on-screen layout matches the
-    // labels. Without this, panels would render in alphabetic DOM
-    // order regardless of which side the user picked them on -- e.g.
-    // picking VW_C as Left and VW_B as Right would still show VW_B
-    // on the left of the screen.
     document.querySelectorAll('[data-view]').forEach(function(el) {{
       var v = el.getAttribute('data-view');
       if (v === a) {{
-        el.classList.remove('hidden');
-        el.style.order = '1';
+        el.classList.remove('hidden'); el.style.order = '1';
       }} else if (v === b) {{
-        el.classList.remove('hidden');
-        el.style.order = '2';
+        el.classList.remove('hidden'); el.style.order = '2';
       }} else {{
-        el.classList.add('hidden');
-        el.style.order = '';
+        el.classList.add('hidden'); el.style.order = '';
       }}
     }});
-    document.getElementById('pair-section').classList.remove('hidden');
-    document.getElementById('overlay-section').classList.remove('active');
-    document.getElementById('legend').classList.remove('active');
     setActive('cmp-pair');
-    mode = 'pair';
   }}
 
   function showAll() {{
-    // Reset any per-panel order so the scroll-through view reverts to
-    // the original alphabetic DOM order.
     document.querySelectorAll('[data-view]').forEach(function(el) {{
-      el.classList.remove('hidden');
-      el.style.order = '';
+      el.classList.remove('hidden'); el.style.order = '';
     }});
-    document.getElementById('pair-section').classList.remove('hidden');
-    document.getElementById('overlay-section').classList.remove('active');
-    document.getElementById('legend').classList.remove('active');
     setActive('cmp-all');
-    mode = 'all';
   }}
 
-  function showOverlay() {{
-    renderOverlay();
-    document.getElementById('pair-section').classList.add('hidden');
-    document.getElementById('overlay-section').classList.add('active');
-    document.getElementById('legend').classList.add('active');
-    setActive('cmp-overlay');
-    mode = 'overlay';
-  }}
-
-  // Recolor every overlay-svg element based on the currently-
-  // selected pair. Cheap -- runs in microseconds even for the
-  // largest community we have so far.
-  function renderOverlay() {{
-    var nameA = document.getElementById('cmp-a').value;
-    var nameB = document.getElementById('cmp-b').value;
-    var A = SHAPE[nameA] || {{nodes: [], edges: []}};
-    var B = SHAPE[nameB] || {{nodes: [], edges: []}};
-    var nodesA = new Set(A.nodes);
-    var nodesB = new Set(B.nodes);
-    var edgesA = new Set(A.edges);
-    var edgesB = new Set(B.edges);
-
-    var title = document.getElementById('overlay-title');
-    if (title) {{
-      title.textContent = nameA + '  vs.  ' + nameB;
-    }}
-
-    document.querySelectorAll('#overlay-svg [data-node]').forEach(function(g) {{
-      var name = g.getAttribute('data-node');
-      var inA = nodesA.has(name);
-      var inB = nodesB.has(name);
-      var color, labelColor, weight;
-      if (inA && inB) {{
-        color = COLORS.both;
-        labelColor = '#1a1a1a';
-        weight = 'bold';
-      }} else if (inA) {{
-        color = COLORS.onlyA;
-        labelColor = '#1a1a1a';
-        weight = 'bold';
-      }} else if (inB) {{
-        color = COLORS.onlyB;
-        labelColor = '#1a1a1a';
-        weight = 'bold';
-      }} else {{
-        color = COLORS.neither;
-        labelColor = '#9e9e9e';
-        weight = 'normal';
-      }}
-      var circle = g.querySelector('circle');
-      var text = g.querySelector('text');
-      if (circle) {{
-        circle.setAttribute('fill', color);
-        circle.setAttribute('stroke', color);
-      }}
-      if (text) {{
-        text.setAttribute('fill', labelColor);
-        text.setAttribute('font-weight', weight);
-      }}
-    }});
-
-    document.querySelectorAll('#overlay-svg [data-edge]').forEach(function(path) {{
-      var key = path.getAttribute('data-edge');
-      var inA = edgesA.has(key);
-      var inB = edgesB.has(key);
-      var color, width, dash;
-      if (inA && inB) {{
-        color = COLORS.both; width = '2.4'; dash = '';
-      }} else if (inA) {{
-        color = COLORS.onlyA; width = '2.4'; dash = '';
-      }} else if (inB) {{
-        color = COLORS.onlyB; width = '2.4'; dash = '';
-      }} else {{
-        color = COLORS.neither; width = '1.2'; dash = '4,4';
-      }}
-      path.setAttribute('stroke', color);
-      path.setAttribute('stroke-width', width);
-      path.setAttribute('stroke-dasharray', dash);
-    }});
-  }}
-
-  // Wire up the dropdowns to all three modes.
-  function onPickChange() {{
-    if (mode === 'overlay') renderOverlay();
-    else if (mode === 'pair') showPair();
-    // 'all' mode is independent of the pair -- no change needed.
-  }}
-
-  document.getElementById('cmp-a').addEventListener('change', onPickChange);
-  document.getElementById('cmp-b').addEventListener('change', onPickChange);
+  document.getElementById('cmp-a').addEventListener('change', showPair);
+  document.getElementById('cmp-b').addEventListener('change', showPair);
   document.getElementById('cmp-pair').addEventListener('click', showPair);
-  document.getElementById('cmp-overlay').addEventListener('click', showOverlay);
   document.getElementById('cmp-all').addEventListener('click', showAll);
 
-  // Initial render: pair mode with the default dropdown selection.
-  showPair();
+  showPair();  // Initial render: pair mode.
 }})();
 </script>
 </body>
@@ -1061,82 +815,45 @@ def write_community_shapes(
     *,
     community_label: str = "",
 ) -> Path:
-    """Render one HTML file with N panels (one per view) plus a
-    shared-substrate reference at the top.
+    """Render one HTML file per community with N unfolded shape panels.
 
-    Parameters
-    ----------
-    views : ViewV1 dicts to compare. Typically all primary views of
-        ONE community.
-    output_path : where to write the HTML file.
-    community_label : optional header label (e.g., "Community 5").
-
-    Returns
-    -------
-    Path to the written file.
+    No overlay mode in v4. The deduped-substrate that overlay
+    depended on doesn't exist in the unfolding model -- each view's
+    panel is its own complete tree, not a masked subset of a shared
+    layout. Comparison is now eyeballed across two side-by-side
+    panels.
     """
     output_path = Path(output_path)
-    nodes, edges, per_view = community_substrate(views)
-    coords = hierarchical_layout(nodes, edges)
 
-    # Overlay skeleton: ONE SVG containing every substrate node and
-    # edge, with stable data-* attributes so the JS recolor function
-    # can switch the active pair without re-rendering geometry.
-    overlay_svg = render_overlay_skeleton_svg(nodes, edges, coords)
+    # Build shapes once per view; sort by view_name for stable output.
+    shape_by_name: dict[str, ViewShape] = {}
+    for v in views:
+        name = v.get("view_name") or ""
+        if not name:
+            continue
+        shape_by_name[name] = build_view_shape(v)
+    sorted_view_names = sorted(shape_by_name)
 
-    # Per-view JSON data: lets the overlay JS look up which nodes
-    # and edges each view contains. Edges are encoded as "A||B"
-    # strings so they're trivially comparable in JS (no nested
-    # array equality needed).
-    shape_data = {
-        name: {
-            "nodes": sorted(v_nodes),
-            "edges": [f"{a}||{b}" for (a, b) in sorted(v_edges)],
-        }
-        for name, (v_nodes, v_edges) in per_view.items()
-    }
-    shape_data_json = json.dumps(shape_data, separators=(",", ":"))
-
-    # Per-view panels. Sort by view_name so output order is stable
-    # across reruns (dict-iteration order could flip otherwise and the
-    # diff looks noisy). Each panel is wrapped in a `data-view` div so
-    # the compare-picker JS can toggle visibility by view name. The
-    # substrate-only reference panel is intentionally NOT rendered
-    # here -- every per-view panel already shows the substrate as the
-    # faded grey background, so a separate "everything lit" panel
-    # would be visually redundant.
-    sorted_view_names = sorted(per_view)
+    # Per-view panels, each wrapped in `<div data-view="...">` so the
+    # compare picker JS can toggle visibility by view name.
     panels: list[str] = []
     view_options: list[str] = []
-    for i, view_name in enumerate(sorted_view_names):
-        v_nodes, v_edges = per_view[view_name]
-        suffix = f"  ({len(v_nodes)}/{len(nodes)} tables)"
-        panel_svg = render_view_shape_panel(
-            view_name=view_name,
-            view_nodes=v_nodes,
-            view_edges=v_edges,
-            substrate_nodes=nodes,
-            substrate_edges=edges,
-            coords=coords,
-            title_suffix=suffix,
-        )
+    for view_name in sorted_view_names:
+        shape = shape_by_name[view_name]
+        n_nodes = sum(len(s.nodes) for s in shape.scopes)
+        n_scopes = len(shape.scopes)
+        suffix = f"  ({n_nodes} nodes, {n_scopes} scope(s))"
+        panel_svg = render_view_shape_panel(shape, title_suffix=suffix)
         escaped = html.escape(view_name)
         panels.append(
-            f'<div class="panel" data-view="{escaped}" id="{_anchor_id(view_name)}">'
-            f'{panel_svg}</div>'
+            f'<div class="panel" data-view="{escaped}" '
+            f'id="{_anchor_id(view_name)}">{panel_svg}</div>'
         )
-        # Default selection: first view -> Left, second view -> Right.
-        # Single-view communities just default both to the same one.
-        # The JS hides everything except those two on initial load.
         view_options.append(
             f'<option value="{escaped}">{escaped}</option>'
         )
 
     options_html = "".join(view_options)
-
-    # Pre-select the first two views as the default compare pair by
-    # marking them with `selected` in the dropdowns. JS reads the
-    # values on load and hides the other panels.
     default_a = sorted_view_names[0] if sorted_view_names else ""
     default_b = (sorted_view_names[1] if len(sorted_view_names) > 1
                   else default_a)
@@ -1155,11 +872,15 @@ def write_community_shapes(
         f"View shapes -- {community_label}" if community_label
         else "View shapes"
     )
+    total_nodes = sum(
+        sum(len(s.nodes) for s in shape_by_name[n].scopes)
+        for n in sorted_view_names
+    )
     meta = (
-        f"{len(views)} view(s)  &middot;  {len(nodes)} substrate table(s)  "
-        f"&middot;  {len(edges)} substrate edge(s)  &middot;  "
-        f"Use the Left/Right dropdowns to pick a pair; "
-        f"<b>Show all</b> to scroll through all panels."
+        f"{len(sorted_view_names)} view(s)  &middot;  "
+        f"{total_nodes} total occurrence node(s)  &middot;  "
+        f"Each table occurrence is its own node; CTEs and subqueries "
+        f"appear as their own clusters."
     )
     html_body = _HTML_TEMPLATE.format(
         title=html.escape(title),
@@ -1167,21 +888,13 @@ def write_community_shapes(
         view_options_a=options_a,
         view_options_b=options_b,
         panels="\n".join(panels),
-        overlay_svg=overlay_svg,
-        shape_data_json=shape_data_json,
     )
-
     output_path.write_text(html_body, encoding="utf-8")
     return output_path
 
 
 def _anchor_id(view_name: str) -> str:
-    """Convert a view name into a CSS-safe anchor id.
-
-    View names like `Reporting.V_CCHP_HomeHealth_Population.View` need
-    the dots / colons / brackets stripped so the resulting `#anchor`
-    target is a valid HTML id (and not interpreted as a CSS selector).
-    """
+    """Convert a view name into a CSS-safe anchor id."""
     safe = []
     for ch in (view_name or ""):
         if ch.isalnum() or ch in "-_":

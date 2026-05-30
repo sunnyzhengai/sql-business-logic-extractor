@@ -50,25 +50,45 @@ import json
 from collections import defaultdict, deque
 from pathlib import Path
 
+# Reuse the matrix renderer's "is this string a real table identifier?"
+# heuristic so the shape graph and the table matrix accept/reject the
+# same set of names. The extractor occasionally captures SQL fragments
+# (filter clauses, `1 = 1` placeholders, etc.) as "tables" in
+# reads_from_tables; without this guard those strings would show up as
+# named nodes in the shape graph -- e.g. a node literally labelled
+# "HSP_ACCOUNT_ID IS NULL WHERE 1 = 1".
+from tools.p50_present.community_matrix import _is_real_table_name
+
 
 # ---------------------------------------------------------------------------
 # Helpers for the corpus dict shape
 # ---------------------------------------------------------------------------
 
 def _bare_table(qualified: str) -> str:
-    """Strip schema/database prefix and bracket quoting.
+    """Strip schema/database prefix and bracket quoting -- AND reject
+    anything that doesn't look like a real table identifier.
 
     Examples:
-        Clarity.dbo.PAT_ENC -> PAT_ENC
-        [PAT_ENC]           -> PAT_ENC
-        PAT_ENC             -> PAT_ENC
+        Clarity.dbo.PAT_ENC                 -> 'PAT_ENC'
+        [PAT_ENC]                            -> 'PAT_ENC'
+        PAT_ENC                              -> 'PAT_ENC'
+        'HSP_ACCOUNT_ID IS NULL WHERE 1=1'   -> '' (rejected: SQL fragment)
+        '1 = 1'                              -> '' (rejected: literal predicate)
 
-    Mirrors tools.shared.table_names.bare_table_name but local so this
-    module has no upstream dependency on the graph builder's helpers.
+    Returns the empty string when the input doesn't survive the
+    real-table check; every caller in this module already guards with
+    `if bare:` so an empty return naturally skips fake nodes.
     """
     if not qualified:
         return ""
-    return qualified.split(".")[-1].strip().strip("[]").strip()
+    bare = qualified.split(".")[-1].strip().strip("[]").strip()
+    # Apply the same SQL-fragment guard the matrix renderer uses so the
+    # shape graph never surfaces extractor noise as a table node.
+    if not _is_real_table_name(qualified):
+        return ""
+    if not _is_real_table_name(bare):
+        return ""
+    return bare
 
 
 def _scope_bare_name(scope_id: str) -> str:

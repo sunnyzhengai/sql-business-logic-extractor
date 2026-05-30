@@ -379,6 +379,49 @@ class TestViewExtendedTree(unittest.TestCase):
         # Exactly two edges total (no over-connection).
         self.assertEqual(len(edges), 2)
 
+    def test_sql_fragments_in_reads_from_tables_get_filtered(self):
+        """The extractor occasionally captures filter predicates
+        ('HSP_ACCOUNT_ID IS NULL WHERE 1 = 1') or other SQL fragments
+        as 'tables' in reads_from_tables. The shape renderer must
+        reject these the same way the matrix renderer does, otherwise
+        the shape graph surfaces ghost nodes with predicate text as
+        their label.
+        """
+        view = {
+            "view_name": "VW_LEAKY",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                # Mix of real tables and parser garbage.
+                "reads_from_tables": [
+                    "PAT_ENC",
+                    "HSP_ACCOUNT_ID IS NULL WHERE 1 = 1",  # filter leak
+                    "PATIENT",
+                    "1 = 1",                                # tautology leak
+                    "DAY_OF_MONTH = 1) AS DD",              # CTE-fragment leak
+                ],
+                "reads_from_scopes": [],
+                "joins": [{
+                    "right_table": "PATIENT",
+                    "join_type": "INNER JOIN",
+                    "on_expression": "PE.PAT_ID = P.PAT_ID",
+                    "columns": [
+                        {"column": "PAT_ID", "table": "PAT_ENC",
+                         "table_alias": "PE"},
+                        {"column": "PAT_ID", "table": "PATIENT",
+                         "table_alias": "P"},
+                    ],
+                }],
+                "columns": [],
+            }],
+        }
+        nodes, edges = view_extended_tree(view)
+        # Only the real tables survive. The three garbage strings get
+        # filtered out at _bare_table.
+        self.assertEqual(nodes, {"PAT_ENC", "PATIENT"})
+        # The real join still produces its edge.
+        self.assertEqual(edges, {("PATIENT", "PAT_ENC")})
+
     def test_exists_subquery_scope_skipped(self):
         """EXISTS/IN subqueries reference tables but are filter
         dependencies, not join data flow -- excluded from the shape."""

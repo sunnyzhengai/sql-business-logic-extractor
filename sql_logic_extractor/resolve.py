@@ -726,6 +726,31 @@ class LineageResolver:
             if sub_logic:
                 self._emit_scope_recursive(sub_logic, sub_id, sub_kind, emit, known_ctes)
 
+        # Nested set-operations (UNION / INTERSECT / EXCEPT inside a
+        # CTE body, a derived subquery body, or another union branch).
+        # extract.py's fc904a6 fix merged branch sources/joins into
+        # the parent's flat lists for backward compat, but the
+        # per-branch boundary was lost. Emit each branch as its own
+        # sub-scope with id `{parent_scope_id}/union:{i}` so any
+        # consumer that needs branch-aware shape (v4 view_shape) can
+        # walk them. The parent scope's flat lists are still
+        # populated for consumers that just want a union of tables
+        # (community matrix, Louvain detection, etc.).
+        #
+        # Top-level set-ops are still emitted via the earlier path in
+        # resolve_all_scoped (which never enters this function). This
+        # block only fires when set_operations appear NESTED inside
+        # something else.
+        for op in logic.get("set_operations") or []:
+            op_kind = (op.get("type") or "UNION").lower().replace(" ", "_")
+            for i, branch_logic in enumerate(op.get("branches") or []):
+                if not branch_logic:
+                    continue
+                branch_id = f"{scope_id}/{op_kind}:{i}"
+                self._emit_scope_recursive(
+                    branch_logic, branch_id, op_kind, emit, known_ctes,
+                )
+
     def _build_alias_map(
         self,
         logic: dict,

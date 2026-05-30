@@ -229,10 +229,30 @@ def build_view_shape(view: dict) -> ViewShape:
             scope_id=scope_id, role=role,
         )
 
+    # ----- wrapper detection: which scopes are containers of others? ------
+    # resolve.py emits nested set-op branches with ids like
+    # `cte:foo/union:0`. A scope is a "wrapper" if any other scope's
+    # id starts with `{this_id}/` -- its flat reads_from_tables /
+    # joins are merged-from-branches duplication (per fc904a6) and
+    # rendering them would re-introduce the per-branch ordering bug.
+    # Skip these here; the branch sub-scopes handle the rendering.
+    all_scope_ids = [
+        s.get("id") or "" for s in view.get("scopes") or [] if s.get("id")
+    ]
+    wrapper_ids: set[str] = set()
+    for sid in all_scope_ids:
+        for other in all_scope_ids:
+            if other != sid and other.startswith(sid + "/"):
+                wrapper_ids.add(sid)
+                break
+
     # ----- per-scope tree construction ------------------------------------
     for raw_scope in view.get("scopes") or []:
         kind = (raw_scope.get("kind") or "").lower()
         if kind in _FILTER_SCOPE_KINDS:
+            continue
+        if (raw_scope.get("id") or "") in wrapper_ids:
+            # Wrapper scope -- delegate rendering to its child branches.
             continue
 
         sscope = _build_scope(raw_scope, scope_lookup, _new_node, shape)
@@ -388,9 +408,28 @@ def _build_scope(
 
 
 def _scope_label(scope_id: str, kind: str) -> str:
-    """Human-readable label for a scope's cluster box."""
-    bare = _scope_bare_name(scope_id)
-    if kind == "main" or scope_id == "main":
+    """Human-readable label for a scope's cluster box.
+
+    Nested ids like `cte:foo/union:0` get a path-style label
+    (`CTE: foo · UNION branch 0`) so the modeler can read the
+    nesting at a glance without consulting the id directly.
+    """
+    if not scope_id:
+        return kind or "scope"
+    parts = scope_id.split("/")
+    if len(parts) > 1:
+        labels = []
+        for p in parts:
+            seg_kind = p.split(":")[0] if ":" in p else (p or "scope")
+            labels.append(_label_one_segment(p, seg_kind))
+        return " · ".join(labels)
+    return _label_one_segment(scope_id, kind)
+
+
+def _label_one_segment(seg_id: str, kind: str) -> str:
+    """Label one path segment (no slashes inside)."""
+    bare = _scope_bare_name(seg_id)
+    if kind == "main" or seg_id == "main":
         return "main"
     if kind == "cte":
         return f"CTE: {bare}"
@@ -399,9 +438,8 @@ def _scope_label(scope_id: str, kind: str) -> str:
     if kind in ("join", "join_subq"):
         return f"JOIN subquery: {bare}"
     if kind.startswith("union"):
-        # union:N kind comes from the corpus's set-op handling.
         return f"UNION branch {bare}"
-    return f"{kind or 'scope'}: {bare}" if bare else (kind or scope_id)
+    return f"{kind or 'scope'}: {bare}" if bare else (kind or seg_id)
 
 
 # ===========================================================================
@@ -410,45 +448,70 @@ def _scope_label(scope_id: str, kind: str) -> str:
 
 def _resolve_cross_scope_edges(shape: ViewShape) -> list[ShapeEdge]:
     """Map each cross_scope edge's target marker ("scope:<id>") to the
-    referenced scope's driver_node_id. Returns the resolved list,
-    skipping edges that can't be resolved (e.g., the referenced
-    scope had nothing renderable and was dropped)."""
+    referenced scope's driver_node_id.
+
+    When the target is a "wrapper" scope (one that has branch
+    children from a nested set-op), fan the edge out to EACH child's
+    driver -- the modeler should see that the consumer reads from
+    all UNION branches, not just the first.
+    """
     resolved: list[ShapeEdge] = []
     for e in shape.cross_scope_edges:
-        if e.target_id.startswith("scope:"):
-            inner_id = e.target_id[len("scope:"):]
-            inner = shape.scope_by_id(inner_id)
-            if inner is None or not inner.driver_node_id:
-                continue
-            resolved.append(ShapeEdge(
-                source_id=e.source_id,
-                target_id=inner.driver_node_id,
-                join_type=e.join_type,
-                scope_id=e.scope_id,
-                kind=e.kind,
-            ))
-        else:
+        if not e.target_id.startswith("scope:"):
             resolved.append(e)
+            continue
+
+        inner_id = e.target_id[len("scope:"):]
+        # Identify child branches (id starts with `{inner_id}/`).
+        children = [
+            s for s in shape.scopes if s.id.startswith(inner_id + "/")
+        ]
+        if children:
+            for child in children:
+                if not child.driver_node_id:
+                    continue
+                resolved.append(ShapeEdge(
+                    source_id=e.source_id,
+                    target_id=child.driver_node_id,
+                    join_type=e.join_type,
+                    scope_id=e.scope_id,
+                    kind=e.kind,
+                ))
+            continue
+
+        inner = shape.scope_by_id(inner_id)
+        if inner is None or not inner.driver_node_id:
+            continue
+        resolved.append(ShapeEdge(
+            source_id=e.source_id,
+            target_id=inner.driver_node_id,
+            join_type=e.join_type,
+            scope_id=e.scope_id,
+            kind=e.kind,
+        ))
     return resolved
 
 
 # ===========================================================================
-# Layout: each scope is a horizontal tree; scopes stack vertically
+# Layout: each scope is a VERTICAL tree-list (one node per row, depth
+# = horizontal indent); scopes stack vertically.
 # ===========================================================================
 
-# Layout constants. Tuned so a typical view (2-3 scopes, 4-8 nodes
-# each) renders at ~600-800 px wide and fits comfortably side-by-side
-# with a sibling panel.
-_COL_SPACING = 130       # horizontal pixels between BFS columns
-_ROW_SPACING = 70        # vertical pixels between rows within a scope
-_SCOPE_GAP = 50          # vertical pixels between scope clusters
-_NODE_RADIUS = 16
-_LABEL_OFFSET = 16       # below circle center to label baseline
-_PAD_X = 30
+# Layout constants. Tree-list orientation puts each node on its own
+# row so labels never compete for horizontal space across siblings.
+# Labels render to the RIGHT of each circle -- the modeler reads
+# "indent | circle | TABLE_NAME" like a file-tree view.
+_INDENT_WIDTH = 30       # horizontal pixels per BFS depth level
+_ROW_HEIGHT = 30         # vertical pixels per node row
+_LABEL_LEFT_PAD = 8      # gap between circle right edge and label baseline x
+_LABEL_BUDGET = 220      # pixels reserved on the right for the label text
+_NODE_RADIUS = 11
+_PAD_X = 24
 _PAD_Y = 20
 _TITLE_HEIGHT = 28
 _SCOPE_LABEL_HEIGHT = 22  # vertical room for the scope's cluster label
 _SCOPE_PAD = 12           # inner padding between cluster border and nodes
+_SCOPE_GAP = 24           # vertical pixels between scope clusters
 
 
 def layout_shape(shape: ViewShape) -> tuple[
@@ -458,35 +521,29 @@ def layout_shape(shape: ViewShape) -> tuple[
     int,
 ]:
     """Compute pixel positions for every node + bounding box for every
-    scope cluster.
+    scope cluster (vertical tree-list orientation).
 
     Returns
     -------
     (node_coords, scope_boxes, total_width, total_height)
-        node_coords  : dict node_id -> (x, y) pixel center
+        node_coords  : dict node_id -> (x, y) pixel center of the circle
         scope_boxes  : dict scope_id -> (x, y, w, h) cluster box
         total_width  : pixel width of the whole layout
         total_height : pixel height of the whole layout
     """
-    # Resolve cross-scope edges so we know which scopes feed which.
-    resolved_edges = _resolve_cross_scope_edges(shape)
-    # Map scope_id -> set of (consumer node_id, scope_id) that feed it.
-    # Currently unused beyond order hinting; future: drive cluster
-    # placement by consumer column.
-
     node_coords: dict[str, tuple[int, int]] = {}
     scope_boxes: dict[str, tuple[int, int, int, int]] = {}
 
-    # Order scopes: root scopes first (typically 'main'), then the
-    # rest by id so output is deterministic across runs.
+    # Order scopes: root scopes first (typically 'main'), then the rest
+    # by id so output is deterministic across runs. Branch sub-scopes
+    # of the form `cte:foo/union:0` sort lexically so branches stay
+    # grouped under their parent visually.
     root_ids = list(shape.root_scope_ids)
     rest = [s.id for s in shape.scopes if s.id not in root_ids]
     rest.sort()
     scope_order = [s for s in (root_ids + rest)
                    if shape.scope_by_id(s) is not None]
 
-    # Lay each scope out as a horizontal tree from its driver_node.
-    # Stack scopes vertically with _SCOPE_GAP between them.
     current_y = _PAD_Y + _TITLE_HEIGHT
     max_x = _PAD_X
 
@@ -496,21 +553,28 @@ def layout_shape(shape: ViewShape) -> tuple[
             continue
         col_of, row_of = _scope_internal_layout(sscope)
         max_col = max(col_of.values()) if col_of else 0
-        max_row = max(row_of.values()) if row_of else 0
+        n_rows = (max(row_of.values()) + 1) if row_of else 0
 
-        # Cluster box origin: leave room on the left for cluster
-        # padding; the cluster label sits on top of the box.
         box_x = _PAD_X
         box_y = current_y
-        box_w = _SCOPE_PAD * 2 + (max_col + 1) * _COL_SPACING
-        box_h = _SCOPE_LABEL_HEIGHT + _SCOPE_PAD * 2 + (max_row + 1) * _ROW_SPACING
+        box_w = (_SCOPE_PAD * 2
+                  + max_col * _INDENT_WIDTH
+                  + _NODE_RADIUS * 2
+                  + _LABEL_LEFT_PAD
+                  + _LABEL_BUDGET)
+        box_h = (_SCOPE_LABEL_HEIGHT
+                  + _SCOPE_PAD * 2
+                  + n_rows * _ROW_HEIGHT)
 
         for node in sscope.nodes:
             col = col_of[node.id]
             row = row_of[node.id]
-            x = box_x + _SCOPE_PAD + col * _COL_SPACING + _NODE_RADIUS + 4
+            x = (box_x + _SCOPE_PAD
+                 + col * _INDENT_WIDTH
+                 + _NODE_RADIUS)
             y = (box_y + _SCOPE_LABEL_HEIGHT + _SCOPE_PAD
-                 + row * _ROW_SPACING + _NODE_RADIUS)
+                 + row * _ROW_HEIGHT
+                 + _NODE_RADIUS)
             node_coords[node.id] = (x, y)
 
         scope_boxes[scope_id] = (box_x, box_y, box_w, box_h)
@@ -529,51 +593,52 @@ def layout_shape(shape: ViewShape) -> tuple[
 def _scope_internal_layout(
     sscope: ShapeScope,
 ) -> tuple[dict[str, int], dict[str, int]]:
-    """BFS from the scope's driver node; column = hop distance,
-    row = breadth-first ordering within a column.
+    """Tree-list orientation: pre-order DFS from the scope's driver
+    node, one node per row, depth = horizontal indent column.
 
-    Joins are directed (source -> target) but for layout we treat
-    edges as undirected so cross-edges from middle-of-chain joins
-    place targets at the right column. Determinism via sorted
-    neighbor iteration.
+    For SQL views the result reads top-to-bottom like a chain of
+    JOINs, with parallel branches indented under their shared parent.
+    Each node sits on its own row so labels (rendered to the right
+    of the circle) never compete with siblings for horizontal space.
     """
     col_of: dict[str, int] = {}
     row_of: dict[str, int] = {}
-    if not sscope.nodes or not sscope.driver_node_id:
-        # Fall back: stack in declaration order, single column.
+    if not sscope.nodes:
+        return col_of, row_of
+    if not sscope.driver_node_id:
         for i, n in enumerate(sscope.nodes):
             col_of[n.id] = 0
             row_of[n.id] = i
         return col_of, row_of
 
-    adj: dict[str, set[str]] = defaultdict(set)
+    # Child map: source -> [target_id, target_id, ...] in SQL join order.
+    children: dict[str, list[str]] = defaultdict(list)
     for e in sscope.edges:
-        adj[e.source_id].add(e.target_id)
-        adj[e.target_id].add(e.source_id)
+        children[e.source_id].append(e.target_id)
 
-    # Per-column buckets, populated by BFS.
-    columns: dict[int, list[str]] = defaultdict(list)
-    visited: set[str] = {sscope.driver_node_id}
-    queue: list[tuple[str, int]] = [(sscope.driver_node_id, 0)]
-    while queue:
-        node_id, col = queue.pop(0)
-        columns[col].append(node_id)
-        for neighbor in sorted(adj[node_id]):
-            if neighbor not in visited:
-                visited.add(neighbor)
-                queue.append((neighbor, col + 1))
+    visited: set[str] = set()
+    order: list[str] = []
 
-    # Any disconnected nodes (no edges) get appended to column 0 in
-    # declaration order.
+    def _dfs(node_id: str, depth: int) -> None:
+        if node_id in visited:
+            return
+        visited.add(node_id)
+        col_of[node_id] = depth
+        row_of[node_id] = len(order)
+        order.append(node_id)
+        for child in children[node_id]:
+            _dfs(child, depth + 1)
+
+    _dfs(sscope.driver_node_id, 0)
+
+    # Disconnected nodes (orphans the resolver gave us): append at
+    # depth 0 in declaration order so they're still visible.
     for n in sscope.nodes:
         if n.id not in visited:
-            columns[0].append(n.id)
             visited.add(n.id)
-
-    for col, members in columns.items():
-        for row, nid in enumerate(members):
-            col_of[nid] = col
-            row_of[nid] = row
+            col_of[n.id] = 0
+            row_of[n.id] = len(order)
+            order.append(n.id)
 
     return col_of, row_of
 
@@ -663,30 +728,34 @@ def render_view_shape_panel(
             f'stroke-dasharray="6,3" fill="none" />'
         )
 
-    # 3. Intra-scope join edges (solid). Label with the join type at
-    # the midpoint when it's not a plain INNER JOIN -- the modeler
-    # cares about LEFT/RIGHT/CROSS variants.
+    # 3. Intra-scope join edges. With tree-list orientation, edges
+    # connect a parent (lower y) to its child (higher y) -- a step-
+    # down + step-right when the child is indented further. Use a
+    # right-angled path so the visual matches the file-tree convention.
     for sscope in shape.scopes:
         for e in sscope.edges:
             src = coords.get(e.source_id)
             tgt = coords.get(e.target_id)
             if src is None or tgt is None:
                 continue
+            path = _tree_list_edge_path(src, tgt)
             parts.append(
-                f'<path d="M{src[0]},{src[1]} L{tgt[0]},{tgt[1]}" '
-                f'stroke="{_EDGE_COLOR}" stroke-width="2" fill="none" />'
+                f'<path d="{path}" stroke="{_EDGE_COLOR}" '
+                f'stroke-width="1.6" fill="none" />'
             )
             jt = (e.join_type or "").upper().strip()
             if jt and jt not in ("JOIN", "INNER JOIN"):
-                mx = (src[0] + tgt[0]) // 2
-                my = (src[1] + tgt[1]) // 2 - 4
+                mx = (src[0] + tgt[0]) // 2 + 4
+                my = (src[1] + tgt[1]) // 2
                 parts.append(
-                    f'<text x="{mx}" y="{my}" text-anchor="middle" '
+                    f'<text x="{mx}" y="{my}" '
                     f'font-family="sans-serif" font-size="9" '
                     f'fill="#666">{html.escape(jt)}</text>'
                 )
 
-    # 4. Nodes. Label below each circle with `TABLE` or `TABLE (alias)`.
+    # 4. Nodes. Labels render to the RIGHT of each circle so each row
+    # gets the full width of the panel for its table name -- no more
+    # horizontal collisions between sibling labels.
     for sscope in shape.scopes:
         for n in sscope.nodes:
             xy = coords.get(n.id)
@@ -708,15 +777,30 @@ def render_view_shape_panel(
                 f'<circle cx="{x}" cy="{y}" r="{_NODE_RADIUS}" '
                 f'fill="{_NODE_FILL}" stroke="{_NODE_STROKE}" '
                 f'stroke-width="1.5" />'
-                f'<text x="{x}" y="{y + _NODE_RADIUS + _LABEL_OFFSET}" '
-                f'text-anchor="middle" font-family="sans-serif" '
-                f'font-size="11" font-weight="bold" '
+                f'<text x="{x + _NODE_RADIUS + _LABEL_LEFT_PAD}" '
+                f'y="{y + 4}" '
+                f'font-family="sans-serif" font-size="11" '
+                f'font-weight="bold" '
                 f'fill="{_LABEL_COLOR}">{label_html}</text>'
                 f'</g>'
             )
 
     parts.append("</svg>")
     return "".join(parts)
+
+
+def _tree_list_edge_path(src: tuple[int, int], tgt: tuple[int, int]) -> str:
+    """Right-angled path from parent (src) to child (tgt) suitable
+    for tree-list rendering: down from the parent to the child's row,
+    then right (or left) to the child's column. Mimics the
+    file-tree connector style."""
+    sx, sy = src
+    tx, ty = tgt
+    if sx == tx:
+        # Same indent column -- straight vertical line.
+        return f"M{sx},{sy} L{tx},{ty}"
+    # Step down to the child's row, then over to the child's column.
+    return f"M{sx},{sy} L{sx},{ty} L{tx},{ty}"
 
 
 # ===========================================================================

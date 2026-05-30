@@ -113,6 +113,52 @@ def _make_view_cte() -> dict:
     }
 
 
+def _make_view_union_in_cte() -> dict:
+    """CTE body is a UNION of two single-table SELECTs. After resolve.py
+    emits branch sub-scopes (`cte:foo/union:0`, `cte:foo/union:1`),
+    the CTE itself becomes a wrapper scope -- v4 skips its (merged-by-
+    fc904a6) flat data and renders the branches independently.
+    """
+    return {
+        "view_name": "VW_UCTE",
+        "view_outputs": ["main"],
+        "scopes": [
+            {
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["PATIENT"],
+                "reads_from_scopes": ["cte:combined"],
+                "joins": [{
+                    "right_table": "PATIENT", "right_alias": "P",
+                    "join_type": "INNER JOIN",
+                    "on_expression": "C.PAT_ID = P.PAT_ID",
+                    "columns": [],
+                }],
+                "columns": [],
+            },
+            {
+                # The wrapper. fc904a6 left it with both branches'
+                # tables/joins merged in -- v4 must skip rendering this
+                # in favor of the branch sub-scopes below.
+                "id": "cte:combined", "kind": "cte",
+                "reads_from_tables": ["PAT_ENC", "PAT_ENC_HSP"],
+                "reads_from_scopes": [],
+                "joins": [],
+                "columns": [],
+            },
+            {
+                "id": "cte:combined/union:0", "kind": "union",
+                "reads_from_tables": ["PAT_ENC"],
+                "reads_from_scopes": [], "joins": [], "columns": [],
+            },
+            {
+                "id": "cte:combined/union:1", "kind": "union",
+                "reads_from_tables": ["PAT_ENC_HSP"],
+                "reads_from_scopes": [], "joins": [], "columns": [],
+            },
+        ],
+    }
+
+
 def _make_view_join_subquery() -> dict:
     """JOIN-clause subquery -- the bug 1 case. After the extract.py +
     resolve.py fixes: the join's right_table is the subquery's alias
@@ -218,6 +264,42 @@ class TestBuildViewShape(unittest.TestCase):
                 for e in resolved),
             f"no cross-scope edge to CTE driver in {resolved}"
         )
+
+    def test_union_in_cte_renders_branches_skipping_wrapper(self):
+        """Regression: UNION inside a CTE. The CTE acts as a wrapper
+        (its flat reads_from_tables / joins are duplicated branch
+        data merged by fc904a6); the branches are the real visible
+        scopes. v4 must skip the wrapper and fan the consumer's
+        cross-scope edge out to each branch's driver, so BOTH
+        branches' tables connect back to main."""
+        shape = build_view_shape(_make_view_union_in_cte())
+        scope_ids = {s.id for s in shape.scopes}
+        # Wrapper 'cte:combined' is omitted; both branches survive.
+        self.assertNotIn("cte:combined", scope_ids)
+        self.assertIn("cte:combined/union:0", scope_ids)
+        self.assertIn("cte:combined/union:1", scope_ids)
+        # Each branch has exactly its own table.
+        b0 = shape.scope_by_id("cte:combined/union:0")
+        b1 = shape.scope_by_id("cte:combined/union:1")
+        self.assertEqual([n.table for n in b0.nodes], ["PAT_ENC"])
+        self.assertEqual([n.table for n in b1.nodes], ["PAT_ENC_HSP"])
+        # Cross-scope edge from main fans out to BOTH branch drivers
+        # (the wrapper-fanout logic). Without this, the second
+        # branch's table would float as an orphan -- the exact bug
+        # Yang reported.
+        resolved = _resolve_cross_scope_edges(shape)
+        targets = {e.target_id for e in resolved if e.kind == "cross_scope"}
+        self.assertIn(b0.driver_node_id, targets)
+        self.assertIn(b1.driver_node_id, targets)
+
+    def test_wrapper_scope_label_has_path_breadcrumb(self):
+        """Branch sub-scope labels include the parent breadcrumb so
+        the modeler can read the nesting at a glance."""
+        shape = build_view_shape(_make_view_union_in_cte())
+        b0 = shape.scope_by_id("cte:combined/union:0")
+        # Path-style label: 'CTE: combined · UNION branch 0'.
+        self.assertIn("CTE: combined", b0.label)
+        self.assertIn("UNION branch 0", b0.label)
 
     def test_join_subquery_renders_as_separate_scope(self):
         shape = build_view_shape(_make_view_join_subquery())

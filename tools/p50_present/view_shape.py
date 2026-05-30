@@ -473,20 +473,26 @@ def hierarchical_layout(
 # SVG panel renderer
 # ---------------------------------------------------------------------------
 
-# Layout constants. Tuned so a panel with ~10 nodes is readable at
-# ~400x300 px (a comfortable side-by-side grid cell on a laptop).
-_COL_SPACING = 130       # horizontal pixels between BFS columns
-_ROW_SPACING = 60        # vertical pixels between rows within a column
-_NODE_RADIUS = 22        # circle radius
-_PAD_X = 30              # canvas padding (left + right margin)
+# Layout constants. Spacing leaves room for table-name labels rendered
+# BELOW each circle (rather than inside, where long names like
+# `PATIENT_MYC` got truncated against the circle boundary).
+_COL_SPACING = 150       # horizontal pixels between BFS columns
+_ROW_SPACING = 80        # vertical pixels between rows (incl. label space)
+_NODE_RADIUS = 16        # circle radius (smaller now that text is external)
+_LABEL_OFFSET = 18       # pixels below circle center to baseline of label
+_PAD_X = 40              # canvas padding (left + right margin)
 _PAD_Y = 30              # canvas padding (top + bottom margin)
+_TITLE_HEIGHT = 28       # vertical room for the panel title
 
-# Color scheme: minimal, two states per element (lit / faded).
+# Color scheme: minimal, two states per element (lit / faded). Labels
+# are rendered OUTSIDE the circles in dark text on the white panel
+# background -- always readable, no white-on-blue collision.
 _LIT_NODE_FILL = "#2c7fb8"
-_LIT_NODE_TEXT = "#ffffff"
+_LIT_NODE_STROKE = "#1a5d8a"
+_LIT_LABEL_COLOR = "#1a1a1a"
 _FADED_NODE_FILL = "#f0f0f0"
 _FADED_NODE_STROKE = "#bdbdbd"
-_FADED_TEXT = "#9e9e9e"
+_FADED_LABEL_COLOR = "#9e9e9e"
 _LIT_EDGE_COLOR = "#2c7fb8"
 _FADED_EDGE_COLOR = "#dcdcdc"
 
@@ -519,40 +525,46 @@ def render_view_shape_panel(
         " (4/7 tables)" for coverage hint).
     """
     if not coords:
-        # Empty community -- emit a placeholder svg so the CSS grid
+        # Empty community -- emit a placeholder svg so the CSS layout
         # doesn't collapse.
         return (
-            '<svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">'
-            f'<text x="100" y="55" text-anchor="middle" fill="#888" '
-            f'font-family="sans-serif" font-size="14">'
+            '<svg width="240" height="60" viewBox="0 0 240 60" '
+            'xmlns="http://www.w3.org/2000/svg">'
+            f'<text x="120" y="35" text-anchor="middle" fill="#888" '
+            f'font-family="sans-serif" font-size="13">'
             f'{html.escape(view_name)} (empty)</text></svg>'
         )
 
     max_col = max(c for (c, _) in coords.values())
     max_row = max(r for (_, r) in coords.values())
     width = _PAD_X * 2 + (max_col + 1) * _COL_SPACING
-    height = _PAD_Y * 2 + (max_row + 1) * _ROW_SPACING + 30  # +30 for title
+    height = _PAD_Y * 2 + _TITLE_HEIGHT + (max_row + 1) * _ROW_SPACING
 
-    # Pixel coords per node. Title bar uses the top 24px; nodes start
-    # below that.
+    # Pixel coords per node. Title bar sits in the top _TITLE_HEIGHT
+    # band; the first row of nodes starts below that.
     pixel: dict[str, tuple[int, int]] = {}
     for node, (col, row) in coords.items():
-        x = _PAD_X + col * _COL_SPACING + _NODE_RADIUS
-        y = _PAD_Y + 30 + row * _ROW_SPACING + _NODE_RADIUS
+        x = _PAD_X + col * _COL_SPACING + _NODE_RADIUS + 30
+        y = _PAD_Y + _TITLE_HEIGHT + row * _ROW_SPACING + _NODE_RADIUS
         pixel[node] = (x, y)
 
     parts: list[str] = []
+    # Set explicit width and height attributes so the SVG renders at
+    # its natural pixel size in the browser (no auto-scaling-to-
+    # container, which is what made dense panels unreadable when
+    # squeezed into narrow grid cells).
     parts.append(
-        f'<svg viewBox="0 0 {width} {height}" '
+        f'<svg width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}" '
         f'xmlns="http://www.w3.org/2000/svg" '
-        f'style="background:#ffffff; border:1px solid #e0e0e0; '
-        f'border-radius:4px;">'
+        f'style="background:#ffffff; border:1px solid #d0d0d0; '
+        f'border-radius:4px; display:block;">'
     )
 
     # Title bar.
     title = html.escape(view_name + title_suffix)
     parts.append(
-        f'<text x="{width // 2}" y="20" text-anchor="middle" '
+        f'<text x="{width // 2}" y="18" text-anchor="middle" '
         f'font-family="sans-serif" font-size="13" font-weight="bold" '
         f'fill="#333">{title}</text>'
     )
@@ -580,30 +592,37 @@ def render_view_shape_panel(
             continue
         parts.append(
             f'<path d="{path}" stroke="{_LIT_EDGE_COLOR}" '
-            f'stroke-width="2.2" fill="none" />'
+            f'stroke-width="2.4" fill="none" />'
         )
 
-    # Nodes. Faded first, lit on top.
+    # Nodes. Labels render BELOW the circle in dark text on the
+    # white panel background -- always readable regardless of fill
+    # color, and unbounded so long table names don't get truncated by
+    # the circle radius. The <title> element gives the full table
+    # name as a native browser hover tooltip.
     def _node_svg(name: str, lit: bool) -> str:
         x, y = pixel[name]
         label = html.escape(name)
         if lit:
-            return (
-                f'<g><circle cx="{x}" cy="{y}" r="{_NODE_RADIUS}" '
-                f'fill="{_LIT_NODE_FILL}" stroke="{_LIT_NODE_FILL}" '
-                f'stroke-width="1.5" />'
-                f'<text x="{x}" y="{y + 4}" text-anchor="middle" '
-                f'font-family="sans-serif" font-size="10" '
-                f'font-weight="bold" fill="{_LIT_NODE_TEXT}">{label}</text>'
-                f'</g>'
+            fill, stroke, stroke_dash = (
+                _LIT_NODE_FILL, _LIT_NODE_STROKE, ""
             )
+            text_color = _LIT_LABEL_COLOR
+            text_weight = "bold"
+        else:
+            fill, stroke = _FADED_NODE_FILL, _FADED_NODE_STROKE
+            stroke_dash = ' stroke-dasharray="3,3"'
+            text_color = _FADED_LABEL_COLOR
+            text_weight = "normal"
         return (
-            f'<g><circle cx="{x}" cy="{y}" r="{_NODE_RADIUS}" '
-            f'fill="{_FADED_NODE_FILL}" stroke="{_FADED_NODE_STROKE}" '
-            f'stroke-width="1" stroke-dasharray="3,3" />'
-            f'<text x="{x}" y="{y + 4}" text-anchor="middle" '
-            f'font-family="sans-serif" font-size="10" '
-            f'fill="{_FADED_TEXT}">{label}</text>'
+            f'<g>'
+            f'<title>{label}</title>'
+            f'<circle cx="{x}" cy="{y}" r="{_NODE_RADIUS}" '
+            f'fill="{fill}" stroke="{stroke}" stroke-width="1.5"{stroke_dash} />'
+            f'<text x="{x}" y="{y + _NODE_RADIUS + _LABEL_OFFSET}" '
+            f'text-anchor="middle" font-family="sans-serif" '
+            f'font-size="11" font-weight="{text_weight}" '
+            f'fill="{text_color}">{label}</text>'
             f'</g>'
         )
 
@@ -631,27 +650,43 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   body {{ font-family: sans-serif; margin: 24px; color: #333; background: #fafafa; }}
   h1 {{ font-size: 18px; margin: 0 0 6px; }}
   p.meta {{ color: #666; font-size: 13px; margin: 0 0 18px; }}
-  .substrate-section {{ margin-bottom: 28px; }}
-  .substrate-section h2 {{ font-size: 14px; margin: 0 0 8px; color: #555; }}
-  .grid {{
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-    gap: 14px;
-  }}
-  .grid > svg {{ width: 100%; height: auto; }}
-  .substrate-card svg {{ max-width: 720px; width: 100%; height: auto; }}
+  section {{ margin-bottom: 28px; }}
+  section h2 {{ font-size: 14px; margin: 0 0 8px; color: #555; }}
+  /* TOC: list of view-name anchors so a reader can jump straight to
+     a panel of interest. Useful when a community has 7+ views and the
+     grid is tall enough to require scrolling. */
+  .toc {{ background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
+          padding: 10px 14px; }}
+  .toc ul {{ margin: 6px 0 0; padding-left: 18px; }}
+  .toc li {{ margin: 2px 0; font-size: 13px; }}
+  .toc a {{ color: #2c7fb8; text-decoration: none; }}
+  .toc a:hover {{ text-decoration: underline; }}
+  /* Panels render at their natural SVG pixel size -- no CSS width
+     override -- so each one is consistently readable regardless of
+     how many sit beside it. flex-wrap lets them share a row when
+     space permits and drop to the next row when it doesn't. */
+  .grid {{ display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }}
+  .panel {{ scroll-margin-top: 12px; }}
+  .panel-header {{ display: none; }}  /* title is inside the SVG */
 </style>
 </head>
 <body>
 <h1>{title}</h1>
 <p class="meta">{meta}</p>
-<div class="substrate-section substrate-card">
+<section class="toc">
+  <h2>Views in this community ({n_views})</h2>
+  <ul>{toc_items}</ul>
+</section>
+<section>
   <h2>Shared substrate (union of all views' tables and joins)</h2>
-  {substrate_svg}
-</div>
-<div class="grid">
+  <div class="grid">{substrate_svg}</div>
+</section>
+<section>
+  <h2>Per-view panels (lit = used by this view, faded = unused)</h2>
+  <div class="grid">
 {panels}
-</div>
+  </div>
+</section>
 </body>
 </html>
 """
@@ -692,14 +727,17 @@ def write_community_shapes(
         coords=coords,
     )
 
-    # Per-view panels. Sort by view_name so output order is stable
-    # across reruns (otherwise dict-iteration ordering for newly-
-    # extracted corpora could flip and the diff looks noisy).
+    # Per-view panels + TOC anchors. Sort by view_name so output
+    # order is stable across reruns (dict-iteration order for newly-
+    # extracted corpora could flip otherwise and the diff looks noisy).
+    sorted_view_names = sorted(per_view)
     panels: list[str] = []
-    for view_name in sorted(per_view):
+    toc_items: list[str] = []
+    for view_name in sorted_view_names:
         v_nodes, v_edges = per_view[view_name]
         suffix = f"  ({len(v_nodes)}/{len(nodes)} tables)"
-        panels.append(render_view_shape_panel(
+        anchor = _anchor_id(view_name)
+        panel_svg = render_view_shape_panel(
             view_name=view_name,
             view_nodes=v_nodes,
             view_edges=v_edges,
@@ -707,7 +745,12 @@ def write_community_shapes(
             substrate_edges=edges,
             coords=coords,
             title_suffix=suffix,
-        ))
+        )
+        panels.append(f'<div class="panel" id="{anchor}">{panel_svg}</div>')
+        toc_items.append(
+            f'<li><a href="#{anchor}">{html.escape(view_name)}</a> '
+            f'<span style="color:#888;">({len(v_nodes)}/{len(nodes)} tables)</span></li>'
+        )
 
     title = (
         f"View shapes -- {community_label}" if community_label
@@ -720,9 +763,27 @@ def write_community_shapes(
     html_body = _HTML_TEMPLATE.format(
         title=html.escape(title),
         meta=meta,
+        n_views=len(sorted_view_names),
+        toc_items="".join(toc_items),
         substrate_svg=substrate_svg,
         panels="\n".join(panels),
     )
 
     output_path.write_text(html_body, encoding="utf-8")
     return output_path
+
+
+def _anchor_id(view_name: str) -> str:
+    """Convert a view name into a CSS-safe anchor id.
+
+    View names like `Reporting.V_CCHP_HomeHealth_Population.View` need
+    the dots / colons / brackets stripped so the resulting `#anchor`
+    target is a valid HTML id (and not interpreted as a CSS selector).
+    """
+    safe = []
+    for ch in (view_name or ""):
+        if ch.isalnum() or ch in "-_":
+            safe.append(ch)
+        else:
+            safe.append("_")
+    return "view-" + "".join(safe)

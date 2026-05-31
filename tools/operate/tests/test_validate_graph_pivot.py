@@ -134,6 +134,10 @@ class TestEndToEndOrchestration(unittest.TestCase):
             shape_htmls = list((output_dir / "community_shapes").glob("community_*_shapes.html"))
             self.assertGreater(len(shape_htmls), 0)
             self.assertEqual(len(result["community_shapes"]), len(shape_htmls))
+            # Phase 6: corpus-level landscape map.
+            corpus_map = output_dir / "corpus_map.html"
+            self.assertTrue(corpus_map.is_file())
+            self.assertEqual(result["corpus_map"], str(corpus_map))
             # Sanity-check the report content.
             report = Path(result["validation_report"]).read_text(encoding="utf-8")
             self.assertIn("Verdict", report)

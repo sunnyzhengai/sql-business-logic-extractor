@@ -53,6 +53,7 @@ Output artifacts (in `output_dir`):
   - modeling_specs/community_NN_<top>.md       per-community modeling brief
   - community_matrices/community_NN_<top>_matrix.md   3-matrix feature view
   - community_shapes/community_NN_<top>_shapes.html   side-by-side per-view join graphs
+  - corpus_map.html                            corpus-level landscape (every table, colored by community)
   - validation_report.md                       PASS / INCONCLUSIVE / REVIEW NEEDED verdict
 
 Historical note
@@ -146,6 +147,7 @@ from tools.p50_present.community_matrix import (
     write_community_matrix,
 )
 from tools.p50_present.view_shape import write_community_shapes
+from tools.p50_present.corpus_map import write_corpus_map
 
 
 def write_validation_report(
@@ -596,12 +598,41 @@ def run_validation(
         )
         shape_paths.append(str(shape_path))
 
+    # Phase 6: corpus-level landscape map. One HTML at the output
+    # root showing every table laid out via spring layout, colored
+    # by its Louvain community, with hyperlinks at the bottom to
+    # each per-community shapes HTML. Functions as the entry point
+    # the modeler opens to see the whole substrate at a glance.
+    #
+    # The corpus_community_links map points links into the
+    # community_shapes/ subdirectory using a relative path.
+    # Communities whose primary-views set was empty (no shape file
+    # written) get a 'no shapes file' label instead of a link.
+    corpus_community_links: dict[int, tuple[str, str]] = {}
+    for community_index, fname, primary_views in community_files:
+        top_label = (analyses[community_index]["top_tables"][0][0]
+                     if analyses[community_index]["top_tables"]
+                     else f"community_{community_index}")
+        if any(str(p).endswith(fname) for p in shape_paths):
+            corpus_community_links[community_index] = (
+                f"community_shapes/{fname}", top_label,
+            )
+    corpus_map_path = write_corpus_map(
+        views,
+        communities,
+        output_dir / "corpus_map.html",
+        title=f"Corpus landscape -- {len(views)} views, "
+              f"{len(communities)} communities",
+        community_files=corpus_community_links,
+    )
+
     print(f"      graph.html (overview)     -> {overview_html}")
     print(f"      communities/index.html    -> {index_html}")
     print(f"      communities.md            -> {communities_md}")
     print(f"      modeling_specs/           -> {specs_dir} ({len(spec_paths)} spec(s))")
     print(f"      community_matrices/       -> {matrices_dir} ({len(matrix_paths)} matrix(es))")
     print(f"      community_shapes/         -> {shapes_dir} ({len(shape_paths)} shape(s))")
+    print(f"      corpus_map.html           -> {corpus_map_path}")
     print(f"      validation_report.md      -> {report_md}")
 
     return {
@@ -611,6 +642,7 @@ def run_validation(
         "modeling_specs": spec_paths,
         "community_matrices": matrix_paths,
         "community_shapes": shape_paths,
+        "corpus_map": str(corpus_map_path),
         "validation_report": report_md,
         "n_views_total": len(all_views),
         "n_views_business": len(views),

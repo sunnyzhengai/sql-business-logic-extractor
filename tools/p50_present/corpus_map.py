@@ -353,7 +353,10 @@ def write_corpus_map(
     meta = (
         f"{len(nodes)} table(s) &middot; {len(edges)} JOIN edge(s) &middot; "
         f"{len(communities)} community(ies) &middot; "
-        f"{n_bridge} bridge/unassigned"
+        f"{n_bridge} bridge/unassigned &middot; "
+        f"<em>Footer links require the sibling "
+        f"<code>community_shapes/</code> folder -- keep the whole output "
+        f"directory together when moving files.</em>"
     )
 
     community_files = community_files or {}

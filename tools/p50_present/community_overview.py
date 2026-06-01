@@ -149,8 +149,35 @@ def frequency_layout(
     height: int = 400,
     seed: int = 42,
 ) -> dict[str, tuple[int, int]]:
-    """Spring layout the community substrate, scale to pixel coords.
-    Deterministic via fixed seed."""
+    """Lay out the substrate so the cloud spreads to fill the canvas
+    rather than collapsing into a central blob.
+
+    Two-tier algorithm choice:
+
+      - For graphs <= 150 nodes, try Kamada-Kawai first. It's an
+        energy-minimization layout driven by shortest-path
+        distances, which typically produces MUCH more uniform
+        spacing than spring layout for moderately-sized graphs --
+        spring's attractive forces tend to collapse dense subgraphs
+        on themselves while pushing leaves out to the periphery,
+        leaving big blank regions. KK avoids that.
+
+      - For larger graphs (or when KK fails -- e.g., disconnected
+        sub-components), fall back to spring with a deliberately
+        BUMPED `k` (target node distance) so the cloud spreads out.
+        We also crank iterations up so the spring system has time
+        to converge to a less-cramped state.
+
+    After the raw layout, we normalize with percentile clipping (5th/
+    95th) instead of pure min/max. A handful of outlier nodes far
+    from the cluster would otherwise stretch the bounding box and
+    re-collapse the dense core into the center; clipping makes the
+    central mass fill the canvas while outliers get pinned to the
+    edges.
+
+    Deterministic via fixed seed for spring; KK is naturally
+    deterministic (no random init).
+    """
     if not nodes:
         return {}
 
@@ -161,14 +188,47 @@ def frequency_layout(
         g.add_node(n)
     for a, b in edges:
         g.add_edge(a, b)
-    raw = nx.spring_layout(g, seed=seed, iterations=120, k=None)
+    n = len(nodes)
+
+    raw: dict[str, tuple[float, float]] | None = None
+    if n <= 150:
+        # KK requires scipy and a connected graph. For disconnected
+        # communities (rare in practice for the post-Louvain
+        # primary-views set), it raises; we catch and fall back to
+        # spring.
+        try:
+            raw = nx.kamada_kawai_layout(g)
+        except Exception:
+            raw = None
+    if raw is None:
+        # Bumped `k` so nodes settle further apart. networkx's default
+        # is 1/sqrt(n) which gets vanishingly small for big graphs;
+        # 2.0/sqrt(n) gives the layout real breathing room.
+        k = max(0.15, 2.0 / max(n ** 0.5, 1))
+        raw = nx.spring_layout(g, seed=seed, iterations=300, k=k)
+
     if not raw:
         return {}
 
     xs = [p[0] for p in raw.values()]
     ys = [p[1] for p in raw.values()]
-    x_min, x_max = min(xs), max(xs)
-    y_min, y_max = min(ys), max(ys)
+    # Percentile clipping: outliers get pinned to the edges so the
+    # central mass spreads to fill the canvas instead of staying
+    # cramped in the middle. For very small graphs (< 8 nodes), the
+    # 5th/95th percentile is essentially min/max, so this degrades
+    # gracefully.
+    def _pct(data: list[float], p: float) -> float:
+        data = sorted(data)
+        if not data:
+            return 0.0
+        k = (len(data) - 1) * (p / 100.0)
+        lo = int(k)
+        hi = min(lo + 1, len(data) - 1)
+        return data[lo] + (data[hi] - data[lo]) * (k - lo)
+
+    pct = 5 if n >= 8 else 0
+    x_min, x_max = _pct(xs, pct), _pct(xs, 100 - pct)
+    y_min, y_max = _pct(ys, pct), _pct(ys, 100 - pct)
     x_span = max(x_max - x_min, 1e-6)
     y_span = max(y_max - y_min, 1e-6)
 
@@ -178,8 +238,14 @@ def frequency_layout(
 
     coords: dict[str, tuple[int, int]] = {}
     for node, (rx, ry) in raw.items():
-        px = margin + int((rx - x_min) / x_span * avail_w)
-        py = margin + int((ry - y_min) / y_span * avail_h)
+        # Map into [margin, width - margin]; clip outliers that fall
+        # outside the percentile band to the canvas edge.
+        nx_norm = (rx - x_min) / x_span
+        ny_norm = (ry - y_min) / y_span
+        nx_norm = max(0.0, min(1.0, nx_norm))
+        ny_norm = max(0.0, min(1.0, ny_norm))
+        px = margin + int(nx_norm * avail_w)
+        py = margin + int(ny_norm * avail_h)
         coords[node] = (px, py)
     return coords
 

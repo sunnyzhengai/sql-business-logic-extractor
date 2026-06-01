@@ -641,7 +641,7 @@ def _error_view(view_name: str, error_msg: str, sql: str | None = None) -> ViewV
 # ---------- batch entry point ---------------------------------------------
 
 def extract_corpus(
-    input_dir: str,
+    input_dir: str | list[str] | tuple[str, ...],
     output_path: str = "corpus.jsonl",
     *,
     schema_path: str | None = None,
@@ -650,19 +650,58 @@ def extract_corpus(
 ) -> int:
     """Walk views, build a CorpusV1 (v3 scope tree), stream-write to JSONL.
 
+    `input_dir` accepts either:
+      - a single directory path (string) -- the original API; behaves
+        exactly as before for that single folder.
+      - a list/tuple of directory paths -- globs `*.sql` from each in
+        order, dedupes by file stem (first occurrence wins; later
+        duplicates print a warning), and writes a SINGLE combined
+        corpus.jsonl. Use this when your views are split across
+        multiple source folders (e.g.,
+            ['data/views_reporting', 'data/views_cookrpt']).
+
     `zc_values_path` defaults to `data/dictionaries/zc_values.csv`. When
     present, every `<X>_C = <N>` filter predicate that resolves in the
     CSV gets a `ZcLookupV1` entry on `filter.zc_lookups`. Missing CSV
     is fine -- the lookup is opt-in and the corpus is still complete.
     """
-    in_dir = Path(input_dir)
-    if not in_dir.is_dir():
-        print(f"Error: {in_dir} is not a directory", file=sys.stderr)
-        return 1
-    sql_files = sorted(in_dir.glob("*.sql"))
+    # Normalize input_dir to a list so the rest of the function
+    # handles single- and multi-dir uniformly.
+    if isinstance(input_dir, (list, tuple)):
+        input_dirs = [Path(d) for d in input_dir]
+    else:
+        input_dirs = [Path(input_dir)]
+
+    # Glob *.sql from each directory in order. Missing folders are
+    # warned and skipped (consistent with the rest of the pipeline's
+    # tolerance of partial inputs). Duplicate stems across folders
+    # follow first-folder-wins, with a warning so the user can audit.
+    sql_files: list[Path] = []
+    seen_stems: set[str] = set()
+    for in_d in input_dirs:
+        if not in_d.is_dir():
+            print(f"Warning: {in_d} is not a directory, skipping",
+                  file=sys.stderr)
+            continue
+        for sf in sorted(in_d.glob("*.sql")):
+            if sf.stem in seen_stems:
+                print(f"Warning: duplicate view_name {sf.stem!r} in "
+                      f"{sf} (already collected from another folder); "
+                      f"keeping the earlier file",
+                      file=sys.stderr)
+                continue
+            seen_stems.add(sf.stem)
+            sql_files.append(sf)
+
     if not sql_files:
-        print(f"Error: no .sql files in {in_dir}", file=sys.stderr)
+        labels = ", ".join(str(d) for d in input_dirs)
+        print(f"Error: no .sql files in any of [{labels}]",
+              file=sys.stderr)
         return 1
+
+    # Pick a representative directory for log messages (the first
+    # one that exists). Used only for human-readable output.
+    in_dir = next((d for d in input_dirs if d.is_dir()), input_dirs[0])
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -686,7 +725,12 @@ def extract_corpus(
 
     with progress_path.open("w") as pf:
         pf.write(f"# extract_corpus started at {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        pf.write(f"# input_dir: {in_dir}\n")
+        if len(input_dirs) == 1:
+            pf.write(f"# input_dir: {in_dir}\n")
+        else:
+            pf.write(f"# input_dirs ({len(input_dirs)}):\n")
+            for d in input_dirs:
+                pf.write(f"#   - {d}\n")
         pf.write(f"# {len(sql_files)} view(s) to process\n")
         pf.flush()
 

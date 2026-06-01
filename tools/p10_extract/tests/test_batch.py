@@ -61,6 +61,77 @@ def test_extract_corpus_writes_valid_jsonl(tmp_path):
     assert header["n_views"] == 2
 
 
+def test_extract_corpus_accepts_list_of_dirs(tmp_path):
+    """Yang's full-cohort use case: views split across two folders
+    (data/views_reporting + data/views_cookrpt). Passing a list of
+    dirs globs *.sql from each and produces a single combined
+    corpus.jsonl."""
+    dir_a = tmp_path / "views_a"
+    dir_b = tmp_path / "views_b"
+    dir_a.mkdir()
+    dir_b.mkdir()
+    (dir_a / "VW_A.sql").write_text(
+        "SELECT P.PAT_ID FROM Clarity.dbo.PATIENT P WHERE P.STATUS_C = 1"
+    )
+    (dir_b / "VW_B.sql").write_text(
+        "SELECT E.PAT_ENC_CSN_ID FROM Clarity.dbo.PAT_ENC E"
+    )
+    out = tmp_path / "combined.jsonl"
+
+    extract_corpus([str(dir_a), str(dir_b)], str(out))
+
+    corpus = corpus_from_jsonl_lines(iter(out.read_text().splitlines()))
+    names = {v.view_name for v in corpus.views}
+    assert names == {"VW_A", "VW_B"}
+
+
+def test_extract_corpus_dedupes_by_stem_first_folder_wins(tmp_path):
+    """Same file stem in two folders -- first folder's version wins,
+    duplicates are warned and skipped. Prevents accidental
+    double-extraction of overlapping cohorts."""
+    dir_a = tmp_path / "views_a"
+    dir_b = tmp_path / "views_b"
+    dir_a.mkdir()
+    dir_b.mkdir()
+    (dir_a / "VW_DUP.sql").write_text(
+        "SELECT P.PAT_ID FROM Clarity.dbo.PATIENT P"
+    )
+    (dir_b / "VW_DUP.sql").write_text(
+        "SELECT E.PAT_ENC_CSN_ID FROM Clarity.dbo.PAT_ENC E"
+    )
+    out = tmp_path / "combined.jsonl"
+
+    extract_corpus([str(dir_a), str(dir_b)], str(out))
+
+    corpus = corpus_from_jsonl_lines(iter(out.read_text().splitlines()))
+    # Only the first folder's VW_DUP made it.
+    assert len(corpus.views) == 1
+    view = corpus.views[0]
+    assert view.view_name == "VW_DUP"
+    # Its source was dir_a (PATIENT, not PAT_ENC).
+    main = next(s for s in view.scopes if s.id == "main")
+    assert any(t.endswith("PATIENT") for t in main.reads_from_tables)
+
+
+def test_extract_corpus_skips_missing_dirs_in_list(tmp_path):
+    """Tolerant: one missing dir in the list doesn't break -- the
+    real ones still process and the user sees a warning on stderr."""
+    real_dir = tmp_path / "real"
+    real_dir.mkdir()
+    (real_dir / "VW_REAL.sql").write_text(
+        "SELECT P.PAT_ID FROM Clarity.dbo.PATIENT P"
+    )
+    out = tmp_path / "combined.jsonl"
+
+    rc = extract_corpus(
+        [str(real_dir), str(tmp_path / "does_not_exist")],
+        str(out),
+    )
+    assert rc != 1
+    corpus = corpus_from_jsonl_lines(iter(out.read_text().splitlines()))
+    assert {v.view_name for v in corpus.views} == {"VW_REAL"}
+
+
 def test_corpus_round_trip_through_corpus_schema(tmp_path):
     views = tmp_path / "views"
     _seed_views(views)

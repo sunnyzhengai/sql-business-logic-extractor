@@ -134,7 +134,13 @@ class TestEndToEndOrchestration(unittest.TestCase):
             shape_htmls = list((output_dir / "community_shapes").glob("community_*_shapes.html"))
             self.assertGreater(len(shape_htmls), 0)
             self.assertEqual(len(result["community_shapes"]), len(shape_htmls))
-            # Phase 6: corpus-level landscape map.
+            # Phase 6: per-community overview HTMLs (substrate + stripes).
+            overview_htmls = list(
+                (output_dir / "community_overviews").glob("community_*_overview.html")
+            )
+            self.assertGreater(len(overview_htmls), 0)
+            self.assertEqual(len(result["community_overviews"]), len(overview_htmls))
+            # Phase 7: corpus-level landscape map.
             corpus_map = output_dir / "corpus_map.html"
             self.assertTrue(corpus_map.is_file())
             self.assertEqual(result["corpus_map"], str(corpus_map))

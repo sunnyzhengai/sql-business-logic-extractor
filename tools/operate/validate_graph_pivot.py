@@ -53,6 +53,7 @@ Output artifacts (in `output_dir`):
   - modeling_specs/community_NN_<top>.md       per-community modeling brief
   - community_matrices/community_NN_<top>_matrix.md   3-matrix feature view
   - community_shapes/community_NN_<top>_shapes.html   side-by-side per-view join graphs
+  - community_overviews/community_NN_<top>_overview.html  per-community big picture (substrate + stripes)
   - corpus_map.html                            corpus-level landscape (every table, colored by community)
   - validation_report.md                       PASS / INCONCLUSIVE / REVIEW NEEDED verdict
 
@@ -148,6 +149,8 @@ from tools.p50_present.community_matrix import (
 )
 from tools.p50_present.view_shape import write_community_shapes
 from tools.p50_present.corpus_map import write_corpus_map
+from tools.p50_present.community_overview import write_community_overview
+from tools.p50_present.community_html import community_color
 from tools.operate.view_resolver import load_external_views
 
 
@@ -628,24 +631,67 @@ def run_validation(
         )
         shape_paths.append(str(shape_path))
 
-    # Phase 6: corpus-level landscape map. One HTML at the output
-    # root showing every table laid out via spring layout, colored
-    # by its Louvain community, with hyperlinks at the bottom to
-    # each per-community shapes HTML. Functions as the entry point
-    # the modeler opens to see the whole substrate at a glance.
+    # Phase 6: per-community OVERVIEW HTML -- the "big picture for
+    # one community" with a frequency-colored substrate at the top
+    # and small per-view stripes below. Sits BETWEEN the corpus map
+    # (whole-corpus orientation) and the per-view shapes (one-view
+    # deep-dive) in the navigation hierarchy:
     #
-    # The corpus_community_links map points links into the
-    # community_shapes/ subdirectory using a relative path.
-    # Communities whose primary-views set was empty (no shape file
-    # written) get a 'no shapes file' label instead of a link.
-    corpus_community_links: dict[int, tuple[str, str]] = {}
-    for community_index, fname, primary_views in community_files:
+    #   corpus_map.html
+    #       v (click a community)
+    #   community_overviews/community_NN_*_overview.html
+    #       v (click a per-view stripe)
+    #   community_shapes/community_NN_*_shapes.html#view-X
+    #
+    # Each stripe links to the corresponding view-anchor in the
+    # community_shapes file so the drill-down is one click.
+    overviews_dir = output_dir / "community_overviews"
+    overviews_dir.mkdir(parents=True, exist_ok=True)
+    overview_paths: list[str] = []
+    overview_filename_by_community: dict[int, str] = {}
+    for community_index, fname_shapes, primary_views in community_files:
         top_label = (analyses[community_index]["top_tables"][0][0]
                      if analyses[community_index]["top_tables"]
                      else f"community_{community_index}")
-        if any(str(p).endswith(fname) for p in shape_paths):
+        community_views = [view_by_name[vn] for vn in primary_views
+                            if vn in view_by_name]
+        if not community_views:
+            continue
+        safe = _safe_filename(top_label)
+        overview_fname = f"community_{community_index:02d}_{safe}_overview.html"
+        # Each stripe links to the per-view anchor in the shapes
+        # HTML, which is a SIBLING directory (community_shapes/).
+        # Relative path from community_overviews/ is ../community_shapes/.
+        shape_link_by_view = {
+            vn: f"../community_shapes/{fname_shapes}#{_anchor_id(vn)}"
+            for vn in primary_views
+            if vn in view_by_name
+        }
+        overview_path = write_community_overview(
+            community_views,
+            overviews_dir / overview_fname,
+            community_label=f"Community {community_index:02d} -- {top_label}",
+            base_color=community_color(community_index),
+            shape_file_relpath_by_view=shape_link_by_view,
+        )
+        overview_paths.append(str(overview_path))
+        overview_filename_by_community[community_index] = overview_fname
+
+    # Phase 7: corpus-level landscape map. One HTML at the output
+    # root showing every table laid out via spring layout, colored
+    # by its Louvain community, with hyperlinks at the bottom to
+    # each per-community OVERVIEW (not shapes -- the overview is the
+    # better landing page; from there the user drills into the per-
+    # view shapes).
+    corpus_community_links: dict[int, tuple[str, str]] = {}
+    for community_index, fname_shapes, primary_views in community_files:
+        top_label = (analyses[community_index]["top_tables"][0][0]
+                     if analyses[community_index]["top_tables"]
+                     else f"community_{community_index}")
+        overview_fname = overview_filename_by_community.get(community_index)
+        if overview_fname:
             corpus_community_links[community_index] = (
-                f"community_shapes/{fname}", top_label,
+                f"community_overviews/{overview_fname}", top_label,
             )
     corpus_map_path = write_corpus_map(
         views,
@@ -662,6 +708,7 @@ def run_validation(
     print(f"      modeling_specs/           -> {specs_dir} ({len(spec_paths)} spec(s))")
     print(f"      community_matrices/       -> {matrices_dir} ({len(matrix_paths)} matrix(es))")
     print(f"      community_shapes/         -> {shapes_dir} ({len(shape_paths)} shape(s))")
+    print(f"      community_overviews/      -> {overviews_dir} ({len(overview_paths)} overview(s))")
     print(f"      corpus_map.html           -> {corpus_map_path}")
     print(f"      validation_report.md      -> {report_md}")
 
@@ -672,6 +719,7 @@ def run_validation(
         "modeling_specs": spec_paths,
         "community_matrices": matrix_paths,
         "community_shapes": shape_paths,
+        "community_overviews": overview_paths,
         "corpus_map": str(corpus_map_path),
         "validation_report": report_md,
         "n_views_total": len(all_views),

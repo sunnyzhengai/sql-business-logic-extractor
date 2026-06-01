@@ -78,6 +78,44 @@ class TestLoadExternalViews(unittest.TestCase):
             )
             self.assertEqual(views, {})
 
+    def test_view_source_dirs_accepts_absolute_paths(self):
+        """The view_source_dirs param lets the caller pass absolute
+        paths directly, bypassing the cwd-relative resolution that
+        breaks under Fabric notebooks where cwd may not be the repo
+        root."""
+        with tempfile.TemporaryDirectory() as td:
+            # Two absolute paths in completely unrelated locations.
+            d1 = Path(td) / "anywhere" / "viewsA"
+            d2 = Path(td) / "elsewhere" / "viewsB"
+            d1.mkdir(parents=True)
+            d2.mkdir(parents=True)
+            (d1 / "V_ALPHA.sql").write_text(
+                "CREATE VIEW V_ALPHA AS SELECT 1 AS x FROM TBL_A"
+            )
+            (d2 / "V_BETA.sql").write_text(
+                "CREATE VIEW V_BETA AS SELECT 2 AS y FROM TBL_B"
+            )
+            views = load_external_views(
+                view_source_dirs=[str(d1), str(d2)],
+            )
+            self.assertIn("V_ALPHA", views)
+            self.assertIn("V_BETA", views)
+
+    def test_view_source_dirs_missing_dir_silently_skipped(self):
+        """Passing an absolute path that doesn't exist is tolerated."""
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td) / "real"
+            d.mkdir()
+            (d / "V_REAL.sql").write_text(
+                "CREATE VIEW V_REAL AS SELECT 1 FROM TBL"
+            )
+            views = load_external_views(view_source_dirs=[
+                str(d),
+                "/does/not/exist",
+            ])
+            self.assertIn("V_REAL", views)
+            # No crash from the bogus path.
+
     def test_first_match_wins_on_duplicate_view_name(self):
         with tempfile.TemporaryDirectory() as td:
             d1 = Path(td) / "views_a"

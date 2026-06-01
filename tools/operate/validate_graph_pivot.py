@@ -263,6 +263,7 @@ def run_validation(
     resolution: float = 1.0,
     bridge_percentile: float = 90.0,
     exclude_patterns: Iterable[str] | None = None,
+    view_source_dirs: list[str | Path] | tuple[str | Path, ...] | None = None,
 ) -> dict:
     """Run the full validation pipeline. Returns a dict of output paths + stats.
 
@@ -275,7 +276,21 @@ def run_validation(
             resolution=1.0,            # try 0.5 for fewer, broader communities
             bridge_percentile=90.0,    # top 10% by degree are flagged as bridges
             exclude_patterns=None,     # uses DEFAULT_INFRASTRUCTURE_PATTERNS
+            view_source_dirs=None,     # absolute paths for view-of-view expansion;
+                                       # defaults to cwd-relative VIEW_SOURCE_DIRS
         )
+
+    `view_source_dirs` controls where load_external_views looks for
+    foundation view SQL files (the inline-expansion source). When
+    None, the resolver uses `data/views_reporting` and
+    `data/views_cookrpt` RELATIVE to Path.cwd() -- which often
+    doesn't match Fabric's notebook cwd. Pass absolute paths like
+    `["/lakehouse/default/Files/views_reporting",
+      "/lakehouse/default/Files/views_cookrpt"]` to bypass the
+    cwd-resolution and point directly at where you uploaded the
+    .sql files. With None and no files found, the pipeline still
+    runs -- foreign-view refs stay as placeholders + hyperlinks
+    instead of inline-expanding.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -583,7 +598,13 @@ def run_validation(
     # this, foreign-view refs render as placeholders + hyperlinks
     # only. The lookup is silent-tolerant: missing folders / failed
     # parses just yield fewer expansions, never break the pipeline.
-    external_view_lookup = load_external_views(verbose=False)
+    #
+    # In Fabric setups where Path.cwd() doesn't point at the repo
+    # root, the caller passes `view_source_dirs` with absolute paths.
+    external_view_lookup = load_external_views(
+        view_source_dirs=view_source_dirs,
+        verbose=False,
+    )
 
     # view_shape resolves foreign references by BARE key, so we also
     # need a bare-key -> url map. Pass the full map; view_shape's

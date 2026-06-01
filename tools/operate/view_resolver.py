@@ -127,6 +127,7 @@ def load_external_views(
     *,
     dialect: str = "tsql",
     verbose: bool = False,
+    view_source_dirs: list[str | Path] | tuple[str | Path, ...] | None = None,
 ) -> dict[str, dict]:
     """Parse every .sql file under the configured source folders.
 
@@ -137,11 +138,35 @@ def load_external_views(
     Per-file failures are skipped: views whose SQL the parser
     can't handle don't break the whole batch. With `verbose=True`,
     each failure is printed to stderr so the user can audit.
+
+    Parameters
+    ----------
+    view_source_dirs : optional list of explicit folder paths
+        (absolute or relative). When provided, OVERRIDES the
+        cwd-relative VIEW_SOURCE_DIRS lookup entirely -- useful
+        for Fabric setups where Path.cwd() doesn't point at the
+        repo root and the SQL files live at known absolute paths.
+    project_root, overrides : legacy parameters preserving the
+        existing find_sql_files API. Ignored when view_source_dirs
+        is set.
     """
     import sys
 
     out: dict[str, dict] = {}
-    sql_files = find_sql_files(project_root, overrides)
+    if view_source_dirs is not None:
+        # Explicit absolute-path mode: glob each provided dir directly
+        # without going through the cwd-relative resolver.
+        sql_files: list[Path] = []
+        for d in view_source_dirs:
+            p = Path(d)
+            if not p.is_dir():
+                if verbose:
+                    print(f"  view_resolver: source dir not found: {p}",
+                          file=sys.stderr)
+                continue
+            sql_files.extend(sorted(p.glob("*.sql")))
+    else:
+        sql_files = find_sql_files(project_root, overrides)
     for path in sql_files:
         view_dict = parse_view_for_shape(path, dialect=dialect)
         if view_dict is None:

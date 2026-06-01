@@ -54,28 +54,67 @@ VIEW_SOURCE_DIRS = [
 # ------------------------------------------------------------------
 
 corpus_path = Path(CORPUS_PATH)
-if not corpus_path.is_file():
-    raise FileNotFoundError(
-        f"corpus.jsonl not found at {CORPUS_PATH!r}. Edit CORPUS_PATH."
-    )
 
+# Look-up the host in TWO places:
+#   1. The corpus.jsonl (pre-extracted views -- the typical case)
+#   2. The view_source_dirs folders (foundation views NOT in the
+#      corpus -- e.g., when the corpus is the 11-view pilot but
+#      the view you're debugging is one of the 196 foundation
+#      views from data/views_*).
+# If found in (2), we parse the SQL file on-demand into a ViewV1
+# dict using the same view_resolver code used at validation time.
 host_view: dict | None = None
-with corpus_path.open(encoding="utf-8") as f:
-    next(f)  # header line
-    for line in f:
-        v = json.loads(line)
-        if v.get("view_name") == HOST_VIEW_NAME:
-            host_view = v
-            break
+host_source: str = ""
+
+if corpus_path.is_file():
+    with corpus_path.open(encoding="utf-8") as f:
+        next(f)  # header line
+        for line in f:
+            v = json.loads(line)
+            if v.get("view_name") == HOST_VIEW_NAME:
+                host_view = v
+                host_source = f"corpus ({CORPUS_PATH})"
+                break
 
 if host_view is None:
-    print(f"Host view {HOST_VIEW_NAME!r} not found in corpus.")
-    print("Available view names:")
-    with corpus_path.open(encoding="utf-8") as f:
-        next(f)
-        for line in f:
-            print(f"  {json.loads(line).get('view_name')!r}")
+    # Fall back: scan the foundation folders for {HOST_VIEW_NAME}.sql
+    # and parse it on-demand.
+    from tools.operate.view_resolver import parse_view_for_shape
+    for d in VIEW_SOURCE_DIRS:
+        candidate = Path(d) / f"{HOST_VIEW_NAME}.sql"
+        if candidate.is_file():
+            host_view = parse_view_for_shape(candidate)
+            if host_view is not None:
+                host_source = f"foundation file ({candidate})"
+                break
+
+if host_view is None:
+    print(f"Host view {HOST_VIEW_NAME!r} not found in either:")
+    print(f"  - corpus: {CORPUS_PATH}")
+    for d in VIEW_SOURCE_DIRS:
+        print(f"  - foundation: {d}/{HOST_VIEW_NAME}.sql")
+    print()
+    if corpus_path.is_file():
+        print("Available view names in the corpus:")
+        with corpus_path.open(encoding="utf-8") as f:
+            next(f)
+            for line in f:
+                print(f"  {json.loads(line).get('view_name')!r}")
+        print()
+    # Also list what's in the foundation folders (first 30 of each).
+    for d in VIEW_SOURCE_DIRS:
+        dp = Path(d)
+        if dp.is_dir():
+            files = sorted(dp.glob("*.sql"))
+            print(f"Available .sql files in {d} "
+                  f"({len(files)} total, first 30):")
+            for f in files[:30]:
+                print(f"  {f.stem!r}")
+            print()
     raise SystemExit
+
+print(f"Host view loaded from: {host_source}")
+print()
 
 print("=" * 72)
 print(f"[1] Host view {HOST_VIEW_NAME!r} -- raw corpus scopes")

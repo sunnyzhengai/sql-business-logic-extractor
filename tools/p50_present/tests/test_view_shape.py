@@ -383,6 +383,165 @@ class TestBuildViewShape(unittest.TestCase):
         self.assertEqual(n.kind, "scope_ref")
         self.assertEqual(n.target_view_name, "V_FOO")
 
+    def test_external_view_lookup_inlines_foundation_view(self):
+        """When external_view_lookup provides the foundation view's
+        ViewV1 dict, the consuming view's shape gets the foundation
+        view's scopes MERGED IN as `external:<name>/*` scopes, plus a
+        cross-scope edge from the placeholder to the foundation's
+        main-scope driver."""
+        # Foundation view: SELECT FROM PAT_ENC JOIN PATIENT
+        foundation = {
+            "view_name": "V_FOUNDATION",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["PAT_ENC", "PATIENT"],
+                "reads_from_scopes": [],
+                "joins": [{"right_table": "PATIENT", "right_alias": "P",
+                            "join_type": "INNER JOIN",
+                            "on_expression": "", "columns": []}],
+                "columns": [],
+            }],
+        }
+        # Consuming view: SELECT FROM V_FOUNDATION JOIN ZC_STATUS
+        consumer = {
+            "view_name": "VW_CONSUMER",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["V_FOUNDATION", "ZC_STATUS"],
+                "reads_from_scopes": [],
+                "joins": [{"right_table": "ZC_STATUS", "right_alias": "Z",
+                            "join_type": "LEFT JOIN",
+                            "on_expression": "", "columns": []}],
+                "columns": [],
+            }],
+        }
+        shape = build_view_shape(
+            consumer,
+            external_view_lookup={"V_FOUNDATION": foundation},
+            max_expansion_depth=1,
+        )
+        scope_ids = {s.id for s in shape.scopes}
+        # Consumer's main scope is present.
+        self.assertIn("main", scope_ids)
+        # Foundation's main scope is merged in with the external:
+        # prefix so its scope id doesn't collide with the consumer's.
+        self.assertIn("external:V_FOUNDATION/main", scope_ids)
+        # The foundation's two tables are now visible inside the
+        # consumer's panel.
+        ext_main = shape.scope_by_id("external:V_FOUNDATION/main")
+        self.assertEqual(
+            [n.table for n in ext_main.nodes],
+            ["PAT_ENC", "PATIENT"],
+        )
+        # A cross-scope edge connects consumer's V_FOUNDATION
+        # placeholder to the foundation's main-scope driver.
+        consumer_main = shape.scope_by_id("main")
+        placeholder = next(
+            (n for n in consumer_main.nodes if n.kind == "scope_ref"),
+            None,
+        )
+        self.assertIsNotNone(placeholder)
+        targets = {e.target_id for e in shape.cross_scope_edges
+                    if e.source_id == placeholder.id}
+        self.assertIn(ext_main.driver_node_id, targets)
+
+    def test_external_view_lookup_label_is_view_breadcrumb(self):
+        """The inserted cluster's label should read 'View: V_FOO'
+        followed by the inner scope's label (e.g.
+        'View: V_FOO · main'), so the modeler instantly sees the
+        nesting source."""
+        foundation = {
+            "view_name": "V_FOUNDATION",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["TBL_X"], "reads_from_scopes": [],
+                "joins": [], "columns": [],
+            }],
+        }
+        consumer = {
+            "view_name": "VW_HOST",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["V_FOUNDATION"],
+                "reads_from_scopes": [], "joins": [], "columns": [],
+            }],
+        }
+        shape = build_view_shape(
+            consumer,
+            external_view_lookup={"V_FOUNDATION": foundation},
+        )
+        ext = shape.scope_by_id("external:V_FOUNDATION/main")
+        self.assertIn("View: V_FOUNDATION", ext.label)
+        self.assertIn("main", ext.label)
+
+    def test_external_expansion_respects_depth_limit(self):
+        """With max_expansion_depth=0, foreign refs stay as
+        placeholders -- no inline expansion."""
+        foundation = {
+            "view_name": "V_FOUNDATION",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["TBL_X"], "reads_from_scopes": [],
+                "joins": [], "columns": [],
+            }],
+        }
+        consumer = {
+            "view_name": "VW_HOST",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["V_FOUNDATION"],
+                "reads_from_scopes": [], "joins": [], "columns": [],
+            }],
+        }
+        shape = build_view_shape(
+            consumer,
+            external_view_lookup={"V_FOUNDATION": foundation},
+            max_expansion_depth=0,
+        )
+        # Foreign view's scopes do NOT appear when depth=0.
+        scope_ids = {s.id for s in shape.scopes}
+        self.assertNotIn("external:V_FOUNDATION/main", scope_ids)
+
+    def test_external_expansion_cycle_safe(self):
+        """A -> B -> A: with depth>=1 we still terminate -- the cycle
+        guard (`_expanded_so_far`) prevents re-expanding views
+        already in the call chain."""
+        view_a = {
+            "view_name": "V_A",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["V_B"], "reads_from_scopes": [],
+                "joins": [], "columns": [],
+            }],
+        }
+        view_b = {
+            "view_name": "V_B",
+            "view_outputs": ["main"],
+            "scopes": [{
+                "id": "main", "kind": "main",
+                "reads_from_tables": ["V_A"], "reads_from_scopes": [],
+                "joins": [], "columns": [],
+            }],
+        }
+        lookup = {"V_A": view_a, "V_B": view_b}
+        # Should not infinite-loop or stack-overflow.
+        shape = build_view_shape(view_a, external_view_lookup=lookup,
+                                  max_expansion_depth=3)
+        # A's reference to B gets expanded once; B's back-reference
+        # to A does NOT re-expand (V_A already in the call chain).
+        scope_ids = {s.id for s in shape.scopes}
+        self.assertIn("external:V_B/main", scope_ids)
+        # V_A should NOT appear as nested-under-V_B (would be the
+        # cycle).
+        self.assertNotIn("external:V_B/external:V_A/main", scope_ids)
+
     def test_view_of_view_skipped_when_target_not_in_corpus(self):
         """If `FROM SomeTable` and SomeTable is NOT in the corpus
         view set, treat it as a plain base table (no placeholder)."""

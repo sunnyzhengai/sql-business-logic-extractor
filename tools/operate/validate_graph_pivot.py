@@ -148,6 +148,7 @@ from tools.p50_present.community_matrix import (
 )
 from tools.p50_present.view_shape import write_community_shapes
 from tools.p50_present.corpus_map import write_corpus_map
+from tools.operate.view_resolver import load_external_views
 
 
 def write_validation_report(
@@ -577,6 +578,13 @@ def run_validation(
                 view_links_full[vn] = f"{fname}#{_anchor_id(vn)}"
         community_files.append((community_index, fname, primary_views))
 
+    # Load external view SQL files from data/views_* so view_shape
+    # can INLINE-EXPAND view-of-view references (depth=1). Without
+    # this, foreign-view refs render as placeholders + hyperlinks
+    # only. The lookup is silent-tolerant: missing folders / failed
+    # parses just yield fewer expansions, never break the pipeline.
+    external_view_lookup = load_external_views(verbose=False)
+
     # view_shape resolves foreign references by BARE key, so we also
     # need a bare-key -> url map. Pass the full map; view_shape's
     # build_view_shape internally normalizes for matching.
@@ -595,6 +603,7 @@ def run_validation(
             community_label=f"Community {community_index:02d} -- {top_label}",
             corpus_view_names=corpus_view_names,
             view_links=view_links_full,
+            external_view_lookup=external_view_lookup,
         )
         shape_paths.append(str(shape_path))
 

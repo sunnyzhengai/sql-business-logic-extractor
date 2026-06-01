@@ -261,6 +261,9 @@ def build_view_shape(
     view: dict,
     *,
     corpus_view_names: set[str] | None = None,
+    external_view_lookup: dict[str, dict] | None = None,
+    max_expansion_depth: int = 1,
+    _expanded_so_far: set[str] | None = None,
 ) -> ViewShape:
     """Convert a corpus ViewV1 dict into a ViewShape forest.
 
@@ -293,8 +296,21 @@ def build_view_shape(
     # Normalized lookup of corpus view names for view-of-view
     # detection. The keys are the BARE last segment, uppercased --
     # this is what `FROM SomeView` in another view's SQL parses to.
+    # external_view_lookup (parsed external SQL files) is unioned in
+    # so foreign-view detection also fires for views we can expand
+    # inline. corpus_view_names alone (without external_view_lookup)
+    # still works: detection fires, placeholders get target_view_name,
+    # but no inline expansion happens (just the hyperlink case).
     own_name = (view.get("view_name") or "").strip()
-    foreign_view_lookup = _build_foreign_view_lookup(corpus_view_names, own_name)
+    detection_names: set[str] = set()
+    if corpus_view_names:
+        detection_names |= set(corpus_view_names)
+    if external_view_lookup:
+        detection_names |= set(external_view_lookup.keys())
+    foreign_view_lookup = _build_foreign_view_lookup(
+        detection_names if detection_names else None,
+        own_name,
+    )
 
     # Counter for unique node IDs across the whole view.
     counter = {"n": 0}
@@ -349,7 +365,186 @@ def build_view_shape(
     elif shape.scopes:
         shape.root_scope_ids = [shape.scopes[0].id]
 
+    # ----- inline expansion of external views (depth-limited) -------------
+    # For every scope_ref placeholder whose target_view_name matches a
+    # view in `external_view_lookup`, recursively build that view's
+    # shape and merge its scopes into the host (with id-prefixing and
+    # node-id remapping to avoid collisions). The host placeholder
+    # gets a cross-scope edge to the external view's main driver, so
+    # the modeler sees the foundation view's full structure unfold
+    # inside the consuming view's panel.
+    #
+    # Cycle protection: the HOST's own canonical name is added to
+    # `_expanded_so_far` so a foundation view that references back to
+    # the host won't re-expand it (V_A -> V_B -> V_A terminates).
+    if external_view_lookup and max_expansion_depth > 0:
+        already = set(_expanded_so_far) if _expanded_so_far else set()
+        if own_name:
+            already.add(own_name)
+        _inline_expand_externals(
+            shape, external_view_lookup, max_expansion_depth,
+            already_expanded=already,
+        )
+
     return shape
+
+
+def _inline_expand_externals(
+    host: ViewShape,
+    external_view_lookup: dict[str, dict],
+    remaining_depth: int,
+    *,
+    already_expanded: set[str],
+) -> None:
+    """Walk every scope_ref placeholder in `host`; for each one whose
+    target_view_name resolves to an external ViewV1 dict, recursively
+    build that view's shape and merge it into `host` with prefixed
+    scope ids and remapped node ids.
+
+    Cycle protection: `already_expanded` tracks which external views
+    have been merged into the call chain ABOVE this host -- a foreign
+    view that references back to us doesn't get re-expanded.
+
+    Depth limit: recursive calls pass `remaining_depth - 1`. When it
+    hits 0, foreign refs in the external view stay as placeholders
+    + hyperlinks but don't expand further.
+    """
+    # Snapshot the list since we'll append new scopes during iteration.
+    placeholders_to_expand: list[ShapeNode] = []
+    for sscope in list(host.scopes):
+        for node in sscope.nodes:
+            if (node.kind == "scope_ref"
+                    and node.target_view_name
+                    and node.target_view_name in external_view_lookup
+                    and node.target_view_name not in already_expanded):
+                placeholders_to_expand.append(node)
+
+    for placeholder in placeholders_to_expand:
+        canonical = placeholder.target_view_name
+        external_view = external_view_lookup[canonical]
+        # Recursively build the inner shape.  Pass already_expanded +
+        # canonical so any cycle gets cut.
+        inner = build_view_shape(
+            external_view,
+            external_view_lookup=external_view_lookup,
+            max_expansion_depth=remaining_depth - 1,
+            _expanded_so_far=already_expanded | {canonical},
+        )
+        if not inner.scopes:
+            continue
+        _merge_external_shape_into_host(host, placeholder, canonical, inner)
+
+
+def _merge_external_shape_into_host(
+    host: ViewShape,
+    placeholder: ShapeNode,
+    canonical_view_name: str,
+    inner: ViewShape,
+) -> None:
+    """Copy `inner`'s scopes / nodes / edges into `host` with ids
+    prefixed by `external:<canonical_view_name>/` so they don't collide
+    with the host's local scope ids. Node ids get remapped to fresh
+    integers off the host's existing max.
+
+    A cross-scope edge from the host placeholder to the external
+    view's main scope's driver is appended so the visual edge is
+    drawn from the placeholder INTO the inserted cluster.
+    """
+    prefix = f"external:{canonical_view_name}"
+
+    # Find max existing node-id integer so we can mint fresh ids
+    # without colliding with the host's counter.
+    next_n = 1
+    for s in host.scopes:
+        for n in s.nodes:
+            if n.id.startswith("n") and n.id[1:].isdigit():
+                next_n = max(next_n, int(n.id[1:]) + 1)
+
+    node_id_remap: dict[str, str] = {}
+
+    # Pass 1: create remapped scopes / nodes.
+    for s in inner.scopes:
+        new_scope_id = f"{prefix}/{s.id}"
+        new_scope = ShapeScope(
+            id=new_scope_id,
+            kind=s.kind,
+            label=_scope_label(new_scope_id, s.kind),
+        )
+        for n in s.nodes:
+            new_node_id = f"n{next_n}"
+            next_n += 1
+            node_id_remap[n.id] = new_node_id
+            new_scope.nodes.append(ShapeNode(
+                id=new_node_id,
+                table=n.table,
+                alias=n.alias,
+                scope_id=new_scope_id,
+                role=n.role,
+                kind=n.kind,
+                target_scope_id=(
+                    f"{prefix}/{n.target_scope_id}" if n.target_scope_id
+                    else ""
+                ),
+                target_view_name=n.target_view_name,
+            ))
+        if s.driver_node_id:
+            new_scope.driver_node_id = node_id_remap.get(
+                s.driver_node_id, "",
+            )
+        host.scopes.append(new_scope)
+
+    # Pass 2: rewrite intra-scope edges with new node ids.
+    for s in inner.scopes:
+        new_scope_id = f"{prefix}/{s.id}"
+        host_scope = host.scope_by_id(new_scope_id)
+        if host_scope is None:
+            continue
+        for e in s.edges:
+            src = node_id_remap.get(e.source_id)
+            tgt = node_id_remap.get(e.target_id)
+            if not src or not tgt:
+                continue
+            host_scope.edges.append(ShapeEdge(
+                source_id=src,
+                target_id=tgt,
+                join_type=e.join_type,
+                scope_id=new_scope_id,
+                kind=e.kind,
+            ))
+
+    # Pass 3: rewrite inner's cross-scope edges. Both endpoints need
+    # remapping; the target marker "scope:<inner_id>" gets prefixed.
+    for e in inner.cross_scope_edges:
+        new_src = node_id_remap.get(e.source_id, e.source_id)
+        new_target = e.target_id
+        if new_target.startswith("scope:"):
+            new_target = f"scope:{prefix}/{new_target[len('scope:'):]}"
+        else:
+            new_target = node_id_remap.get(new_target, new_target)
+        host.cross_scope_edges.append(ShapeEdge(
+            source_id=new_src,
+            target_id=new_target,
+            join_type=e.join_type,
+            scope_id=f"{prefix}/{e.scope_id}",
+            kind=e.kind,
+        ))
+
+    # Add a cross-scope edge from the host placeholder to the external
+    # view's main-scope driver, so the visual edge enters the inserted
+    # cluster.
+    inner_main_id = (inner.root_scope_ids[0] if inner.root_scope_ids
+                      else None)
+    if inner_main_id:
+        new_main_id = f"{prefix}/{inner_main_id}"
+        new_main = host.scope_by_id(new_main_id)
+        if new_main is not None and new_main.driver_node_id:
+            host.cross_scope_edges.append(ShapeEdge(
+                source_id=placeholder.id,
+                target_id=new_main.driver_node_id,
+                join_type="",
+                scope_id=placeholder.scope_id,
+                kind="cross_scope",
+            ))
 
 
 def _build_scope(
@@ -585,6 +780,9 @@ def _label_one_segment(seg_id: str, kind: str) -> str:
         return f"CROSS APPLY: {bare}"
     if kind.startswith("union"):
         return f"UNION branch {bare}"
+    if kind == "external":
+        # `external:V_FOO` -- a foundation view expanded inline.
+        return f"View: {bare}"
     return f"{kind or 'scope'}: {bare}" if bare else (kind or seg_id)
 
 
@@ -1171,6 +1369,8 @@ def write_community_shapes(
     community_label: str = "",
     corpus_view_names: set[str] | None = None,
     view_links: dict[str, str] | None = None,
+    external_view_lookup: dict[str, dict] | None = None,
+    max_expansion_depth: int = 1,
 ) -> Path:
     """Render one HTML file per community with N unfolded shape panels.
 
@@ -1201,7 +1401,10 @@ def write_community_shapes(
         if not name:
             continue
         shape_by_name[name] = build_view_shape(
-            v, corpus_view_names=corpus_view_names,
+            v,
+            corpus_view_names=corpus_view_names,
+            external_view_lookup=external_view_lookup,
+            max_expansion_depth=max_expansion_depth,
         )
     sorted_view_names = sorted(shape_by_name)
 

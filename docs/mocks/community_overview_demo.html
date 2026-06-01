@@ -14,8 +14,22 @@
   .core-note { background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
                  padding: 8px 12px; font-size: 12px; color: #555;
                  margin-bottom: 12px; }
+  .controls { background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
+                padding: 8px 12px; margin-bottom: 12px; display: flex;
+                gap: 12px; align-items: center; font-size: 13px; }
+  .controls button { font-family: sans-serif; font-size: 13px; padding: 4px 10px;
+                       cursor: pointer; }
+  #spotlight-banner { color: #2c7fb8; font-weight: bold; }
+  #spotlight-banner:empty { display: none; }
   .stripes { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
-  .stripes a { display: block; }
+  .stripe { cursor: pointer; padding: 4px; border: 1px solid transparent;
+             border-radius: 4px; background: #fff; }
+  .stripe:hover { border-color: #b0d4eb; background: #f5fafd; }
+  .stripe.active { border-color: #2c7fb8; background: #eaf4fb; }
+  .stripe .open-detail { display: block; font-size: 10px; color: #888;
+                           text-decoration: none; padding: 2px 4px;
+                           text-align: right; }
+  .stripe .open-detail:hover { color: #2c7fb8; text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -24,26 +38,165 @@
 <section>
   <h2>Community substrate
     <span class="hint">node size + opacity = number of views using
-      that table; same for edge weight</span>
+      that table; click a stripe below to spotlight one view</span>
   </h2>
   <div class="core-note">
     Tables in the <strong>core</strong> (used by most views) appear
     bigger and more saturated. Tables used by only one view sit
     smaller and faded -- often candidates for review or
-    consolidation. Hover a node for its view-count.
+    consolidation. Hover any node for its view-count.
   </div>
-  <svg width="900" height="460" viewBox="0 0 900 460" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="14" y="22" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">Community 5 -- PAT_ENC (demo)</text><line x1="870" y1="430" x2="538" y2="250" stroke="#1f77b4" stroke-width="1.55" stroke-opacity="0.66" /><line x1="30" y1="291" x2="538" y2="250" stroke="#1f77b4" stroke-width="2.50" stroke-opacity="1.00" /><line x1="538" y1="250" x2="715" y2="30" stroke="#1f77b4" stroke-width="0.60" stroke-opacity="0.32" /><g><title>CLARITY_DEP  -  used by 2 of 3 view(s)</title><circle cx="870" cy="430" r="9.5" fill="#1f77b4" fill-opacity="0.66" stroke="#ffffff" stroke-width="0.8" /><text x="882.5" y="434" font-family="sans-serif" font-size="10" fill="#333" fill-opacity="0.66">CLARITY_DEP</text></g><g><title>PATIENT  -  used by 3 of 3 view(s)</title><circle cx="30" cy="291" r="14.0" fill="#1f77b4" fill-opacity="1.00" stroke="#ffffff" stroke-width="0.8" /><text x="47.0" y="295" font-family="sans-serif" font-size="10" fill="#333" fill-opacity="1.00">PATIENT</text></g><g><title>PAT_ENC  -  used by 3 of 3 view(s)</title><circle cx="538" cy="250" r="14.0" fill="#1f77b4" fill-opacity="1.00" stroke="#ffffff" stroke-width="0.8" /><text x="555.0" y="254" font-family="sans-serif" font-size="10" fill="#333" fill-opacity="1.00">PAT_ENC</text></g><g><title>ZC_PATIENT_STATUS  -  used by 1 of 3 view(s)</title><circle cx="715" cy="30" r="5.0" fill="#1f77b4" fill-opacity="0.32" stroke="#ffffff" stroke-width="0.8" /><text x="723.0" y="34" font-family="sans-serif" font-size="10" fill="#333" fill-opacity="0.32">ZC_PATIENT_STATUS</text></g></svg>
+  <div class="controls">
+    <span id="spotlight-banner"></span>
+    <button id="show-all-btn" type="button">Show all (frequency view)</button>
+  </div>
+  <svg id="substrate-svg" width="820" height="460" viewBox="0 0 820 460" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #d0d0d0; border-radius:4px; display:block;"><text x="14" y="22" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333">Community 5 -- PAT_ENC (demo)</text><line data-edge="CLARITY_DEP||PAT_ENC" x1="40" y1="285" x2="489" y2="248" stroke="#1f77b4" stroke-width="1.55" stroke-opacity="0.66" /><line data-edge="PATIENT||PAT_ENC" x1="648" y1="40" x2="489" y2="248" stroke="#1f77b4" stroke-width="2.50" stroke-opacity="1.00" /><line data-edge="PAT_ENC||ZC_PATIENT_STATUS" x1="489" y1="248" x2="780" y2="420" stroke="#1f77b4" stroke-width="0.60" stroke-opacity="0.32" /><g data-table="CLARITY_DEP"><title>CLARITY_DEP  -  used by 2 of 3 view(s)</title><circle cx="40" cy="285" r="9.5" fill="#1f77b4" fill-opacity="0.66" stroke="#ffffff" stroke-width="0.8" /><text x="52.5" y="289" font-family="sans-serif" font-size="10" fill="#333" fill-opacity="0.66">CLARITY_DEP</text></g><g data-table="PATIENT"><title>PATIENT  -  used by 3 of 3 view(s)</title><circle cx="648" cy="40" r="14.0" fill="#1f77b4" fill-opacity="1.00" stroke="#ffffff" stroke-width="0.8" /><text x="665.0" y="44" font-family="sans-serif" font-size="10" fill="#333" fill-opacity="1.00">PATIENT</text></g><g data-table="PAT_ENC"><title>PAT_ENC  -  used by 3 of 3 view(s)</title><circle cx="489" cy="248" r="14.0" fill="#1f77b4" fill-opacity="1.00" stroke="#ffffff" stroke-width="0.8" /><text x="506.0" y="252" font-family="sans-serif" font-size="10" fill="#333" fill-opacity="1.00">PAT_ENC</text></g><g data-table="ZC_PATIENT_STATUS"><title>ZC_PATIENT_STATUS  -  used by 1 of 3 view(s)</title><circle cx="780" cy="420" r="5.0" fill="#1f77b4" fill-opacity="0.32" stroke="#ffffff" stroke-width="0.8" /><text x="788.0" y="424" font-family="sans-serif" font-size="10" fill="#333" fill-opacity="0.32">ZC_PATIENT_STATUS</text></g></svg>
 </section>
 <section>
   <h2>Per-view stripes
-    <span class="hint">click any stripe to drill into that view's
-      unfolded shape</span>
+    <span class="hint">click any stripe to spotlight that view's
+      tables on the substrate above</span>
   </h2>
   <div class="stripes">
-<a href="view_shape_demo.html#view-VW_A" target="_blank" style="text-decoration:none;"><svg width="280" height="160" viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #e0e0e0; border-radius:4px; display:block;"><text x="140" y="11" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="#333">VW_A  (3/4)</text><line x1="272.0" y1="152.0" x2="167.7" y2="93.5" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><line x1="8.0" y1="106.8" x2="167.7" y2="93.5" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><line x1="167.7" y1="93.5" x2="223.3" y2="22.0" stroke="#dcdcdc" stroke-width="0.6" stroke-opacity="0.18" /><circle cx="272.0" cy="152.0" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="8.0" cy="106.8" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="167.7" cy="93.5" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="223.3" cy="22.0" r="4" fill="#dcdcdc" fill-opacity="0.18" stroke="#ffffff" stroke-width="0.6" /></svg></a>
-<a href="view_shape_demo.html#view-VW_A" target="_blank" style="text-decoration:none;"><svg width="280" height="160" viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #e0e0e0; border-radius:4px; display:block;"><text x="140" y="11" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="#333">VW_B  (3/4)</text><line x1="272.0" y1="152.0" x2="167.7" y2="93.5" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><line x1="8.0" y1="106.8" x2="167.7" y2="93.5" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><line x1="167.7" y1="93.5" x2="223.3" y2="22.0" stroke="#dcdcdc" stroke-width="0.6" stroke-opacity="0.18" /><circle cx="272.0" cy="152.0" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="8.0" cy="106.8" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="167.7" cy="93.5" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="223.3" cy="22.0" r="4" fill="#dcdcdc" fill-opacity="0.18" stroke="#ffffff" stroke-width="0.6" /></svg></a>
-<a href="view_shape_demo.html#view-VW_A" target="_blank" style="text-decoration:none;"><svg width="280" height="160" viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #e0e0e0; border-radius:4px; display:block;"><text x="140" y="11" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="#333">VW_C  (3/4)</text><line x1="272.0" y1="152.0" x2="167.7" y2="93.5" stroke="#dcdcdc" stroke-width="0.6" stroke-opacity="0.18" /><line x1="8.0" y1="106.8" x2="167.7" y2="93.5" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><line x1="167.7" y1="93.5" x2="223.3" y2="22.0" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><circle cx="272.0" cy="152.0" r="4" fill="#dcdcdc" fill-opacity="0.18" stroke="#ffffff" stroke-width="0.6" /><circle cx="8.0" cy="106.8" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="167.7" cy="93.5" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="223.3" cy="22.0" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /></svg></a>
+<div class="stripe" data-view-stripe="VW_A"><svg width="280" height="160" viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #e0e0e0; border-radius:4px; display:block;"><text x="140" y="11" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="#333">VW_A  (3/4)</text><line x1="8.0" y1="105.8" x2="168.2" y2="93.2" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><line x1="224.9" y1="22.0" x2="168.2" y2="93.2" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><line x1="168.2" y1="93.2" x2="272.0" y2="152.0" stroke="#dcdcdc" stroke-width="0.6" stroke-opacity="0.18" /><circle cx="8.0" cy="105.8" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="224.9" cy="22.0" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="168.2" cy="93.2" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="272.0" cy="152.0" r="4" fill="#dcdcdc" fill-opacity="0.18" stroke="#ffffff" stroke-width="0.6" /></svg><a class="open-detail" target="_blank" href="view_shape_demo.html#view-VW_A">Open detail &raquo;</a></div>
+<div class="stripe" data-view-stripe="VW_B"><svg width="280" height="160" viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #e0e0e0; border-radius:4px; display:block;"><text x="140" y="11" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="#333">VW_B  (3/4)</text><line x1="8.0" y1="105.8" x2="168.2" y2="93.2" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><line x1="224.9" y1="22.0" x2="168.2" y2="93.2" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><line x1="168.2" y1="93.2" x2="272.0" y2="152.0" stroke="#dcdcdc" stroke-width="0.6" stroke-opacity="0.18" /><circle cx="8.0" cy="105.8" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="224.9" cy="22.0" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="168.2" cy="93.2" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="272.0" cy="152.0" r="4" fill="#dcdcdc" fill-opacity="0.18" stroke="#ffffff" stroke-width="0.6" /></svg><a class="open-detail" target="_blank" href="view_shape_demo.html#view-VW_A">Open detail &raquo;</a></div>
+<div class="stripe" data-view-stripe="VW_C"><svg width="280" height="160" viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; border:1px solid #e0e0e0; border-radius:4px; display:block;"><text x="140" y="11" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="#333">VW_C  (3/4)</text><line x1="8.0" y1="105.8" x2="168.2" y2="93.2" stroke="#dcdcdc" stroke-width="0.6" stroke-opacity="0.18" /><line x1="224.9" y1="22.0" x2="168.2" y2="93.2" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><line x1="168.2" y1="93.2" x2="272.0" y2="152.0" stroke="#1f77b4" stroke-width="1.5" stroke-opacity="1.0" /><circle cx="8.0" cy="105.8" r="4" fill="#dcdcdc" fill-opacity="0.18" stroke="#ffffff" stroke-width="0.6" /><circle cx="224.9" cy="22.0" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="168.2" cy="93.2" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /><circle cx="272.0" cy="152.0" r="4" fill="#1f77b4" fill-opacity="1.0" stroke="#ffffff" stroke-width="0.6" /></svg><a class="open-detail" target="_blank" href="view_shape_demo.html#view-VW_A">Open detail &raquo;</a></div>
   </div>
 </section>
+<script id="overview-data" type="application/json">{"VW_A":{"nodes":["CLARITY_DEP","PATIENT","PAT_ENC"],"edges":["CLARITY_DEP||PAT_ENC","PATIENT||PAT_ENC"]},"VW_B":{"nodes":["CLARITY_DEP","PATIENT","PAT_ENC"],"edges":["CLARITY_DEP||PAT_ENC","PATIENT||PAT_ENC"]},"VW_C":{"nodes":["PATIENT","PAT_ENC","ZC_PATIENT_STATUS"],"edges":["PATIENT||PAT_ENC","PAT_ENC||ZC_PATIENT_STATUS"]}}</script>
+<script>
+(function() {
+  var DATA = JSON.parse(document.getElementById('overview-data').textContent);
+  // DATA = {view_name: {nodes: ["PAT_ENC", ...], edges: ["A||B", ...]}}
+  var BASE_COLOR = "#1f77b4";
+  var FADED_FILL = "#dcdcdc";
+  var FADED_OPACITY = 0.12;
+  var LIT_OPACITY = 1.0;
+  var N_VIEWS = 3;
+  var FREQ = JSON.parse("{\"nodes\":{\"CLARITY_DEP\":2,\"PATIENT\":3,\"PAT_ENC\":3,\"ZC_PATIENT_STATUS\":1},\"edges\":{\"CLARITY_DEP||PAT_ENC\":2,\"PATIENT||PAT_ENC\":3,\"PAT_ENC||ZC_PATIENT_STATUS\":1}}");
+  // FREQ.nodes[table] = view_count; FREQ.edges[a||b] = view_count.
+
+  var substrate = document.getElementById('substrate-svg');
+  var banner = document.getElementById('spotlight-banner');
+  var activeView = null;   // null = frequency view (default)
+
+  function freqRatio(count) {
+    if (N_VIEWS <= 1) return 1.0;
+    return Math.max(0.0, Math.min(1.0, (count - 1) / (N_VIEWS - 1)));
+  }
+
+  function applyFrequency() {
+    // Restore the default frequency-based coloring on every node + edge.
+    substrate.querySelectorAll('[data-table]').forEach(function(g) {
+      var name = g.getAttribute('data-table');
+      var f = (FREQ.nodes && FREQ.nodes[name]) || 0;
+      var r = freqRatio(f);
+      var minOp = 0.32, maxOp = 1.0;
+      var op = minOp + (maxOp - minOp) * r;
+      var circle = g.querySelector('circle');
+      var text = g.querySelector('text');
+      if (circle) {
+        circle.setAttribute('fill', BASE_COLOR);
+        circle.setAttribute('fill-opacity', op.toFixed(2));
+      }
+      if (text) {
+        text.setAttribute('fill', '#333');
+        // Labels visible by default only when the community is small
+        // enough that they don't collide into a wall of text.
+        var smallCommunity = substrate.querySelectorAll('[data-table]').length <= 30;
+        text.setAttribute('fill-opacity', smallCommunity ? op.toFixed(2) : '0');
+      }
+    });
+    substrate.querySelectorAll('[data-edge]').forEach(function(line) {
+      var key = line.getAttribute('data-edge');
+      var f = (FREQ.edges && FREQ.edges[key]) || 0;
+      var r = freqRatio(f);
+      var minW = 0.6, maxW = 2.5;
+      var minOp = 0.32, maxOp = 1.0;
+      line.setAttribute('stroke', BASE_COLOR);
+      line.setAttribute('stroke-width', (minW + (maxW - minW) * r).toFixed(2));
+      line.setAttribute('stroke-opacity', (minOp + (maxOp - minOp) * r).toFixed(2));
+    });
+  }
+
+  function spotlight(viewName) {
+    activeView = viewName;
+    var d = DATA[viewName] || {nodes: [], edges: []};
+    var nodeSet = {};
+    d.nodes.forEach(function(n) { nodeSet[n] = true; });
+    var edgeSet = {};
+    d.edges.forEach(function(e) { edgeSet[e] = true; });
+
+    substrate.querySelectorAll('[data-table]').forEach(function(g) {
+      var name = g.getAttribute('data-table');
+      var inView = nodeSet[name];
+      var circle = g.querySelector('circle');
+      var text = g.querySelector('text');
+      if (inView) {
+        if (circle) {
+          circle.setAttribute('fill', BASE_COLOR);
+          circle.setAttribute('fill-opacity', LIT_OPACITY.toString());
+        }
+        if (text) {
+          text.setAttribute('fill', '#1a1a1a');
+          text.setAttribute('fill-opacity', LIT_OPACITY.toString());
+        }
+      } else {
+        if (circle) {
+          circle.setAttribute('fill', FADED_FILL);
+          circle.setAttribute('fill-opacity', FADED_OPACITY.toString());
+        }
+        if (text) {
+          text.setAttribute('fill-opacity', '0');
+        }
+      }
+    });
+    substrate.querySelectorAll('[data-edge]').forEach(function(line) {
+      var key = line.getAttribute('data-edge');
+      var inView = edgeSet[key];
+      if (inView) {
+        line.setAttribute('stroke', BASE_COLOR);
+        line.setAttribute('stroke-width', '2.4');
+        line.setAttribute('stroke-opacity', '1.0');
+      } else {
+        line.setAttribute('stroke', FADED_FILL);
+        line.setAttribute('stroke-width', '0.6');
+        line.setAttribute('stroke-opacity', FADED_OPACITY.toString());
+      }
+    });
+
+    // Update the banner + active-stripe styling.
+    banner.textContent = 'Highlighting: ' + viewName
+        + '  (' + d.nodes.length + ' of '
+        + substrate.querySelectorAll('[data-table]').length + ' tables)';
+    document.querySelectorAll('.stripe').forEach(function(el) {
+      el.classList.toggle('active', el.getAttribute('data-view-stripe') === viewName);
+    });
+  }
+
+  function showAll() {
+    activeView = null;
+    applyFrequency();
+    banner.textContent = '';
+    document.querySelectorAll('.stripe').forEach(function(el) {
+      el.classList.remove('active');
+    });
+  }
+
+  document.getElementById('show-all-btn').addEventListener('click', showAll);
+
+  document.querySelectorAll('.stripe').forEach(function(el) {
+    el.addEventListener('click', function(ev) {
+      // Don't trigger highlight if the user clicked the "Open detail"
+      // fallback link.
+      if (ev.target.closest('.open-detail')) return;
+      spotlight(el.getAttribute('data-view-stripe'));
+    });
+  });
+
+  // Initial render: frequency view (no spotlight).
+  applyFrequency();
+})();
+</script>
 </body>
 </html>

@@ -108,4 +108,63 @@ PARSING_RULES: list[Rule] = [
         replacement=r"\1 AS",
         flags=re.IGNORECASE | re.DOTALL,
     ),
+    Rule(
+        id="strip_procedure_wrapper",
+        description=(
+            "Stored procs have a CREATE PROCEDURE wrapper that the view "
+            "rules don't fully handle. The strip_ssms_preamble rule trims "
+            "everything BEFORE `CREATE PROCEDURE`, leaving the proc-body "
+            "intact -- but the proc declaration line ITSELF still contains "
+            "parameter declarations (`@p1 INT, @p2 VARCHAR(50) = ...`) "
+            "that sqlglot can't parse as part of a SELECT body.\n\n"
+            "This rule strips the entire `CREATE [OR ALTER] PROCEDURE name "
+            "[(params)] [param_list] AS` opener so what remains is just the "
+            "proc body (which is typically a SELECT, possibly wrapped in "
+            "BEGIN/END -- handled by the next rule). Sunny's clarification: "
+            "her shop's procs are all view-shaped, so the proc body is "
+            "always a SELECT or a SELECT-into-temp-table pattern; we don't "
+            "have to handle CRUD shapes here.\n\n"
+            "Parameter-list pitfall: T-SQL allows table-valued params with "
+            "`@param AS TableType READONLY` -- the embedded word `AS` would "
+            "trick a naive regex. We anchor on `AS` followed by a SQL body "
+            "keyword (BEGIN, SELECT, WITH, DECLARE, RETURN, INSERT, EXEC, "
+            "etc.) via lookahead, so the proc body's `AS` is found, not a "
+            "parameter type's `AS`."
+        ),
+        pattern=(
+            r"\bCREATE\s+(?:OR\s+ALTER\s+)?"
+            r"(?:PROCEDURE|PROC|FUNCTION|TRIGGER)\s+"
+            r"(?:\[[^\]]+\]|\w+)"
+            r"(?:\.(?:\[[^\]]+\]|\w+))?"
+            r"[\s\S]*?"
+            r"\bAS\s+"
+            r"(?=BEGIN\b|SELECT\b|WITH\b|DECLARE\b|RETURN\b|"
+            r"INSERT\b|UPDATE\b|DELETE\b|MERGE\b|EXEC\b)"
+        ),
+        replacement="",
+        flags=re.IGNORECASE | re.DOTALL,
+    ),
+    Rule(
+        id="strip_proc_begin_end_wrapper",
+        description=(
+            "After strip_procedure_wrapper, a proc body is often wrapped "
+            "in BEGIN ... END. Those keywords confuse sqlglot's SELECT "
+            "parser -- it falls back to a 'Command' AST node and loses "
+            "all structure. Strip the OUTERMOST BEGIN at the start and "
+            "the LAST `END` at the end of the cleaned SQL.\n\n"
+            "Why not also strip nested BEGIN/END blocks? T-SQL uses "
+            "BEGIN/END inside CASE expressions (`CASE WHEN ... END`), "
+            "TRY/CATCH blocks, IF/ELSE blocks, etc. Removing them all "
+            "would break those constructs. We only touch the outermost "
+            "wrapper -- the proc body itself -- which matches Sunny's "
+            "all-view-shaped procs."
+        ),
+        # Anchor BEGIN at the start of remaining text and END at the
+        # very end (with optional trailing semicolon / GO).
+        pattern=(
+            r"\A\s*BEGIN\b\s*([\s\S]*?)\s*\bEND\s*;?\s*(?:\bGO\b\s*)?\Z"
+        ),
+        replacement=r"\1",
+        flags=re.IGNORECASE,
+    ),
 ]

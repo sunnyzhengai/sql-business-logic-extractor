@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Corpus search -- design mockup</title>
+<style>
+  body { font-family: sans-serif; margin: 24px; color: #333; background: #fafafa;
+         max-width: 1100px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 22px 0 8px; color: #555;
+       border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
+  h3 { font-size: 13px; margin: 14px 0 6px; color: #2c7fb8; }
+  p.meta { color: #666; font-size: 13px; margin: 0 0 18px; }
+  .design-banner { background: #fff5e6; border: 1px solid #f0b86b;
+                   border-radius: 6px; padding: 10px 14px; font-size: 13px;
+                   margin-bottom: 20px; color: #6b4a1e; }
+  .design-banner strong { color: #6b4a1e; }
+  .searchbox { background: #fff; border: 2px solid #2c7fb8; border-radius: 6px;
+               padding: 12px 16px; font-size: 16px; width: 100%;
+               box-sizing: border-box; margin-bottom: 12px; }
+  .chips { margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap;
+           align-items: center; }
+  .chips .label { color: #888; font-size: 13px; }
+  .chips button { font-family: sans-serif; font-size: 13px; padding: 6px 14px;
+                   border: 1px solid #2c7fb8; background: #fff; color: #2c7fb8;
+                   border-radius: 18px; cursor: pointer; }
+  .chips button:hover { background: #eaf4fb; }
+  .chips button.active { background: #2c7fb8; color: #fff; }
+  .how { background: #f1f5f9; border-left: 3px solid #94a3b8; padding: 8px 12px;
+         font-size: 13px; color: #555; margin: 0 0 14px; }
+  .how strong { color: #2c7fb8; }
+  .result-group { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px;
+                   padding: 12px 16px; margin-bottom: 10px; }
+  .result-group .group-header { font-weight: bold; color: #1a1a1a; margin-bottom: 8px;
+                                  font-size: 13px; display: flex; gap: 8px;
+                                  align-items: baseline; }
+  .result-group .group-header .count { color: #888; font-weight: normal; }
+  .hit { padding: 6px 10px 6px 14px; margin: 4px 0; background: #fafafa;
+         border-radius: 4px; border-left: 3px solid #2c7fb8; font-size: 13px; }
+  .hit .name { font-weight: bold; color: #1a1a1a; }
+  .hit .badge { display: inline-block; background: #eaf4fb; color: #2c7fb8;
+                font-size: 11px; padding: 1px 7px; border-radius: 10px;
+                margin-left: 6px; vertical-align: middle; }
+  .hit .why { display: block; color: #666; font-size: 12px;
+              margin-top: 3px; padding-left: 8px;
+              border-left: 2px solid #ccc; }
+  .hit .resolve { display: block; color: #888; font-size: 12px;
+                   padding-left: 22px; }
+  .hit a.open { color: #2c7fb8; text-decoration: none; font-size: 12px;
+                margin-left: 8px; }
+  .hit a.open:hover { text-decoration: underline; }
+  .results { display: none; }
+  .results.active { display: block; }
+  .design-note { background: #f0f9ff; border: 1px dashed #93c5fd; border-radius: 6px;
+                 padding: 8px 12px; font-size: 12px; color: #1e40af;
+                 margin: 14px 0 6px; font-style: italic; }
+  code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px;
+         font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>Corpus search -- design mockup</h1>
+<p class="meta">A unified search experience across the parsed corpus. Type any
+table name, view name, term, or Epic concept. Click a chip below to see
+what the results would look like for that query.</p>
+
+<div class="design-banner">
+  <strong>This is a non-functional mockup.</strong> Click a "Try: ..." chip to
+  reveal pre-baked results for that query and see how each search behavior
+  surfaces matches. The data is realistic-but-fake (mostly Clarity table names);
+  the real artifact would index the actual corpus.
+</div>
+
+<input type="text" class="searchbox"
+       placeholder="Search any table, view, term, code, registry..." />
+<div class="chips">
+  <span class="label">Try:</span>
+  <button data-q="ARPB">ARPB <span style="font-size:10px;">(table search)</span></button>
+  <button data-q="asthma">asthma <span style="font-size:10px;">(semantic search)</span></button>
+  <button data-q="registry">registry <span style="font-size:10px;">(Epic concept)</span></button>
+</div>
+
+<!-- ============================================================
+     QUERY 1: ARPB -- table-search behavior
+     ============================================================ -->
+<div id="results-ARPB" class="results">
+<h2>Results for <code>ARPB</code></h2>
+<div class="how">
+  <strong>How this matched:</strong> "ARPB" was found as a table name -- so
+  the search pivots to <strong>"views and procs that touch this table."</strong>
+  This is the entity-first access pattern your billing SME asked for: skip the
+  community-cluster question entirely and answer the working developer's
+  direct question.
+</div>
+
+<div class="result-group">
+  <div class="group-header">
+    Table match
+    <span class="count">1 table</span>
+  </div>
+  <div class="hit">
+    <span class="name">ARPB</span>
+    <span class="badge">Account Receivable Patient Billing</span>
+    <span class="why">Schema: <code>Clarity.dbo.ARPB</code> &middot;
+      used by 8 views + 2 procs across 1 community.
+      <a class="open" href="#">View shape</a>
+      <a class="open" href="#">Community: Billing</a></span>
+  </div>
+</div>
+
+<div class="result-group">
+  <div class="group-header">
+    Views reading from ARPB
+    <span class="count">8 views</span>
+  </div>
+  <div class="hit">
+    <span class="name">V_AR_AGING_BUCKETS</span>
+    <span class="badge">billing</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+    <span class="why">Joins ARPB to <code>HSP_ACCOUNT</code>, <code>PAT_ENC_HSP</code>;
+      filter <code>AGING_BUCKET_ID IS NOT NULL</code></span>
+  </div>
+  <div class="hit">
+    <span class="name">V_DAILY_CHARGES_SUMMARY</span>
+    <span class="badge">billing</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+    <span class="why">Driver table. Group-by on <code>POST_DATE</code></span>
+  </div>
+  <div class="hit">
+    <span class="name">V_PROFEE_DENIAL_RATE</span>
+    <span class="badge">billing</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+  </div>
+  <div class="hit">
+    <span class="name">V_GROSS_VS_NET_RECONCILIATION</span>
+    <span class="badge">billing</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+  </div>
+  <div class="hit">
+    <span class="name">V_INVOICE_WORKQUEUE</span>
+    <span class="badge">billing</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+  </div>
+  <div class="hit">
+    <span class="name">V_PAYMENT_POSTING</span>
+    <span class="badge">billing</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+  </div>
+  <div class="hit">
+    <span class="name">V_TDL_RECONCILIATION</span>
+    <span class="badge">billing</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+    <span class="why">Joins ARPB with <code>TDL_TRANS</code></span>
+  </div>
+  <div class="hit">
+    <span class="name">V_DENIED_CLAIMS</span>
+    <span class="badge">billing</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+  </div>
+</div>
+
+<div class="result-group">
+  <div class="group-header">
+    Procs reading from ARPB
+    <span class="count">2 procs</span>
+  </div>
+  <div class="hit">
+    <span class="name">sp_arpb_refresh_daily</span>
+    <span class="badge">billing</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+  </div>
+  <div class="hit">
+    <span class="name">sp_arpb_charge_lag</span>
+    <span class="badge">billing</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+  </div>
+</div>
+
+<div class="design-note">
+  Design note: each hit links to the existing per-view shape HTML; the
+  table-name itself can also link to a "see this table in the community
+  overview" view so the user can flip between entity-first and structural views.
+</div>
+</div>
+
+<!-- ============================================================
+     QUERY 2: asthma -- semantic search across multiple fields
+     ============================================================ -->
+<div id="results-asthma" class="results">
+<h2>Results for <code>asthma</code></h2>
+<div class="how">
+  <strong>How this matched:</strong> "asthma" wasn't a table name -- broadened to
+  text search across multiple fields. Below: hits grouped by <strong>WHERE the
+  match was found</strong> (name vs. description vs. code-resolution vs. comment),
+  so the SME knows what kind of relevance to expect. The code-resolution hits
+  are the killer feature: a filter like <code>DX_ID = 1234</code> in the SQL is
+  meaningless on its face -- but with the <code>clarity_edg.csv</code> lookup,
+  the search engine knows 1234 means "Asthma, unspecified" and surfaces the view.
+</div>
+
+<div class="result-group">
+  <div class="group-header">
+    Match in view name
+    <span class="count">1 view</span>
+  </div>
+  <div class="hit">
+    <span class="name">V_ASTHMA_REGISTRY</span>
+    <span class="badge">pediatrics</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+    <span class="why">View name contains "asthma"</span>
+  </div>
+</div>
+
+<div class="result-group">
+  <div class="group-header">
+    Match in view description (LLM-generated or author-written)
+    <span class="count">1 view</span>
+  </div>
+  <div class="hit">
+    <span class="name">V_PEDS_RESPIRATORY_OUTCOMES</span>
+    <span class="badge">pediatrics</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+    <span class="why">"Population cohort focused on <strong>asthma</strong> and
+      reactive airway disease in patients under 18..."</span>
+  </div>
+</div>
+
+<div class="result-group">
+  <div class="group-header">
+    Match via diagnosis-code resolution &nbsp; <span class="badge"
+      style="background:#fef3c7;color:#92400e;">Epic-specific (CLARITY_EDG)</span>
+    <span class="count">2 views, 1 proc</span>
+  </div>
+  <div class="hit">
+    <span class="name">V_ED_DX_LOOKUP</span>
+    <span class="badge">emergency</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+    <span class="why">Filter:
+      <code>DX_ID IN (1234, 5678)</code>
+      <span class="resolve">&rarr; DX 1234 = CLARITY_EDG: "<strong>Asthma</strong>, unspecified"</span>
+      <span class="resolve">&rarr; DX 5678 = CLARITY_EDG: "<strong>Asthma</strong> with exacerbation"</span>
+    </span>
+  </div>
+  <div class="hit">
+    <span class="name">V_INPATIENT_DX_PRIMARY</span>
+    <span class="badge">inpatient</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+    <span class="why">Filter:
+      <code>PRIMARY_DX_ID = 1234</code>
+      <span class="resolve">&rarr; CLARITY_EDG: "<strong>Asthma</strong>, unspecified"</span>
+    </span>
+  </div>
+  <div class="hit">
+    <span class="name">sp_dx_population_count</span>
+    <span class="badge">analytics</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+    <span class="why">Parameter:
+      <code>@dx_filter = (1234, 5678, 9012)</code>
+      <span class="resolve">&rarr; CLARITY_EDG: 3 asthma-related diagnoses
+        (unspecified, exacerbation, status asthmaticus)</span>
+    </span>
+  </div>
+</div>
+
+<div class="result-group">
+  <div class="group-header">
+    Match in inline comment
+    <span class="count">1 view</span>
+  </div>
+  <div class="hit">
+    <span class="name">VW_RX_REFILL_TRENDS</span>
+    <span class="badge">pharmacy</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+    <span class="why">Comment in filter clause:
+      <code>/* <strong>asthma</strong> controllers only -- ICS+LABA */</code></span>
+  </div>
+</div>
+
+<div class="design-note">
+  Design note: the code-resolution feature requires loading customer-specific
+  lookup tables (CLARITY_EDG for diagnoses, plus optional CLARITY_MEDICATION,
+  CLARITY_PROC, etc.). Recommend a pluggable "drop your lookup CSVs in a folder
+  and we'll index them" pattern -- so non-Epic customers can wire in their own
+  code dictionaries. Same shape as the existing <code>zc_values.csv</code>
+  enrichment that already exists in the corpus pipeline.
+</div>
+</div>
+
+<!-- ============================================================
+     QUERY 3: registry -- Epic-concept-aware search
+     ============================================================ -->
+<div id="results-registry" class="results">
+<h2>Results for <code>registry</code></h2>
+<div class="how">
+  <strong>How this matched:</strong> "registry" matched both table names
+  (Caboodle's naming convention puts "REGISTRY" in the table names of all
+  registry-related data products) AND view names + descriptions. Falls out of
+  the table-search and semantic-search machinery for free -- no special
+  "concept search" code needed beyond the lookup that the other two queries
+  already implement.
+</div>
+
+<div class="result-group">
+  <div class="group-header">
+    Tables matching "registry" &nbsp; <span class="badge"
+      style="background:#fef3c7;color:#92400e;">Caboodle naming pattern</span>
+    <span class="count">3 tables</span>
+  </div>
+  <div class="hit">
+    <span class="name">REGISTRY_DATA_INFO</span>
+    <span class="badge">Caboodle</span>
+    <span class="why">Used by 5 views.
+      <a class="open" href="#">See dependents</a></span>
+  </div>
+  <div class="hit">
+    <span class="name">REGISTRY_DATA_MEMBERSHIP</span>
+    <span class="badge">Caboodle</span>
+    <span class="why">Used by 5 views.
+      <a class="open" href="#">See dependents</a></span>
+  </div>
+  <div class="hit">
+    <span class="name">REGISTRY_RESULT</span>
+    <span class="badge">Caboodle</span>
+    <span class="why">Used by 2 views.
+      <a class="open" href="#">See dependents</a></span>
+  </div>
+</div>
+
+<div class="result-group">
+  <div class="group-header">
+    Match in view name
+    <span class="count">4 views</span>
+  </div>
+  <div class="hit">
+    <span class="name">V_DIABETES_REGISTRY_ENROLLMENT</span>
+    <span class="badge">chronic-disease</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+  </div>
+  <div class="hit">
+    <span class="name">V_HEART_FAILURE_REGISTRY</span>
+    <span class="badge">chronic-disease</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+  </div>
+  <div class="hit">
+    <span class="name">V_HCC_REGISTRY_RISK_SCORE</span>
+    <span class="badge">risk-stratification</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+  </div>
+  <div class="hit">
+    <span class="name">V_ASTHMA_REGISTRY</span>
+    <span class="badge">pediatrics</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+  </div>
+</div>
+
+<div class="result-group">
+  <div class="group-header">
+    Match in view description / comment
+    <span class="count">2 views</span>
+  </div>
+  <div class="hit">
+    <span class="name">VW_QUALITY_OUTCOMES</span>
+    <span class="badge">quality</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+    <span class="why">Inline comment:
+      <code>/* Pulls from the chronic-disease <strong>registry</strong>
+        table */</code></span>
+  </div>
+  <div class="hit">
+    <span class="name">VW_CARE_GAP_REPORT</span>
+    <span class="badge">care-mgmt</span>
+    <a class="open" href="#">Open shape &raquo;</a>
+    <span class="why">Description: "Generates care-gap alerts for patients in
+      chronic-disease <strong>registries</strong>..."</span>
+  </div>
+</div>
+
+<div class="design-note">
+  Design note: Caboodle / Epic naming conventions (REGISTRY_*, *_FACT, *_DIM,
+  etc.) could be tagged in a lightweight "table-namespace catalog" so the
+  search UI can show the "Caboodle" badge automatically. Same pattern as
+  ZC_* recognition that already exists.
+</div>
+</div>
+
+<!-- ============================================================
+     EMPTY STATE
+     ============================================================ -->
+<div id="empty-state" class="results active">
+<h2>Pick a query above</h2>
+<p class="meta">Click any of the three chips -- ARPB, asthma, or registry --
+to see what the results look like for that search type.</p>
+
+<h3>What this design demonstrates</h3>
+<ul style="font-size:13px; line-height:1.7;">
+  <li><strong>Entity-first navigation</strong> (the ARPB case) -- the SME's
+    immediate question "what touches this table?" gets a direct answer instead
+    of needing to find the right community first.</li>
+  <li><strong>Multi-field semantic search</strong> (the asthma case) -- a
+    single search term hits view names, descriptions, comments, AND
+    code-to-meaning lookups simultaneously. The result groups tell the SME
+    WHERE the match came from so they can judge relevance.</li>
+  <li><strong>Epic-specific concept search</strong> (the registry case) -- no
+    new infrastructure; falls out of the first two for free, with naming-
+    convention badges layered on top.</li>
+  <li><strong>Code resolution as a force multiplier</strong> -- the most
+    visually striking moment is when the asthma search hits
+    <code>DX_ID = 1234</code> in a SQL filter and surfaces it as "Asthma,
+    unspecified" via the CLARITY_EDG lookup. That's the value-add the
+    rest of the artifact set can't replicate.</li>
+</ul>
+
+<h3>Estimated build cost</h3>
+<table style="border-collapse:collapse; font-size:13px;">
+  <tr style="border-bottom:1px solid #e0e0e0;">
+    <th style="text-align:left; padding:6px 12px;">Phase</th>
+    <th style="text-align:left; padding:6px 12px;">Effort</th>
+    <th style="text-align:left; padding:6px 12px;">Result</th>
+  </tr>
+  <tr><td style="padding:6px 12px;">Table search</td>
+      <td style="padding:6px 12px;">~½ day</td>
+      <td style="padding:6px 12px;">ARPB-style entity-first lookup works</td></tr>
+  <tr><td style="padding:6px 12px;">Multi-field text search</td>
+      <td style="padding:6px 12px;">~1 day</td>
+      <td style="padding:6px 12px;">View names, descriptions, comments, columns indexed</td></tr>
+  <tr><td style="padding:6px 12px;">Code-resolution (CLARITY_EDG)</td>
+      <td style="padding:6px 12px;">~1 day</td>
+      <td style="padding:6px 12px;">The asthma-DX-1234 magic moment works</td></tr>
+  <tr><td style="padding:6px 12px;">Additional lookup tables</td>
+      <td style="padding:6px 12px;">~½ day each</td>
+      <td style="padding:6px 12px;">CLARITY_MEDICATION, CLARITY_PROC, etc.</td></tr>
+  <tr><td style="padding:6px 12px;">Naming-pattern badges</td>
+      <td style="padding:6px 12px;">~½ day</td>
+      <td style="padding:6px 12px;">Caboodle / ZC / fact / dim auto-recognized</td></tr>
+</table>
+</div>
+
+<script>
+(function() {
+  var chips = document.querySelectorAll('.chips button');
+  var results = document.querySelectorAll('.results');
+  var input = document.querySelector('.searchbox');
+
+  chips.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var q = btn.getAttribute('data-q');
+      input.value = q;
+      results.forEach(function(r) { r.classList.remove('active'); });
+      var target = document.getElementById('results-' + q);
+      if (target) target.classList.add('active');
+      chips.forEach(function(c) { c.classList.remove('active'); });
+      btn.classList.add('active');
+      window.scrollTo({ top: target.offsetTop - 20, behavior: 'smooth' });
+    });
+  });
+
+  // Lightweight live-search: typing matches one of the three chip queries
+  // case-insensitively so the user can also type the query freehand.
+  input.addEventListener('input', function() {
+    var v = input.value.trim().toLowerCase();
+    var matched = null;
+    chips.forEach(function(btn) {
+      if (btn.getAttribute('data-q').toLowerCase() === v) {
+        matched = btn;
+      }
+    });
+    if (matched) matched.click();
+  });
+})();
+</script>
+
+</body>
+</html>

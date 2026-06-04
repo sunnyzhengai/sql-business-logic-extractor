@@ -144,6 +144,10 @@ class TestEndToEndOrchestration(unittest.TestCase):
             corpus_map = output_dir / "corpus_map.html"
             self.assertTrue(corpus_map.is_file())
             self.assertEqual(result["corpus_map"], str(corpus_map))
+            # Phase 8: corpus search HTML at the same root.
+            corpus_search = output_dir / "corpus_search.html"
+            self.assertTrue(corpus_search.is_file())
+            self.assertEqual(result["corpus_search"], str(corpus_search))
             # Sanity-check the report content.
             report = Path(result["validation_report"]).read_text(encoding="utf-8")
             self.assertIn("Verdict", report)

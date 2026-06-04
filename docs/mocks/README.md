@@ -16,6 +16,14 @@ auto-updates as new mockups land.
 
 ## Live demos (rendered from the real code against mock corpora)
 
+- **[Corpus search](https://htmlpreview.github.io/?https://github.com/sunnyzhengai/sql-business-logic-extractor/blob/main/docs/mocks/corpus_search_demo.html)**
+  — Unified search across a 3-view test corpus.  Try typing
+  `arpb`, `asthma`, `aging`, or `Active` (the last one hits the
+  ZC-code-to-name resolution).  Results group by where the match
+  was found (view name vs. description vs. column vs. filter vs.
+  comment vs. ZC lookup).
+
+
 - **[Community overview](https://htmlpreview.github.io/?https://github.com/sunnyzhengai/sql-business-logic-extractor/blob/main/docs/mocks/community_overview_demo.html)**
   — Per-community big-picture page: frequency-colored substrate at the
   top, per-view stripes below.  Click a stripe to spotlight that view's

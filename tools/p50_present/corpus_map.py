@@ -294,6 +294,11 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <h1>{title}</h1>
 <p class="meta">{meta}</p>
+<p style="margin:0 0 14px; font-size: 13px;">
+  <a href="corpus_search.html" style="color:#2c7fb8; text-decoration:none;">
+    Search the corpus &raquo;
+  </a>
+</p>
 <section>
   {svg}
 </section>

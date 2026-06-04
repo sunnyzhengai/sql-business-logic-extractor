@@ -55,6 +55,7 @@ Output artifacts (in `output_dir`):
   - community_shapes/community_NN_<top>_shapes.html   side-by-side per-view join graphs
   - community_overviews/community_NN_<top>_overview.html  per-community big picture (substrate + stripes)
   - corpus_map.html                            corpus-level landscape (every table, colored by community)
+  - corpus_search.html                         unified entity + text search across the whole corpus
   - validation_report.md                       PASS / INCONCLUSIVE / REVIEW NEEDED verdict
 
 Historical note
@@ -151,6 +152,7 @@ from tools.p50_present.view_shape import write_community_shapes
 from tools.p50_present.corpus_map import write_corpus_map
 from tools.p50_present.community_overview import write_community_overview
 from tools.p50_present.community_html import community_color
+from tools.p50_present.corpus_search import write_corpus_search
 from tools.operate.view_resolver import load_external_views
 
 
@@ -702,6 +704,30 @@ def run_validation(
         community_files=corpus_community_links,
     )
 
+    # Phase 8: unified corpus search HTML. Entity-first table search
+    # AND multi-field text search (view name, description, columns,
+    # filter expressions, inline comments, ZC code-to-name) in one
+    # box. Output at the corpus root next to corpus_map.html so the
+    # user has two entry points: visual exploration (the map) or
+    # term/entity lookup (search). Each hit links to the same per-
+    # view shape HTML the community pages link to.
+    #
+    # view_links_full is keyed for callers SITTING IN community_shapes/
+    # (relative paths like 'community_00_*.html#view-X'). The search
+    # page sits at the output ROOT, so prepend 'community_shapes/' to
+    # each link.
+    search_view_links = {
+        vn: f"community_shapes/{url}"
+        for vn, url in view_links_full.items()
+    }
+    corpus_search_path = write_corpus_search(
+        views,
+        output_dir / "corpus_search.html",
+        title=f"Corpus search -- {len(views)} views, "
+              f"{len(corpus_view_names)} unique view names",
+        view_links=search_view_links,
+    )
+
     print(f"      graph.html (overview)     -> {overview_html}")
     print(f"      communities/index.html    -> {index_html}")
     print(f"      communities.md            -> {communities_md}")
@@ -710,6 +736,7 @@ def run_validation(
     print(f"      community_shapes/         -> {shapes_dir} ({len(shape_paths)} shape(s))")
     print(f"      community_overviews/      -> {overviews_dir} ({len(overview_paths)} overview(s))")
     print(f"      corpus_map.html           -> {corpus_map_path}")
+    print(f"      corpus_search.html        -> {corpus_search_path}")
     print(f"      validation_report.md      -> {report_md}")
 
     return {
@@ -721,6 +748,7 @@ def run_validation(
         "community_shapes": shape_paths,
         "community_overviews": overview_paths,
         "corpus_map": str(corpus_map_path),
+        "corpus_search": str(corpus_search_path),
         "validation_report": report_md,
         "n_views_total": len(all_views),
         "n_views_business": len(views),

@@ -67,16 +67,46 @@ def test_default_use_llm_is_false():
 
 
 def test_engineered_mode_does_not_import_llm_libs():
-    """Structural guarantee: engineered mode must not pull google.genai
-    into sys.modules. Auditable for hospital procurement."""
+    """Structural guarantee: engineered mode must not pull any vendor LLM SDK
+    into sys.modules. Auditable for hospital procurement. Covers both
+    google.genai (Gemini) and openai (Azure/OpenAI)."""
     import sys
     for mod in list(sys.modules):
-        if mod.startswith("google.genai") or mod == "google.genai":
+        if mod.startswith(("google.genai", "openai")):
             del sys.modules[mod]
     sql = "SELECT P.PAT_ID FROM Clarity.dbo.PATIENT P"
     generate_report_description(sql, {})  # engineered, default
     assert "google.genai" not in sys.modules, \
         "google.genai must NOT be loaded for engineered-mode calls"
+    assert "openai" not in sys.modules, \
+        "openai must NOT be loaded for engineered-mode calls"
+
+
+class _StubLLMClient:
+    """Fake provider-neutral adapter: returns a canned summary dict for any
+    prompt. Lets the LLM path run with no SDK and no network."""
+
+    def complete_json(self, system_prompt: str, user_prompt: str, *,
+                      temperature: float = 0.3) -> dict:
+        return {
+            "technical_description": "Stub technical description.",
+            "business_description": "Stub business description.",
+            "primary_purpose": "Stub purpose.",
+            "key_metrics": ["STUB_METRIC"],
+            "english_definition": "Stub column definition.",
+        }
+
+
+def test_llm_mode_uses_injected_client_without_sdk():
+    """With a stub client injected, Tool 4's LLM mode fills its description
+    fields from the stub -- end-to-end LLM path, no SDK / no network."""
+    sql = "SELECT R.REFERRAL_ID FROM Clarity.dbo.REFERRAL R"
+    desc = generate_report_description(sql, {}, use_llm=True,
+                                       llm_client=_StubLLMClient())
+    assert desc.use_llm is True
+    assert desc.technical_description == "Stub technical description."
+    assert desc.business_description == "Stub business description."
+    assert "[LLM error" not in desc.technical_description
 
 
 def test_llm_mode_blocked_without_feature():

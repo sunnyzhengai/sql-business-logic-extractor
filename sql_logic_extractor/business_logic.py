@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Optional
 
 from sqlglot import exp, parse_one
 
@@ -252,13 +251,11 @@ Output JSON:
 
 
 def translate_column_llm(resolved_col: dict, schema: dict, llm_client) -> dict:
-    """Translate one resolved column via an LLM. Lazy-imports the client
-    library; a no-LLM install will fail at import inside this branch
-    (which is the desired structural guarantee for healthcare-safe builds:
-    a customer with no `business_logic_llm` feature never reaches here)."""
-    # Lazy import -- only loaded when LLM mode is actually used.
-    from google.genai import types  # noqa: F401
-
+    """Translate one resolved column via an LLM. `llm_client` is a
+    provider-neutral adapter (see ``llm_client.py``) exposing
+    ``complete_json``; the vendor SDK is lazy-imported inside that adapter, so
+    a no-LLM customer never reaches a client lib (the structural guarantee for
+    healthcare-safe builds: no `business_logic_llm` feature -> never here)."""
     context = _build_llm_context(resolved_col, schema)
     user_prompt = (
         "Translate this SQL column to plain English. Be accurate and succinct -- "
@@ -271,16 +268,7 @@ def translate_column_llm(resolved_col: dict, schema: dict, llm_client) -> dict:
     base_columns = resolved_col.get("base_columns", []) or []
 
     try:
-        response = llm_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=_LLM_SYSTEM_PROMPT,
-                temperature=0.3,
-                response_mime_type="application/json",
-            ),
-        )
-        result = json.loads(response.text)
+        result = llm_client.complete_json(_LLM_SYSTEM_PROMPT, user_prompt)
         english = result.get("english_definition", "")
     except Exception as e:
         english = f"[LLM error: {type(e).__name__}: {str(e)[:80]}]"
@@ -354,21 +342,11 @@ def clean_filter_sql(filter_expr: str, alias_map: dict[str, str],
     return cleaned.sql(dialect=dialect)
 
 
-def make_llm_client(api_key: Optional[str] = None):
-    """Build a Gemini client. Lazy-imports `google.genai`. Customers using
-    LLM mode bring their own API key (BYOK) -- you don't pay for their LLM
-    use unless you're hosting the SaaS deployment."""
-    import os
-    from google import genai
-
-    api_key = api_key or os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "Gemini API key required for LLM mode. Set GEMINI_API_KEY in env "
-            "or pass api_key explicitly. (Customer brings their own key for the "
-            "offline / on-prem tier.)"
-        )
-    return genai.Client(api_key=api_key)
+# `make_llm_client` now lives in the provider-neutral adapter module. Re-export
+# it here so existing imports (`from .business_logic import make_llm_client`)
+# keep working. Selects provider via SLE_LLM_PROVIDER / auto-detection; supports
+# Azure OpenAI, direct OpenAI, and Gemini (BYOK in all cases).
+from .llm_client import make_llm_client  # noqa: E402,F401
 
 
 # ---------------------------------------------------------------------------
@@ -660,9 +638,9 @@ Output JSON:
 
 
 def summarize_llm(business_logic, llm_client) -> dict:
-    """LLM-backed query-level summary. Lazy-imports the client library."""
-    from google.genai import types  # noqa: F401
-
+    """LLM-backed query-level summary. `llm_client` is a provider-neutral
+    adapter (see ``llm_client.py``) exposing ``complete_json``; the vendor SDK
+    is lazy-imported inside that adapter."""
     lineage = business_logic.lineage
     translations = business_logic.column_translations
 
@@ -693,16 +671,7 @@ def summarize_llm(business_logic, llm_client) -> dict:
                     "\n".join(context_parts)
 
     try:
-        response = llm_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=_LLM_SUMMARY_SYSTEM_PROMPT,
-                temperature=0.3,
-                response_mime_type="application/json",
-            ),
-        )
-        result = json.loads(response.text)
+        result = llm_client.complete_json(_LLM_SUMMARY_SYSTEM_PROMPT, user_prompt)
         return {
             "technical_description": result.get("technical_description", result.get("query_summary", "")),
             "business_description": result.get("business_description", ""),

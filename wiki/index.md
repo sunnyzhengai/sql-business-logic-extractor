@@ -16,6 +16,7 @@ Foundational frames:
 - [Spec-first as data contract](concepts/spec-first-as-data-contract.md) — intellectual anchor connecting the site's position to the data-contracts field
 - [App config IDs as coordination keys](concepts/app-config-id-as-coordination-key.md) — Epic INI-Item as the operational primitive that closes the app-team coordination loop; go-to-market wedge for healthcare Epic shops
 - [Recursive translation principle](concepts/recursive-translation-principle.md) — translate every SQL construct by recursion to raw columns; unknown patterns/columns are governance signals, never opaque fallbacks
+- [Metadata-only, never PHI](concepts/metadata-only-no-phi.md) — the extractor processes SQL definitions + the data dictionary only; no DB connection, no patient rows; the backbone of the LLM-mode governance story
 
 Domain knowledge (Epic / Clarity):
 

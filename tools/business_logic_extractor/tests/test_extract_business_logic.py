@@ -79,17 +79,48 @@ def test_default_use_llm_is_false():
 
 def test_engineered_mode_does_not_import_llm_libs():
     """Structural guarantee: extracting business logic in engineered mode
-    must NOT pull google.genai into sys.modules. Healthcare-safe customers
-    can verify this by inspecting their Python environment after import."""
+    must NOT pull any vendor LLM SDK into sys.modules. Healthcare-safe
+    customers can verify this by inspecting their Python environment after
+    import. Covers both google.genai (Gemini) and openai (Azure/OpenAI)."""
     import sys
     # Evict any prior import (the test order shouldn't determine outcome).
     for mod in list(sys.modules):
-        if mod.startswith("google.genai") or mod == "google.genai":
+        if mod.startswith(("google.genai", "openai")):
             del sys.modules[mod]
     sql = "SELECT P.PAT_ID FROM Clarity.dbo.PATIENT P"
     extract_business_logic(sql, {})  # engineered, default
     assert "google.genai" not in sys.modules, \
         "google.genai must NOT be loaded for engineered-mode calls"
+    assert "openai" not in sys.modules, \
+        "openai must NOT be loaded for engineered-mode calls"
+
+
+class _StubLLMClient:
+    """A fake provider-neutral LLM adapter: returns a canned JSON dict and
+    records the prompts it was called with. Exercises the LLM code path with
+    no vendor SDK and no network."""
+
+    def __init__(self, payload: dict):
+        self._payload = payload
+        self.calls = []
+
+    def complete_json(self, system_prompt: str, user_prompt: str, *,
+                      temperature: float = 0.3) -> dict:
+        self.calls.append((system_prompt, user_prompt))
+        return dict(self._payload)
+
+
+def test_llm_mode_uses_injected_client_without_sdk():
+    """With a stub client passed in, LLM mode produces definitions from the
+    stub -- proving the path works end-to-end with no SDK / no network."""
+    stub = _StubLLMClient({"english_definition": "Stubbed plain-English definition."})
+    sql = "SELECT R.REFERRAL_ID, R.STATUS_C FROM Clarity.dbo.REFERRAL R"
+    bl = extract_business_logic(sql, {}, use_llm=True, llm_client=stub)
+    assert bl.use_llm is True
+    assert stub.calls, "the stub client should have been called"
+    for t in bl.column_translations:
+        assert t["english_definition"] == "Stubbed plain-English definition."
+        assert "[LLM error" not in t["english_definition"]
 
 
 def test_llm_mode_blocked_without_feature():

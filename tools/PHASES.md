@@ -152,7 +152,10 @@ rendering), `inventory_manifest/`, possibly `report_description_generator/`.
 **Design notes:**
 - Outputs are plain markdown. Stewards print these.
 - No LLM-generated text on day one (no LLM access in pilot env). BI-dev
-  review fills the description gap.
+  review fills the description gap. (Update: LLM-polished descriptions are
+  now available as an opt-in mode -- provider-neutral, default Azure OpenAI,
+  gated behind the `business_logic_llm` / `report_description_llm` features.
+  The engineered path remains the healthcare-safe default.)
 - Every claim has a pointer back to the source view, scope, line.
 
 ---

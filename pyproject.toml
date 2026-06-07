@@ -22,14 +22,29 @@ business = [
 # Optional LLM client libs -- pulled in ONLY when a customer uses LLM mode
 # in Tool 3 or Tool 4. A no-LLM customer's wheel doesn't include these,
 # making "no data leaves the building" a structural guarantee.
+# `ai`/`llm` bundle every supported provider; the per-provider extras below
+# install just one SDK so a customer keeps only their approved vendor on disk.
 ai = [
     "google-genai>=0.3",
+    "openai>=1.0",
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
 ]
 # Backwards-compat alias for the old name.
 llm = [
     "google-genai>=0.3",
+    "openai>=1.0",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+]
+# Per-provider extras (install only the approved vendor's SDK).
+ai-gemini = [
+    "google-genai>=0.3",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+]
+ai-openai = [
+    "openai>=1.0",
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
 ]

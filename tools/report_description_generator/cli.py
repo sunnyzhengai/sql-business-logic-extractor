@@ -31,12 +31,24 @@ def main() -> int:
     parser.add_argument("-d", "--dialect", default="tsql")
     parser.add_argument("--use-llm", action="store_true",
                         help="Enable LLM-enhanced summary (requires report_description_llm feature)")
+    parser.add_argument("--llm-provider", default=None,
+                        choices=["azure-openai", "openai", "gemini"],
+                        help="LLM backend to use with --use-llm "
+                             "(default: SLE_LLM_PROVIDER env, then auto-detect)")
     args = parser.parse_args()
 
     sql = Path(args.input).read_text(encoding="utf-8", errors="replace")
     schema = _load_schema(args.schema)
 
+    # Build the client up front so --llm-provider can override env selection.
+    # Engineered mode passes llm_client=None and never touches a vendor SDK.
+    llm_client = None
+    if args.use_llm:
+        from sql_logic_extractor.llm_client import make_llm_client
+        llm_client = make_llm_client(provider=args.llm_provider)
+
     desc = generate_report_description(sql, schema, use_llm=args.use_llm,
+                                         llm_client=llm_client,
                                          dialect=args.dialect)
 
     payload = {

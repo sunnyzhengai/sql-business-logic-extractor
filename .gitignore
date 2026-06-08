@@ -20,3 +20,10 @@ graphify-out/graph.html
 
 # local samples and scratch notes (not source of truth)
 my_notes/
+
+# Epic Clarity proprietary data dictionary -- keep LOCAL, never publish.
+# Raw exports + any schema generated from them (build_clarity_schema.py).
+# The mockup at data/schemas/clarity_schema.yaml is fake data and stays tracked.
+data/dictionaries/CLARITY_*.csv
+data/dictionaries/clarity_schema.json
+data/dictionaries/clarity_schema.yaml

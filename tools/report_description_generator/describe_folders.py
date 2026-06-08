@@ -59,6 +59,9 @@ except ImportError:
 from sql_logic_extractor.products import generate_report_description
 from sql_logic_extractor.proc_normalize import ProcNotViewShaped, select_into_to_cte
 from tools.report_description_generator.cli import _load_schema
+# Reuse the project's canonical BOM-aware reader instead of a local copy --
+# this is the loader the rest of the pipeline already uses for SSMS exports.
+from tools.shared.sql_loader import read_sql_robust
 
 
 # Human-readable gloss for each ProcNotViewShaped reason, shown in the output
@@ -79,21 +82,6 @@ _SKIP_REASON_HELP = {
 _IS_CREATE_PROC_RE = re.compile(
     r"\bCREATE\s+(?:OR\s+ALTER\s+)?PROC(?:EDURE)?\b", re.IGNORECASE
 )
-
-
-def _read_sql(path: Path) -> str:
-    """Read a .sql file tolerating SSMS's UTF-16-LE / BOM defaults."""
-    raw = path.read_bytes()
-    if raw.startswith(b"\xff\xfe"):
-        return raw.decode("utf-16-le")[1:]
-    if raw.startswith(b"\xfe\xff"):
-        return raw.decode("utf-16-be")[1:]
-    if raw.startswith(b"\xef\xbb\xbf"):
-        return raw.decode("utf-8")[1:]
-    try:
-        return raw.decode("utf-8")
-    except UnicodeDecodeError:
-        return raw.decode("utf-16-le", errors="replace")
 
 
 def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool) -> tuple[object, str]:
@@ -206,7 +194,7 @@ def describe_folders(
             kind = "proc" if is_proc else "view"
             t0 = time.time()
             try:
-                sql = _read_sql(path)
+                sql = read_sql_robust(path)
                 report, status = _describe_one(sql, schema, llm_client, is_proc=is_proc)
             except Exception as e:  # unreadable file, etc.
                 report, status = None, f"error:{type(e).__name__}: {e}"[:200]

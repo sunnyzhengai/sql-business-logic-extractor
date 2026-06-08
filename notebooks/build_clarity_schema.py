@@ -38,10 +38,15 @@ ENCODING = "utf-8"        # if descriptions show garbled accents, try "latin-1"
 # update these lists (or set HAS_HEADER=True so pandas reads the real header).
 TBL_COLS = [
     "TABLE_ID", "TABLE_NAME", "EXTRACT_FILENAME", "RELEASED_VERSION_C",
-    "LAST_MOD_VERSION_C", "BS_TEMPLATE_ID", "DEPENDENT_INI", "IS_EXTRACTED_YN",
-    "LOAD_FREQUENCY", "LOAD_TYPE", "ROUTINE_NAME", "ORA_DATA_TBLSPACE",
-    "ORA_INDEX_TBLSPACE", "ORA_OVRFL_TBLSPACE", "IS_PARTITIONED_YN",
-    "PARTITION_TYPE", "PARTITION_RANGE",
+    "LAST_MOD_VERSION_C", "BS_TEMPLATE_ID", "DEPENDENT_INI", "IS_JOB_DIVIDED_YN",
+    "IS_EXTRACTED_YN", "LOAD_FREQUENCY", "LOAD_TYPE", "ROUTINE_NAME",
+    "ORA_DATA_TBLSPACE", "ORA_INDEX_TBLSPACE", "ORA_OVRFL_TBLSPACE",
+    "IS_PARTITIONED_YN", "PARTITION_TYPE", "PARTITION_RANGE", "PARTITION_KEY",
+    "IS_IX_ORGANIZED_YN", "SUB_PARTITION_KEY", "SUB_PARTITION_VAL",
+    "TBL_DESCRIPTOR", "TBL_DESCRIPTOR_OVR", "TABLE_INTRODUCTION", "CHRONICLES_MF",
+    "CM_PHY_OWNER_ID", "CM_LOG_OWNER_ID", "IS_PRESERVED_YN", "ORA_STG_TBLSPACE",
+    "ORA_STG_OVRFLTBLSP", "TABLE_NOTES", "DATA_RETAINED_YN", "DEPRECATED_YN",
+    "EXTRACT_TEMPLATE_C",
 ]
 COL_COLS = [
     "COLUMN_ID", "COLUMN_NAME", "TABLE_ID", "COL_DESCRIPTOR",
@@ -73,24 +78,34 @@ col = _read("CLARITY_COL.csv", COL_COLS)
 # column ORDER differs from TBL_COLS/COL_COLS -- fix the lists and re-run.
 print("TBL parsed shape:", tbl.shape, "| expected cols:", len(TBL_COLS))
 print("COL parsed shape:", col.shape, "| expected cols:", len(COL_COLS))
-print("TBL sample:", tbl[["TABLE_ID", "TABLE_NAME"]].head(2).to_dict("records"))
+print("TBL sample:", tbl[["TABLE_ID", "TABLE_NAME", "TABLE_INTRODUCTION"]]
+      .head(2).to_dict("records"))
 print("COL sample:", col[["TABLE_ID", "COLUMN_NAME", "DATA_TYPE", "DESCRIPTION"]]
       .head(2).to_dict("records"))
 print("-" * 60)
 
-# TABLE_ID -> TABLE_NAME. (This CLARITY_TBL export carries no table-level
-# description column, so table descriptions are left blank.)
-id2name = dict(zip(tbl["TABLE_ID"], tbl["TABLE_NAME"]))
+# TABLE_ID -> {name, description, short_description} from CLARITY_TBL.
+# Table prose: TABLE_INTRODUCTION (full) with TBL_DESCRIPTOR(_OVR) as fallback;
+# table short label prefers the curated override.
+id2info: dict[str, dict] = {}
+for r in tbl.itertuples(index=False):
+    id2info[r.TABLE_ID] = {
+        "name": r.TABLE_NAME,
+        "description": r.TABLE_INTRODUCTION or r.TBL_DESCRIPTOR_OVR
+        or r.TBL_DESCRIPTOR or "",
+        "short_description": r.TBL_DESCRIPTOR_OVR or r.TBL_DESCRIPTOR or None,
+    }
 
 want = {v.upper() for v in VIEW_TABLES} if VIEW_TABLES else None
 tables: dict[str, dict] = {}
 unmatched = 0
 
 for r in col.itertuples(index=False):
-    tname = id2name.get(r.TABLE_ID)
-    if not tname:
+    info = id2info.get(r.TABLE_ID)
+    if not info:
         unmatched += 1            # column whose TABLE_ID isn't in CLARITY_TBL
         continue
+    tname = info["name"]
     if want is not None and tname.upper() not in want:
         continue
 
@@ -105,7 +120,12 @@ for r in col.itertuples(index=False):
     description = r.DESCRIPTION or r.COL_DESCRIPTOR or r.COL_DESCRIPTOR_OVR or r.COLUMN_NAME
     short = r.COL_DESCRIPTOR_OVR or r.COL_DESCRIPTOR or None
 
-    t = tables.setdefault(tname, {"name": tname, "columns": []})
+    t = tables.setdefault(tname, {
+        "name": tname,
+        "description": info["description"],
+        "short_description": info["short_description"],
+        "columns": [],
+    })
     t["columns"].append({
         "name": r.COLUMN_NAME,
         "type": typ,

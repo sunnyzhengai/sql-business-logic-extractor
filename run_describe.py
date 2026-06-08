@@ -19,13 +19,8 @@ _REPO_ROOT = Path(__file__).resolve().parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-# Load the LLM key/provider from a .env next to this file (if present).
-try:
-    from dotenv import load_dotenv
-    load_dotenv(_REPO_ROOT / ".env")
-except ImportError:
-    pass
-
+# Importing describe_folders loads the .env robustly (BOM/UTF-16 tolerant) --
+# no separate dotenv step needed here.
 from tools.report_description_generator.describe_folders import describe_folders
 
 # ============================================================

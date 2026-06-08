@@ -36,6 +36,7 @@ Or import the function:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 import time
@@ -48,13 +49,44 @@ _REPO_ROOT = str(Path(__file__).resolve().parents[2])
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-# Load a local .env (SLE_LLM_PROVIDER + key) if python-dotenv is installed.
-# Optional -- env vars set another way still work.
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+def _load_env_robust() -> None:
+    """Load KEY=VALUE pairs from a .env (repo root or cwd) into the environment.
+
+    Tolerates the UTF-16 / BOM / cp1252 encodings Windows editors (Notepad)
+    produce -- the SAME encoding gremlin as the SQL files -- instead of using
+    python-dotenv's strict-UTF-8 read, which crashes the import on a UTF-16
+    .env. NEVER raises: a missing or unreadable .env just means env vars come
+    from the real environment. Existing env vars win (setdefault).
+    """
+    candidates = [Path(__file__).resolve().parents[2] / ".env", Path.cwd() / ".env"]
+    for envp in candidates:
+        try:
+            if not envp.is_file():
+                continue
+            raw = envp.read_bytes()
+            if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+                text = raw.decode("utf-16")              # BOM picks endianness
+            else:
+                text = None
+                for enc in ("utf-8-sig", "utf-16", "latin-1"):
+                    try:
+                        text = raw.decode(enc)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                if text is None:
+                    text = raw.decode("latin-1", errors="replace")
+            for line in text.splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, val = line.split("=", 1)
+                os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+        except Exception:
+            continue  # a bad .env must never crash the import
+
+
+_load_env_robust()
 
 from sql_logic_extractor.products import generate_report_description
 from sql_logic_extractor.proc_normalize import ProcNotViewShaped, select_into_to_cte

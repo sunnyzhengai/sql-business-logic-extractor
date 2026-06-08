@@ -1,9 +1,9 @@
 """Run Tool 4 on ONE real view -- engineered vs LLM, side by side.
 
-Prereq: run fabric_llm_setup.py Cell 2 FIRST in the same notebook session.
-That sets sys.path + the provider/key env vars; this cell reuses them
-(generate_report_description builds the LLM client from those env vars
-automatically, so you don't paste the key again).
+Self-contained: it sets its own sys.path and loads the LLM provider/key from
+.env (BOM/UTF-16 tolerant), so you do NOT need to run any setup cell first --
+not even after a session restart. The only per-session step is making sure the
+libraries are installed (a %pip cell, or a Fabric Environment).
 
 Unlike demo_llm_vs_engineered.py (which is pinned to the mockup
 clarity_schema.yaml), this points at any view file you choose and lets the
@@ -14,8 +14,6 @@ Paste into a Fabric cell, edit the EDIT block, run.
 """
 
 # %% [Cell: describe one view -- engineered vs LLM]
-
-from pathlib import Path
 
 # ============================================================
 # EDIT
@@ -29,10 +27,17 @@ import sys
 if REPO_DIR not in sys.path:
     sys.path.insert(0, REPO_DIR)
 
-from sql_logic_extractor.products import generate_report_description
+# Load the LLM provider/key from .env (BOM/UTF-16 tolerant, never crashes) --
+# reuses the canonical loader so this cell needs no setup cell, even after a
+# session restart. (.env is a file, so it persists across restarts.)
+from tools.report_description_generator.describe_folders import _load_env_robust
+_load_env_robust()
 
-# Read the view SQL, tolerating SSMS's UTF-16 default.
-sql = Path(VIEW_PATH).read_text(encoding="utf-8", errors="replace")
+from sql_logic_extractor.products import generate_report_description
+from tools.shared.sql_loader import read_sql_robust
+
+# Read the view SQL with the canonical BOM-aware loader (SSMS often UTF-16).
+sql = read_sql_robust(VIEW_PATH)
 
 # Schema is optional. With a real Clarity dictionary the descriptions get
 # richer (table/column meanings); without it, Tool 4 works off the SQL alone.

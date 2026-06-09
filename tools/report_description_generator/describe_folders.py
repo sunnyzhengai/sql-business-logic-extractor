@@ -307,6 +307,89 @@ def describe_folders(
     return {"results": results, "tally": tally, "out_path": str(out)}
 
 
+def scan_parse_errors(
+    view_dirs: list[str],
+    proc_dirs: list[str],
+    *,
+    schema_path: str | None = None,
+    out_path: str = "parse_errors.md",
+    dialect: str = "tsql",
+) -> dict:
+    """Fast PARSE-ONLY scan (NO LLM) over all files, to surface every distinct
+    parser gap AT ONCE instead of one-at-a-time.
+
+    Runs each file through the same parse/extract path the batch uses but with
+    use_llm=False (mechanical, no API calls -> fast + free), catches errors, and
+    groups them by a normalized signature (line/col numbers removed) so the same
+    construct collapses to one entry. Writes a Markdown report: per distinct
+    error, the count + a few example files and the offending line. Send me that
+    report and I can write rules for all the patterns in one pass.
+    """
+    import re as _re
+    from collections import defaultdict
+    from sql_logic_extractor.resolve import preprocess_ssms
+
+    schema = _load_schema(schema_path) if schema_path else {}
+    work = ([(f, False) for f, _ in _iter_sql(view_dirs)] +
+            [(f, True) for f, _ in _iter_sql(proc_dirs)])
+
+    def _sig(msg: str) -> str:
+        return _re.sub(r"[Ll]ine \d+,? ?[Cc]ol(?:umn)?:? ?\d+",
+                       "Line N, Col N", msg).strip()[:160]
+
+    def _offending_line(target_sql: str, msg: str) -> str:
+        m = _re.search(r"[Ll]ine (\d+)", msg)
+        if not m or not target_sql:
+            return ""
+        try:
+            clean, _ = preprocess_ssms(target_sql)
+            lines = (clean or target_sql).splitlines()
+            i = int(m.group(1)) - 1
+            return lines[i].strip()[:160] if 0 <= i < len(lines) else ""
+        except Exception:
+            return ""
+
+    groups: dict[str, list] = defaultdict(list)
+    n_ok = n_skip = n_err = 0
+
+    for path, is_proc in work:
+        target = ""
+        try:
+            sql = read_sql_robust(path)
+            target = sql
+            if is_proc:
+                try:
+                    target = select_into_to_cte(sql)
+                except ProcNotViewShaped:
+                    n_skip += 1          # not view-shaped != parse error
+                    continue
+            generate_report_description(target, schema, use_llm=False)
+            n_ok += 1
+        except Exception as e:
+            n_err += 1
+            msg = f"{type(e).__name__}: {e}".splitlines()[0]
+            groups[_sig(msg)].append((path.name, _offending_line(target, msg)))
+
+    ordered = sorted(groups.items(), key=lambda kv: -len(kv[1]))
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8") as fh:
+        fh.write("# Parse-error scan\n\n")
+        fh.write(f"- ok: {n_ok}   skipped (not view-shaped): {n_skip}   "
+                 f"errored: {n_err}\n")
+        fh.write(f"- distinct error patterns: {len(ordered)}\n\n---\n\n")
+        for sig, examples in ordered:
+            fh.write(f"## ({len(examples)}x) {sig}\n\n")
+            for fname, snip in examples[:5]:
+                fh.write(f"- `{fname}`" + (f" — `{snip}`\n" if snip else "\n"))
+            fh.write("\n")
+
+    print(f"scan: ok={n_ok} skipped={n_skip} error={n_err} | "
+          f"{len(ordered)} distinct patterns -> {out}")
+    return {"ok": n_ok, "skipped": n_skip, "error": n_err,
+            "patterns": len(ordered), "out_path": str(out)}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Batch high-level descriptions for view + proc folders."

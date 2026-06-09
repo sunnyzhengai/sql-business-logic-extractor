@@ -187,4 +187,25 @@ PARSING_RULES: list[Rule] = [
         replacement=r"ESCAPE \1",
         flags=re.IGNORECASE,
     ),
+    Rule(
+        id="strip_set_transaction_isolation",
+        description=(
+            "Procs/SSMS exports often open with "
+            "`SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;` (or another "
+            "level). sqlglot can't parse it and fails with "
+            "`ParseError: Unknown option ISOLATION`. It's a pure session "
+            "setting with no lineage content (like SET NOCOUNT ON, which "
+            "DOES parse), so we drop the whole line. Matches the 5 standard "
+            "levels (READ UNCOMMITTED/COMMITTED, REPEATABLE READ, "
+            "SERIALIZABLE, SNAPSHOT). Seen inside a proc body, so it can "
+            "survive the wrapper strip and reach sqlglot."
+        ),
+        pattern=(
+            r"^[ \t]*SET\s+TRANSACTION\s+ISOLATION\s+LEVEL\s+"
+            r"(?:READ\s+UNCOMMITTED|READ\s+COMMITTED|REPEATABLE\s+READ"
+            r"|SERIALIZABLE|SNAPSHOT)\b[ \t]*;?[ \t]*\r?\n?"
+        ),
+        replacement="",
+        flags=re.IGNORECASE | re.MULTILINE,
+    ),
 ]

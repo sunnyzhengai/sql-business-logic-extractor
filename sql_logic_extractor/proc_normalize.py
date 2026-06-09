@@ -217,6 +217,13 @@ def select_into_to_cte(
     proc_name, body = _strip_proc_wrapper(sql)
     body = _strip_temp_guards(body)
 
+    # Apply the shared parsing-rule registry to the body, so the proc path
+    # benefits from the same sqlglot-gap fixes the view path gets via
+    # preprocess_ssms (e.g. SET TRANSACTION ISOLATION LEVEL, ODBC {escape}).
+    # On an already-unwrapped body the CREATE/BEGIN-END rules are no-ops.
+    from .parsing_rules import apply_all
+    body, _ = apply_all(body)
+
     # Parse the (now guard-free) body into its top-level statements. Drop
     # Nones, which sqlglot emits for empty fragments between semicolons.
     statements = [s for s in sqlglot.parse(body, dialect=dialect) if s is not None]

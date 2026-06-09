@@ -29,6 +29,7 @@ PROC_DIRS = [
 SCHEMA_PATH = "/lakehouse/default/Files/data/dictionaries/clarity_schema.json"
 OUT_PATH = "/lakehouse/default/Files/outputs/descriptions.md"
 LIMIT = 5          # quick dry run; set to None to process ALL files
+PER_COLUMN_LLM = False   # False = FAST (LLM summary only, ~1 call/view); True = richer per-column, ~10-15x slower
 # ============================================================
 
 # Make the package importable from the kernel (this runs in-process, so it works).
@@ -50,4 +51,5 @@ describe_folders(
     schema_path=SCHEMA_PATH,
     out_path=OUT_PATH,
     limit=LIMIT,
+    per_column_llm=PER_COLUMN_LLM,
 )

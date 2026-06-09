@@ -121,7 +121,48 @@ _IS_CREATE_PROC_RE = re.compile(
 )
 
 
-def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool) -> tuple[object, str]:
+def _render(target_sql: str, schema: dict, llm_client, per_column_llm: bool) -> tuple[object, str]:
+    """Run Tool 4 on already-prepared SQL. Returns (report_or_None, status).
+
+    `per_column_llm=True` is full quality: one LLM call PER COLUMN to translate
+    each, plus one for the summary. `per_column_llm=False` is FAST: engineered
+    (mechanical) column translations -- no per-column LLM call -- and the LLM is
+    used ONLY for the final high-level summary, so it's ~1 call/view instead of
+    one-per-column. For large corpora of high-level descriptions, fast is the
+    right trade: the per-column polish barely changes the rolled-up summary.
+    """
+    try:
+        if per_column_llm:
+            rpt = generate_report_description(target_sql, schema, use_llm=True,
+                                              llm_client=llm_client)
+        else:
+            from sql_logic_extractor.products import (
+                ReportDescription, extract_business_logic,
+            )
+            from sql_logic_extractor.business_logic import summarize_llm
+            bl = extract_business_logic(target_sql, schema, use_llm=False)
+            res = summarize_llm(bl, llm_client)
+            rpt = ReportDescription(
+                business_logic=bl,
+                technical_description=res.get("technical_description", ""),
+                business_description=res.get("business_description", ""),
+                primary_purpose=res.get("primary_purpose", ""),
+                key_metrics=res.get("key_metrics", []),
+                use_llm=True,
+            )
+    except Exception as e:  # parse/resolve/LLM failure for this one file
+        return None, f"error:{type(e).__name__}: {e}"[:200]
+    # summarize_llm SWALLOWS LLM failures: it stashes the error in
+    # technical_description as "[LLM error: ...]" and leaves business_description
+    # blank. Surface that as an error so it isn't a silent "(empty)".
+    tech = rpt.technical_description or ""
+    if tech.startswith("[LLM error"):
+        return None, f"error:{tech[:180]}"
+    return rpt, "ok"
+
+
+def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool,
+                  per_column_llm: bool = True) -> tuple[object, str]:
     """Describe one SQL file. Returns (report_or_None, status).
 
     status is "ok", "skipped:<reason>", or "error:<msg>". For proc files we
@@ -141,25 +182,10 @@ def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool) -> tuple
             # file isn't actually a proc (e.g. a CREATE VIEW misfiled here).
             if _IS_CREATE_PROC_RE.search(sql):
                 return None, f"skipped:{e.reason}"
-            try:
-                rpt = generate_report_description(sql, schema, use_llm=True,
-                                                  llm_client=llm_client)
-                return rpt, "ok"
-            except Exception:
-                return None, f"skipped:{e.reason}"
+            rpt, status = _render(sql, schema, llm_client, per_column_llm)
+            return (rpt, status) if status == "ok" else (None, f"skipped:{e.reason}")
 
-    try:
-        rpt = generate_report_description(target_sql, schema, use_llm=True,
-                                          llm_client=llm_client)
-    except Exception as e:  # parse/resolve/LLM failure for this one file
-        return None, f"error:{type(e).__name__}: {e}"[:200]
-    # summarize_llm SWALLOWS LLM failures: it stashes the error in
-    # technical_description as "[LLM error: ...]" and leaves business_description
-    # blank. Surface that as an error so it isn't a silent "(empty)".
-    tech = rpt.technical_description or ""
-    if tech.startswith("[LLM error"):
-        return None, f"error:{tech[:180]}"
-    return rpt, "ok"
+    return _render(target_sql, schema, llm_client, per_column_llm)
 
 
 def _iter_sql(dirs: list[str]) -> list[tuple[Path, str]]:
@@ -184,6 +210,7 @@ def describe_folders(
     provider: str | None = None,
     dialect: str = "tsql",
     limit: int | None = None,
+    per_column_llm: bool = True,
 ) -> dict:
     """Describe every .sql in the given view + proc folders to one Markdown file.
 
@@ -238,7 +265,8 @@ def describe_folders(
             t0 = time.time()
             try:
                 sql = read_sql_robust(path)
-                report, status = _describe_one(sql, schema, llm_client, is_proc=is_proc)
+                report, status = _describe_one(sql, schema, llm_client, is_proc=is_proc,
+                                               per_column_llm=per_column_llm)
             except Exception as e:  # unreadable file, etc.
                 report, status = None, f"error:{type(e).__name__}: {e}"[:200]
 

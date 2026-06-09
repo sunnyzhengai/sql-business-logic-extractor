@@ -167,4 +167,24 @@ PARSING_RULES: list[Rule] = [
         replacement=r"\1",
         flags=re.IGNORECASE,
     ),
+    Rule(
+        id="rewrite_odbc_escape_clause",
+        description=(
+            "Some SSMS/ODBC-generated T-SQL writes the LIKE escape clause "
+            "in ODBC canonical form `{escape '<char>'}` instead of the "
+            "native `ESCAPE '<char>'`. sqlglot can't parse the brace form "
+            "and fails with `ParseError: Expected }` -- and because the "
+            "escape char is often a backslash (`{escape '\\'}`, common when "
+            "the LIKE pattern uses `\\[` to match a literal bracket), the "
+            "failure lands deep inside a CASE/CONVERT expression.\n\n"
+            "Rewrite `{escape '<char>'}` -> `ESCAPE '<char>'`, which sqlglot "
+            "parses fine (the backslash string parses correctly in tsql once "
+            "it's a normal ESCAPE clause). Only the `escape` ODBC sequence is "
+            "touched; other ODBC sequences (`{d ...}`, `{ts ...}`, `{fn ...}`) "
+            "are left alone. Seen in views_cookrpt/V_CCHP_MEMBER_APPEALS_FLATFILE."
+        ),
+        pattern=r"\{\s*escape\s+('[^']*')\s*\}",
+        replacement=r"ESCAPE \1",
+        flags=re.IGNORECASE,
+    ),
 ]

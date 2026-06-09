@@ -1,0 +1,4 @@
+CREATE VIEW dbo.V_ESCAPE_TEST AS
+SELECT
+    CASE WHEN v LIKE '%\[%' {escape '\'} THEN 1 ELSE 0 END AS has_bracket
+FROM tbl

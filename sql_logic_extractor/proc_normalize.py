@@ -45,6 +45,7 @@ import re
 
 import sqlglot
 from sqlglot import exp
+from sqlglot.tokens import TokenType
 
 # T-SQL is the only dialect this transform targets -- temp tables and
 # SELECT ... INTO are T-SQL constructs. Exposed as a default arg so callers
@@ -148,6 +149,93 @@ def _strip_temp_guards(body: str) -> str:
     return body
 
 
+# Statement-starting keywords that, at top level, begin a new statement.
+_HARD_STARTERS = {
+    TokenType.INSERT, TokenType.UPDATE, TokenType.DELETE, TokenType.MERGE,
+    TokenType.DROP, TokenType.CREATE, TokenType.TRUNCATE, TokenType.DECLARE,
+    TokenType.WITH,
+}
+_SET_OPS = {TokenType.UNION, TokenType.EXCEPT, TokenType.INTERSECT}
+
+
+def _insert_statement_separators(body: str, dialect: str) -> str:
+    """Insert `;` at REAL top-level statement boundaries, via sqlglot's
+    tokenizer -- not regex.
+
+    T-SQL lets a statement omit its trailing `;`; sqlglot's PARSER needs the
+    separator or it reads `SELECT ... SELECT ...` as one broken statement.
+    Tokenizing handles strings / comments / parentheses correctly, and a small
+    state machine distinguishes a NEW statement from a CONTINUATION:
+      - a `SELECT` after UNION/EXCEPT/INTERSECT (set operation)
+      - the body `SELECT` of INSERT..SELECT / WITH..SELECT
+      - INSERT/UPDATE/DELETE inside a MERGE's WHEN clauses
+      - any subquery `SELECT` (paren depth > 0)
+    Idempotent: a `;` already present resets the state, so we never double up.
+    Tokenizer failure (extremely rare) returns the body unchanged.
+    """
+    try:
+        toks = sqlglot.tokenize(body, dialect=dialect)
+    except Exception:
+        return body
+
+    depth = 0
+    opener = None          # token type that opened the current statement
+    prev = None            # previous significant token type
+    saw_select = False     # has the current INSERT/WITH/MERGE consumed its SELECT?
+    cuts: list[int] = []   # char offsets to insert `;` before
+
+    for t in toks:
+        tt = t.token_type
+        if tt == TokenType.L_PAREN:
+            depth += 1
+            prev = tt
+            continue
+        if tt == TokenType.R_PAREN:
+            depth = max(0, depth - 1)
+            prev = tt
+            continue
+        if depth == 0:
+            if tt == TokenType.SEMICOLON:
+                opener, saw_select = None, False     # statement already ended
+                prev = tt
+                continue
+            new = False
+            if tt in _HARD_STARTERS:
+                if opener == TokenType.MERGE and tt in (
+                        TokenType.INSERT, TokenType.UPDATE, TokenType.DELETE):
+                    pass                              # MERGE WHEN-clause
+                elif opener is None:
+                    opener = tt
+                else:
+                    new = True
+            elif tt == TokenType.SELECT:
+                if prev in _SET_OPS:
+                    pass                              # set-operation continuation
+                elif opener in (TokenType.INSERT, TokenType.MERGE, TokenType.WITH) \
+                        and not saw_select:
+                    saw_select = True                 # INSERT..SELECT / WITH..SELECT body
+                elif opener is None:
+                    opener, saw_select = tt, True
+                else:
+                    new = True
+            if new:
+                cuts.append(t.start)
+                opener = tt
+                saw_select = (tt == TokenType.SELECT)
+        prev = tt
+
+    if not cuts:
+        return body
+    out: list[str] = []
+    last = 0
+    for pos in cuts:
+        out.append(body[last:pos])
+        out.append(";\n")
+        last = pos
+    out.append(body[last:])
+    return "".join(out)
+
+
 # ---- AST helpers ---------------------------------------------------------
 
 def _is_temp_table(node: exp.Expression | None) -> bool:
@@ -231,6 +319,11 @@ def select_into_to_cte(
     # On an already-unwrapped body the CREATE/BEGIN-END rules are no-ops.
     from .parsing_rules import apply_all
     body, _ = apply_all(body)
+
+    # Insert any missing top-level statement separators (T-SQL makes `;`
+    # optional; sqlglot's parser requires it). Tokenizer-based, so subqueries /
+    # INSERT..SELECT / CTEs / set-ops / MERGE aren't mis-split.
+    body = _insert_statement_separators(body, dialect)
 
     # Parse the (now guard-free) body into its top-level statements. Drop
     # Nones, which sqlglot emits for empty fragments between semicolons.

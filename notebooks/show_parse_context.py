@@ -1,12 +1,16 @@
-"""Pinpoint the REAL parse-error location for ONE .sql file.
+"""Pinpoint the REAL batch outcome + parse-error context for ONE .sql file.
 
-The scanner captured only the single line sqlglot pointed at -- but that's
-where the parser GAVE UP, not necessarily the cause, and preprocessing shifts
-line numbers vs the raw file. This runs the same preprocess + parse the pipeline
-uses, then prints the full sqlglot error PLUS the ~10 lines around it IN THE
-PREPROCESSED text (with the error line marked `>>`), so you see the true culprit.
+Mirrors exactly what the description batch does per file type:
+  - VIEW  -> preprocess_ssms + parse
+  - PROC  -> select_into_to_cte (which may legitimately SKIP it as not
+             view-shaped, e.g. it has DECLARE/INSERT/multiple results)
+and reports the true outcome:
+  - BATCH: ok            -> parses; would be described
+  - BATCH: SKIPPED       -> not view-shaped (NOT an error) + the reason
+  - BATCH: ERROR         -> a real parser gap + the ~10 lines around it
+                            (in the text sqlglot actually parsed, error line `>>`)
 
-In-kernel cell. Edit PATH to one failing file, run, paste the output.
+In-kernel cell. Edit PATH to one file from the scan, run, paste the output.
 """
 
 import re
@@ -14,7 +18,7 @@ import sys
 
 REPO_DIR = "/lakehouse/default/Files"
 PATH = "/lakehouse/default/Files/data/views_cookrpt/<failing_file>.sql"   # EDIT
-CONTEXT_BEFORE = 9     # lines to show before the error line
+CONTEXT_BEFORE = 9
 
 if REPO_DIR not in sys.path:
     sys.path.insert(0, REPO_DIR)
@@ -22,32 +26,56 @@ if REPO_DIR not in sys.path:
 import sqlglot
 from tools.shared.sql_loader import read_sql_robust
 from sql_logic_extractor.resolve import preprocess_ssms
+from sql_logic_extractor.parsing_rules import apply_all
+from sql_logic_extractor.proc_normalize import (
+    ProcNotViewShaped, select_into_to_cte,
+    _strip_proc_wrapper, _strip_temp_guards,
+)
+
+
+def _show_context(text: str, err: Exception) -> None:
+    print("BATCH: ERROR ->", str(err).splitlines()[0])
+    m = re.search(r"[Ll]ine (\d+)", str(err))
+    lines = text.splitlines()
+    if not m:
+        print("(no line number; first 25 lines of what was parsed:)")
+        for i, ln in enumerate(lines[:25]):
+            print(f"{i + 1:4d}    {ln}")
+        return
+    n = int(m.group(1))
+    lo, hi = max(0, n - 1 - CONTEXT_BEFORE), min(len(lines), n + 1)
+    print(f"--- parsed lines {lo + 1}..{hi}  (>> = sqlglot's error line) ---")
+    for i in range(lo, hi):
+        print(f"{i + 1:4d}{'  >>' if i + 1 == n else '    '} {lines[i]}")
+
 
 raw = read_sql_robust(PATH)
 is_proc = bool(re.search(r"\bCREATE\s+(?:OR\s+ALTER\s+)?PROC", raw, re.IGNORECASE))
-print(f"file: {PATH.split('/')[-1]}  | chars: {len(raw)}  | is_proc: {is_proc}")
+print(f"file: {PATH.split('/')[-1]}  | chars: {len(raw)}  | is_proc: {is_proc}\n")
 
-# Same preprocessing the pipeline applies (SSMS strip + parsing-rule registry).
-clean, _ = preprocess_ssms(raw)
-
-# Use parse() (not parse_one) so multi-statement proc bodies don't error just
-# for having several statements -- we want the REAL construct error.
-try:
-    sqlglot.parse(clean, dialect="tsql")
-    print("\nParses clean after preprocessing. (The pipeline error may be "
-          "in a later step, or already fixed by a rule you've copied.)")
-except Exception as e:
-    print("\nERROR:", str(e).splitlines()[0])
-    m = re.search(r"[Ll]ine (\d+)", str(e))
-    lines = clean.splitlines()
-    if m:
-        n = int(m.group(1))
-        lo = max(0, n - 1 - CONTEXT_BEFORE)
-        hi = min(len(lines), n + 1)
-        print(f"\n--- preprocessed lines {lo + 1}..{hi} (>> = sqlglot's error line) ---")
-        for i in range(lo, hi):
-            print(f"{i + 1:4d}{'  >>' if i + 1 == n else '    '} {lines[i]}")
+if is_proc:
+    # Replicate select_into_to_cte's body prep so we can show context if the
+    # body itself won't parse; then ask select_into_to_cte for the verdict.
+    _, body = _strip_proc_wrapper(raw)
+    body = _strip_temp_guards(body)
+    body, _ = apply_all(body)
+    try:
+        sqlglot.parse(body, dialect="tsql")          # the parse select_into_to_cte does
+    except Exception as e:
+        _show_context(body, e)                       # a real parser gap in the proc body
     else:
-        print("(no line number in the error; showing first 25 preprocessed lines)")
-        for i, ln in enumerate(lines[:25]):
-            print(f"{i + 1:4d}    {ln}")
+        try:
+            select_into_to_cte(raw)
+            print("BATCH: ok  (normalizes cleanly to a view -> would be described)")
+        except ProcNotViewShaped as e:
+            print(f"BATCH: SKIPPED  (not view-shaped) -- reason: {e.reason}"
+                  + (f"  | detail: {e.detail}" if e.detail else ""))
+            print("This is NOT a parser error -- it's correctly out of scope "
+                  "(ETL / variables / multiple result sets).")
+else:
+    clean, _ = preprocess_ssms(raw)
+    try:
+        sqlglot.parse_one(clean, dialect="tsql")
+        print("BATCH: ok  (view parses -> would be described)")
+    except Exception as e:
+        _show_context(clean, e)

@@ -188,16 +188,22 @@ def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool,
     return _render(target_sql, schema, llm_client, per_column_llm)
 
 
-def _iter_sql(dirs: list[str]) -> list[tuple[Path, str]]:
-    """Yield (path, folder_label) for every *.sql in each directory."""
+def _iter_sql(paths: list[str]) -> list[tuple[Path, str]]:
+    """Yield (path, folder_label) for each entry. Each entry may be either a
+    DIRECTORY (every *.sql in it) or a single *.sql FILE -- so you can point
+    the run at whole folders OR a hand-picked list of files (e.g. just the
+    ones that errored), and even mix the two."""
     out: list[tuple[Path, str]] = []
-    for d in dirs or []:
+    for d in paths or []:
         p = Path(d)
-        if not p.is_dir():
-            print(f"WARNING: not a directory, skipping: {p}", file=sys.stderr)
-            continue
-        for f in sorted(p.glob("*.sql")):
-            out.append((f, p.name))
+        if p.is_file() and p.suffix.lower() == ".sql":
+            out.append((p, p.parent.name))      # single file
+        elif p.is_dir():
+            for f in sorted(p.glob("*.sql")):    # whole folder
+                out.append((f, p.name))
+        else:
+            print(f"WARNING: not a .sql file or directory, skipping: {p}",
+                  file=sys.stderr)
     return out
 
 

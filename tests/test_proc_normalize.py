@@ -196,3 +196,40 @@ def test_undefined_temp_reference_rejected():
     with pytest.raises(ProcNotViewShaped) as ei:
         select_into_to_cte(sql)
     assert ei.value.reason == "undefined_temp_reference"
+
+
+# ============================================================
+# Missing statement separators -- tokenizer-based splitting
+# (T-SQL omits `;`; sqlglot needs it). Regression guards.
+# ============================================================
+
+def test_semicolonless_stage_and_read():
+    """No semicolons between statements (common T-SQL) still normalizes."""
+    sql = """
+    CREATE PROCEDURE rpt.NoSemis AS
+    BEGIN
+        SELECT a, b INTO #stage FROM base LEFT OUTER JOIN x ON x.k = base.k
+        IF OBJECT_ID('tempdb..#stage2') IS NOT NULL DROP TABLE #stage2;
+        SELECT a INTO #stage2 FROM #stage
+        SELECT a FROM #stage2
+    END
+    """
+    out = select_into_to_cte(sql)
+    body = out.split(" AS\n", 1)[1]
+    assert "stage" in _norm(body) and "stage2" in _norm(body)
+
+
+def test_union_all_not_split():
+    """A UNION ALL in the terminal SELECT must NOT be split into two statements
+    (regression: the splitter once cut after the ALL token)."""
+    sql = """
+    CREATE PROCEDURE rpt.U AS
+    BEGIN
+        SELECT a INTO #x FROM base
+        SELECT a FROM #x
+        UNION ALL
+        SELECT a FROM other
+    END
+    """
+    out = select_into_to_cte(sql)          # must not raise multiple_terminal_selects
+    assert "UNION ALL" in _norm(out)

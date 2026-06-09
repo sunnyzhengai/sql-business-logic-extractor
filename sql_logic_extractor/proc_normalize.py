@@ -180,49 +180,58 @@ def _insert_statement_separators(body: str, dialect: str) -> str:
 
     depth = 0
     opener = None          # token type that opened the current statement
-    prev = None            # previous significant token type
     saw_select = False     # has the current INSERT/WITH/MERGE consumed its SELECT?
+    after_setop = False    # just saw UNION/EXCEPT/INTERSECT [ALL|DISTINCT] -> next SELECT continues
     cuts: list[int] = []   # char offsets to insert `;` before
 
     for t in toks:
         tt = t.token_type
         if tt == TokenType.L_PAREN:
             depth += 1
-            prev = tt
+            after_setop = False            # a parenthesized set-op branch is self-contained
             continue
         if tt == TokenType.R_PAREN:
             depth = max(0, depth - 1)
-            prev = tt
             continue
-        if depth == 0:
-            if tt == TokenType.SEMICOLON:
-                opener, saw_select = None, False     # statement already ended
-                prev = tt
-                continue
-            new = False
-            if tt in _HARD_STARTERS:
-                if opener == TokenType.MERGE and tt in (
-                        TokenType.INSERT, TokenType.UPDATE, TokenType.DELETE):
-                    pass                              # MERGE WHEN-clause
-                elif opener is None:
-                    opener = tt
-                else:
-                    new = True
-            elif tt == TokenType.SELECT:
-                if prev in _SET_OPS:
-                    pass                              # set-operation continuation
-                elif opener in (TokenType.INSERT, TokenType.MERGE, TokenType.WITH) \
-                        and not saw_select:
-                    saw_select = True                 # INSERT..SELECT / WITH..SELECT body
-                elif opener is None:
-                    opener, saw_select = tt, True
-                else:
-                    new = True
-            if new:
-                cuts.append(t.start)
+        if depth != 0:
+            continue                       # inside parens: subquery/CTE body, never a boundary
+
+        if tt == TokenType.SEMICOLON:
+            opener, saw_select, after_setop = None, False, False
+            continue
+        if tt in _SET_OPS:
+            after_setop = True             # UNION / EXCEPT / INTERSECT
+            continue
+        if tt in (TokenType.ALL, TokenType.DISTINCT):
+            continue                       # modifier after a set-op: keep after_setop
+
+        new = False
+        if tt in _HARD_STARTERS:
+            after_setop = False
+            if opener == TokenType.MERGE and tt in (
+                    TokenType.INSERT, TokenType.UPDATE, TokenType.DELETE):
+                pass                       # MERGE WHEN-clause, not a new statement
+            elif opener is None:
                 opener = tt
-                saw_select = (tt == TokenType.SELECT)
-        prev = tt
+            else:
+                new = True
+        elif tt == TokenType.SELECT:
+            if after_setop:
+                after_setop = False        # set-operation continuation (UNION [ALL] SELECT)
+            elif opener in (TokenType.INSERT, TokenType.MERGE, TokenType.WITH) \
+                    and not saw_select:
+                saw_select = True          # INSERT..SELECT / WITH..SELECT body
+            elif opener is None:
+                opener, saw_select = tt, True
+            else:
+                new = True
+        else:
+            after_setop = False            # any other token clears a pending set-op
+
+        if new:
+            cuts.append(t.start)
+            opener = tt
+            saw_select = (tt == TokenType.SELECT)
 
     if not cuts:
         return body
@@ -343,6 +352,11 @@ def select_into_to_cte(
     for st in statements:
         if isinstance(st, exp.Set):
             # SET NOCOUNT ON / SET ANSI_NULLS ON -- no lineage, skip.
+            continue
+        if isinstance(st, exp.SetOperation):
+            # A UNION / EXCEPT / INTERSECT query -- a legitimate view shape, and
+            # never a SELECT..INTO staging step. Treat it as a terminal query.
+            terminals.append(st)
             continue
         if not isinstance(st, exp.Select):
             # INSERT/UPDATE/MERGE/DELETE/DECLARE/IF/WHILE/CREATE/... -- any

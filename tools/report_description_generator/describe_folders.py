@@ -146,9 +146,15 @@ def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool) -> tuple
     try:
         rpt = generate_report_description(target_sql, schema, use_llm=True,
                                           llm_client=llm_client)
-        return rpt, "ok"
     except Exception as e:  # parse/resolve/LLM failure for this one file
         return None, f"error:{type(e).__name__}: {e}"[:200]
+    # summarize_llm SWALLOWS LLM failures: it stashes the error in
+    # technical_description as "[LLM error: ...]" and leaves business_description
+    # blank. Surface that as an error so it isn't a silent "(empty)".
+    tech = rpt.technical_description or ""
+    if tech.startswith("[LLM error"):
+        return None, f"error:{tech[:180]}"
+    return rpt, "ok"
 
 
 def _iter_sql(dirs: list[str]) -> list[tuple[Path, str]]:

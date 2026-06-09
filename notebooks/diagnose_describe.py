@@ -47,15 +47,14 @@ try:
 except Exception as e:
     print("ERROR:", type(e).__name__, str(e)[:200])
 
-# Now normalize temp-tables -> CTEs first, then describe.
-print("\n=== AFTER select_into_to_cte, engineered (no LLM) ===")
+# THE KEY TEST: run WITH the LLM. If business_description is empty, the real
+# error is hidden in technical_description as "[LLM error: <Type>: <msg>]".
+print("\n=== AS-IS, WITH LLM (use_llm=True) ===")
 try:
-    norm = select_into_to_cte(sql)
-    r2 = generate_report_description(norm, schema, use_llm=False)
-    ncols2 = len(getattr(r2.business_logic, "column_translations", []) or [])
-    print("normalized length:", len(norm), "| columns found:", ncols2)
-    print("business_description:", repr((r2.business_description or "")[:200]))
-except ProcNotViewShaped as e:
-    print("ProcNotViewShaped:", e.reason, "|", e.detail)
+    llm = generate_report_description(sql, schema, use_llm=True)
+    print("business_description:", repr((llm.business_description or "")[:200]))
+    print("primary_purpose:", repr(llm.primary_purpose))
+    print("technical_description (HOLDS ANY LLM ERROR):",
+          repr((llm.technical_description or "")[:300]))
 except Exception as e:
-    print("ERROR:", type(e).__name__, str(e)[:200])
+    print("ERROR:", type(e).__name__, str(e)[:300])

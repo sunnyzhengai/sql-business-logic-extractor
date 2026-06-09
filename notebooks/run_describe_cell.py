@@ -35,7 +35,14 @@ LIMIT = 5          # quick dry run; set to None to process ALL files
 if REPO_DIR not in sys.path:
     sys.path.insert(0, REPO_DIR)
 
-from tools.report_description_generator.describe_folders import describe_folders
+from tools.report_description_generator.describe_folders import (
+    _load_env_robust,
+    describe_folders,
+)
+
+# Re-read .env on every run (it OVERRIDES the session), so editing your key or
+# provider takes effect by just re-running this cell -- no session restart.
+_load_env_robust()
 
 describe_folders(
     view_dirs=VIEW_DIRS,

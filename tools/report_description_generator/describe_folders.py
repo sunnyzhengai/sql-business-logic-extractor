@@ -56,7 +56,12 @@ def _load_env_robust() -> None:
     produce -- the SAME encoding gremlin as the SQL files -- instead of using
     python-dotenv's strict-UTF-8 read, which crashes the import on a UTF-16
     .env. NEVER raises: a missing or unreadable .env just means env vars come
-    from the real environment. Existing env vars win (setdefault).
+    from the real environment.
+
+    The .env is AUTHORITATIVE: its values OVERRIDE whatever is already in the
+    environment. (We used to setdefault, but a stale provider/key left in the
+    session memory then silently won over an edited .env -- so editing .env and
+    re-running had no effect until a restart. Override fixes that.)
     """
     candidates = [Path(__file__).resolve().parents[2] / ".env", Path.cwd() / ".env"]
     for envp in candidates:
@@ -81,7 +86,7 @@ def _load_env_robust() -> None:
                 if not line or line.startswith("#") or "=" not in line:
                     continue
                 key, val = line.split("=", 1)
-                os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+                os.environ[key.strip()] = val.strip().strip('"').strip("'")
         except Exception:
             continue  # a bad .env must never crash the import
 

@@ -134,9 +134,17 @@ def _strip_temp_guards(body: str) -> str:
     form is unparseable by sqlglot -- so we delete them textually before the
     parse step. (Persistent-table DROPs are left alone: those signal an ETL
     proc and we want the downstream parse/validation to surface them.)
+
+    We replace each guard with a `;`, NOT nothing: guards always sit BETWEEN
+    statements, and T-SQL lets the preceding statement omit its semicolon.
+    Deleting the guard outright would butt the previous statement against the
+    next one (e.g. SELECT ... <guard> SELECT ...) and sqlglot, which needs the
+    separator, would fail with "Invalid expression". Substituting `;` puts the
+    statement terminator exactly where it belongs. Stray/leading `;` just yield
+    empty statements, which the parser drops harmlessly.
     """
-    body = _TEMP_GUARD_RE.sub("", body)
-    body = _BARE_DROP_RE.sub("", body)
+    body = _TEMP_GUARD_RE.sub(";\n", body)
+    body = _BARE_DROP_RE.sub(";\n", body)
     return body
 
 

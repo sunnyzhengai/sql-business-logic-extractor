@@ -326,3 +326,26 @@ def rank_all_communities(
         rank_tables_in_community(g, community, corpus_freq, fk_ontology)
         for community in communities
     ]
+
+
+def build_table_scores_lookup(
+    all_rankings: list[list[tuple[str, float, str]]],
+) -> dict[str, tuple[float, str]]:
+    """Flatten community rankings into a single lookup dict.
+
+    Takes the output of `rank_all_communities` (list of per-community
+    ranking lists) and returns a flat dict mapping bare table name
+    (upper-cased) to (score, role).  When a table appears in multiple
+    communities (shouldn't happen with Louvain, but possible with
+    overlapping input), the highest score wins.
+
+    This is the format that `summarize_engineered` and `summarize_llm`
+    in business_logic.py expect as `table_scores`.
+    """
+    lookup: dict[str, tuple[float, str]] = {}
+    for ranking in all_rankings:
+        for name, score, role in ranking:
+            key = name.upper()
+            if key not in lookup or score > lookup[key][0]:
+                lookup[key] = (score, role)
+    return lookup

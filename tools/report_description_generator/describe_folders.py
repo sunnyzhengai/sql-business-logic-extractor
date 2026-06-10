@@ -121,7 +121,8 @@ _IS_CREATE_PROC_RE = re.compile(
 )
 
 
-def _render(target_sql: str, schema: dict, llm_client, per_column_llm: bool) -> tuple[object, str]:
+def _render(target_sql: str, schema: dict, llm_client, per_column_llm: bool,
+            table_scores: dict | None = None) -> tuple[object, str]:
     """Run Tool 4 on already-prepared SQL. Returns (report_or_None, status).
 
     `per_column_llm=True` is full quality: one LLM call PER COLUMN to translate
@@ -130,18 +131,23 @@ def _render(target_sql: str, schema: dict, llm_client, per_column_llm: bool) -> 
     used ONLY for the final high-level summary, so it's ~1 call/view instead of
     one-per-column. For large corpora of high-level descriptions, fast is the
     right trade: the per-column polish barely changes the rolled-up summary.
+
+    `table_scores` is an optional dict mapping bare table name (upper) to
+    (score, role) from table_importance.  Passed through to the description
+    generator so it can emphasize center tables.
     """
     try:
         if per_column_llm:
             rpt = generate_report_description(target_sql, schema, use_llm=True,
-                                              llm_client=llm_client)
+                                              llm_client=llm_client,
+                                              table_scores=table_scores)
         else:
             from sql_logic_extractor.products import (
                 ReportDescription, extract_business_logic,
             )
             from sql_logic_extractor.business_logic import summarize_llm
             bl = extract_business_logic(target_sql, schema, use_llm=False)
-            res = summarize_llm(bl, llm_client)
+            res = summarize_llm(bl, llm_client, table_scores=table_scores)
             rpt = ReportDescription(
                 business_logic=bl,
                 technical_description=res.get("technical_description", ""),
@@ -208,7 +214,8 @@ def _describe_raw_llm(sql: str, llm_client) -> tuple[object, str]:
 
 def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool,
                   per_column_llm: bool = True,
-                  raw_fallback: bool = True) -> tuple[object, str]:
+                  raw_fallback: bool = True,
+                  table_scores: dict | None = None) -> tuple[object, str]:
     """Describe one SQL file. Returns (report_or_None, status).
 
     status is "ok" (structured), "ok:raw" (direct-from-SQL fallback),
@@ -225,14 +232,16 @@ def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool,
             # SQL directly. (If raw_fallback is off, fall back to a skip.)
             if not _IS_CREATE_PROC_RE.search(sql):
                 # actually a misfiled view -- try the structured path on it
-                rpt, status = _render(sql, schema, llm_client, per_column_llm)
+                rpt, status = _render(sql, schema, llm_client, per_column_llm,
+                                      table_scores=table_scores)
                 if status == "ok":
                     return rpt, status
             if raw_fallback:
                 return _describe_raw_llm(sql, llm_client)
             return None, f"skipped:{e.reason}"
 
-    rpt, status = _render(target_sql, schema, llm_client, per_column_llm)
+    rpt, status = _render(target_sql, schema, llm_client, per_column_llm,
+                          table_scores=table_scores)
     if status.startswith("error") and raw_fallback:
         return _describe_raw_llm(sql, llm_client)      # structured failed -> raw
     return rpt, status
@@ -263,6 +272,7 @@ def describe_folders(
     *,
     out_path: str,
     schema_path: str | None = None,
+    corpus_path: str | None = None,
     provider: str | None = None,
     dialect: str = "tsql",
     limit: int | None = None,
@@ -276,6 +286,10 @@ def describe_folders(
         proc_dirs: folders whose .sql are treated as procs (normalized first).
         out_path: Markdown file to write.
         schema_path: optional Clarity schema JSON/YAML for richer descriptions.
+        corpus_path: optional corpus.jsonl path. When provided, table-importance
+            scores are computed from the corpus graph and passed to the
+            description generator so it can emphasize center tables and
+            de-emphasize lookups.
         provider: LLM provider override; defaults to SLE_LLM_PROVIDER / env.
         dialect: SQL dialect (default tsql).
         limit: process at most this many files total (handy for a dry run).
@@ -287,6 +301,42 @@ def describe_folders(
     llm_client = make_llm_client(provider=provider)
 
     schema = _load_schema(schema_path) if schema_path else {}
+
+    # When a corpus is available, compute table-importance scores so
+    # descriptions can emphasize center tables and de-emphasize lookups.
+    table_scores: dict | None = None
+    if corpus_path:
+        try:
+            from tools.p20_index.graph_builder import build_corpus_graph
+            from tools.p30_analyze.projection import extract_table_projection
+            from tools.p30_analyze.bridges import detect_bridge_tables, project_without_bridges
+            from tools.p30_analyze.communities import detect_table_communities
+            from tools.p30_analyze.table_importance import (
+                rank_all_communities, build_table_scores_lookup,
+            )
+            g = build_corpus_graph(corpus_path)
+            table_g = extract_table_projection(g)
+            bridges = detect_bridge_tables(table_g)
+            table_g_no_bridges = project_without_bridges(table_g, bridges)
+            communities = detect_table_communities(table_g_no_bridges)
+            # Include bridge tables back into their neighboring communities
+            # so they get scores too (they're important, just not for clustering).
+            for bridge_id in bridges:
+                # Add bridge to the community it has most edges to
+                best_comm, best_count = 0, 0
+                for ci, comm in enumerate(communities):
+                    count = sum(1 for t in comm if table_g.has_edge(bridge_id, t))
+                    if count > best_count:
+                        best_comm, best_count = ci, count
+                if best_count > 0:
+                    communities[best_comm].add(bridge_id)
+            rankings = rank_all_communities(g, communities, schema_path=schema_path)
+            table_scores = build_table_scores_lookup(rankings)
+            print(f"Table importance: {len(table_scores)} tables scored from corpus\n")
+        except Exception as e:
+            print(f"WARNING: Could not compute table importance from corpus: {e}",
+                  file=sys.stderr)
+            table_scores = None
 
     # Collect work: (path, folder_label, is_proc).
     work: list[tuple[Path, str, bool]] = []
@@ -324,7 +374,8 @@ def describe_folders(
                 sql = read_sql_robust(path)
                 report, status = _describe_one(sql, schema, llm_client, is_proc=is_proc,
                                                per_column_llm=per_column_llm,
-                                               raw_fallback=raw_fallback)
+                                               raw_fallback=raw_fallback,
+                                               table_scores=table_scores)
             except Exception as e:  # unreadable file, etc.
                 report, status = None, f"error:{type(e).__name__}: {e}"[:200]
 
@@ -462,6 +513,10 @@ def main() -> int:
     parser.add_argument("-d", "--dialect", default="tsql")
     parser.add_argument("--limit", type=int, default=None,
                         help="Process at most N files total (dry run).")
+    parser.add_argument("--corpus", default=None,
+                        help="Path to corpus.jsonl. When provided, table-importance "
+                             "scores are computed so descriptions emphasize center "
+                             "tables and de-emphasize lookups.")
     args = parser.parse_args()
 
     if not args.views and not args.procs:
@@ -473,6 +528,7 @@ def main() -> int:
         proc_dirs=args.procs,
         out_path=args.out,
         schema_path=args.schema,
+        corpus_path=args.corpus,
         provider=args.provider,
         dialect=args.dialect,
         limit=args.limit,

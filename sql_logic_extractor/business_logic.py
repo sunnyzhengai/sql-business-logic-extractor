@@ -483,7 +483,8 @@ def _extract_leading_adjective(business_filters: list[str]) -> str:
 
 
 def summarize_engineered(business_logic, schema: dict | None = None,
-                          view_level_notes: list[str] | None = None) -> dict:
+                          view_level_notes: list[str] | None = None,
+                          table_scores: dict | None = None) -> dict:
     """Deterministic query-level summary built from structured signals.
     Healthcare-safe: no LLM, no data exfiltration. Reads as a structured
     paragraph rather than fluent prose -- the LLM mode is where polish
@@ -492,6 +493,11 @@ def summarize_engineered(business_logic, schema: dict | None = None,
     Returns dict with technical_description, business_description,
     primary_purpose, key_metrics. The `schema` is used to translate filter
     predicates into English for business_description.
+
+    `table_scores` is an optional dict mapping bare table name (upper) to
+    (score: float, role: str) from table_importance.  When present, the
+    technical_description orders tables by importance and annotates roles;
+    the business_description leads with the center table's domain context.
     """
     lineage = business_logic.lineage
     translations = business_logic.column_translations
@@ -518,8 +524,17 @@ def summarize_engineered(business_logic, schema: dict | None = None,
         domain_str = f" for {top.lower()}"
 
     # Distinct base tables across all columns.
-    base_tables = sorted({tbl for col in lineage.resolved_columns
-                            for tbl in (col.get("base_tables", []) or [])})
+    base_tables_set = {tbl for col in lineage.resolved_columns
+                       for tbl in (col.get("base_tables", []) or [])}
+
+    # When table_scores available, sort by importance (highest first);
+    # otherwise alphabetical (legacy behavior).
+    if table_scores:
+        base_tables = sorted(base_tables_set,
+                             key=lambda t: table_scores.get(t.upper(), (0.0, ""))[0],
+                             reverse=True)
+    else:
+        base_tables = sorted(base_tables_set)
 
     # Computed metrics = non-passthrough column names.
     metrics = [t.get("column_name", "") for t in translations
@@ -536,10 +551,31 @@ def summarize_engineered(business_logic, schema: dict | None = None,
     # Build the technical_description as MULTI-LINE paragraphs (newlines
     # render as line breaks inside Excel/Sheets cells with text-wrap on,
     # making the description readable when shared with stakeholders).
+    #
+    # When table_scores is available, format tables with role annotations
+    # so the reader sees the gravity structure at a glance.
+    if table_scores and base_tables:
+        table_lines = []
+        for tbl in base_tables:
+            score, role = table_scores.get(tbl.upper(), (0.0, "peripheral"))
+            if role == "center":
+                table_lines.append(f"{tbl} (center)")
+            elif role == "secondary":
+                table_lines.append(f"{tbl}")
+            else:
+                table_lines.append(f"{tbl} (lookup)")
+        tables_summary = ", ".join(table_lines[:8])
+        if len(base_tables) > 8:
+            tables_summary += f", +{len(base_tables)-8} more"
+    else:
+        tables_summary = (
+            ", ".join(base_tables[:5])
+            + ("..." if len(base_tables) > 5 else "")
+        )
+
     parts = [
         f"{grain}{domain_str}: {n_cols} output column(s) "
-        f"sourced from {len(base_tables)} base table(s) ({', '.join(base_tables[:5])}"
-        f"{'...' if len(base_tables) > 5 else ''})."
+        f"sourced from {len(base_tables)} base table(s) ({tables_summary})."
     ]
     if metrics:
         parts.append(
@@ -589,17 +625,34 @@ def summarize_engineered(business_logic, schema: dict | None = None,
     if leading_adjective:
         business_subject = f"{leading_adjective} {business_subject}"
 
+    # When table_scores is available, build a "centers on X" clause
+    # that grounds the description in the most important table.
+    center_clause = ""
+    if table_scores and base_tables:
+        center_names = [t for t in base_tables
+                        if table_scores.get(t.upper(), (0, ""))[1] == "center"]
+        secondary_names = [t for t in base_tables
+                           if table_scores.get(t.upper(), (0, ""))[1] == "secondary"]
+        if center_names:
+            center_clause = f"Centers on {center_names[0]}"
+            if secondary_names:
+                center_clause += f", joining {', '.join(secondary_names[:3])}"
+                if len(secondary_names) > 3:
+                    center_clause += f" and {len(secondary_names)-3} others"
+            center_clause += ".\n\n"
+
     # business_description as multi-line paragraphs: a lead sentence
     # followed by a bulleted list of constraints. Renders cleanly in
     # Excel/Sheets and email clients with cell wrapping enabled.
     if business_filters:
         business_description = (
+            f"{center_clause}"
             f"{grain_verb} {business_subject}.\n\n"
             "Limited to:\n  - "
             + "\n  - ".join(business_filters)
         )
     else:
-        business_description = f"{grain_verb} {business_subject}."
+        business_description = f"{center_clause}{grain_verb} {business_subject}."
 
     # Author voice goes FIRST -- the engineered prose backs it up.
     # View-level comments (top-of-file headers, doc blocks) capture the
@@ -627,6 +680,7 @@ Rules:
 5. Note key computed metrics.
 6. FILTERS DEFINE THE BUSINESS SLICE. If filters constrain to "denied", "active", "completed" etc., the summary MUST reflect that slice -- not the unfiltered shape.
 7. Do NOT speculate on use cases or downstream applications.
+8. When TABLE IMPORTANCE is provided, emphasize center tables (the primary fact tables this query is built around) and secondary tables (frequently joined supporting tables). De-emphasize peripheral/lookup tables -- mention them only if they carry meaningful business context (e.g. status codes that define the business slice).
 
 Output JSON:
 {
@@ -637,15 +691,29 @@ Output JSON:
 }"""
 
 
-def summarize_llm(business_logic, llm_client) -> dict:
+def summarize_llm(business_logic, llm_client,
+                   table_scores: dict | None = None) -> dict:
     """LLM-backed query-level summary. `llm_client` is a provider-neutral
     adapter (see ``llm_client.py``) exposing ``complete_json``; the vendor SDK
-    is lazy-imported inside that adapter."""
+    is lazy-imported inside that adapter.
+
+    `table_scores` is an optional dict mapping bare table name (upper) to
+    (score, role) from table_importance.  When present, the prompt includes
+    a Table Importance section so the LLM can weight its prose accordingly.
+    """
     lineage = business_logic.lineage
     translations = business_logic.column_translations
 
-    base_tables = sorted({tbl for col in lineage.resolved_columns
-                            for tbl in (col.get("base_tables", []) or [])})
+    base_tables_set = {tbl for col in lineage.resolved_columns
+                       for tbl in (col.get("base_tables", []) or [])}
+    # Sort by importance when available, else alphabetical
+    if table_scores:
+        base_tables = sorted(base_tables_set,
+                             key=lambda t: table_scores.get(t.upper(), (0.0, ""))[0],
+                             reverse=True)
+    else:
+        base_tables = sorted(base_tables_set)
+
     column_lines = [f"- {t.get('column_name', '')}: {t.get('english_definition', '')}"
                     for t in translations]
 
@@ -657,6 +725,22 @@ def summarize_llm(business_logic, llm_client) -> dict:
     context_parts = [
         f"## Source Tables ({len(base_tables)})",
         ", ".join(base_tables),
+    ]
+
+    # When table_scores available, add importance annotations so the LLM
+    # knows which tables to emphasize in the description.
+    if table_scores:
+        importance_lines = []
+        for tbl in base_tables:
+            score, role = table_scores.get(tbl.upper(), (0.0, "peripheral"))
+            importance_lines.append(f"- {tbl}: {role} (importance {score:.0%})")
+        context_parts += [
+            "",
+            "## Table Importance (center = primary fact table; secondary = frequently joined; peripheral = lookup)",
+            "\n".join(importance_lines),
+        ]
+
+    context_parts += [
         "",
         f"## Output Columns ({len(translations)})",
         "\n".join(column_lines),

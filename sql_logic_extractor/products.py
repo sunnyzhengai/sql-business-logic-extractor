@@ -299,23 +299,26 @@ def extract_business_logic(sql: str, schema: dict, *,
 
 
 def _summarize_engineered(bl: BusinessLogic, schema: dict,
-                            view_level_notes: list[str] | None = None) -> tuple[str, str, str, list[str]]:
+                            view_level_notes: list[str] | None = None,
+                            table_scores: dict | None = None) -> tuple[str, str, str, list[str]]:
     """Deterministic report summary built from structured signals -- no LLM.
     Returns (technical_description, business_description, primary_purpose, key_metrics)."""
     from .business_logic import summarize_engineered
     result = summarize_engineered(bl, schema or {},
-                                     view_level_notes=view_level_notes)
+                                     view_level_notes=view_level_notes,
+                                     table_scores=table_scores)
     return (result["technical_description"], result["business_description"],
             result["primary_purpose"], result["key_metrics"])
 
 
-def _summarize_with_llm(bl: BusinessLogic, llm_client) -> tuple[str, str, str, list[str]]:
+def _summarize_with_llm(bl: BusinessLogic, llm_client,
+                          table_scores: dict | None = None) -> tuple[str, str, str, list[str]]:
     """LLM-backed report summary. Lazy-imports google.genai INSIDE the call
     so a no-LLM install doesn't pull the lib into sys.modules."""
     from .business_logic import summarize_llm, make_llm_client
     if llm_client is None:
         llm_client = make_llm_client()
-    result = summarize_llm(bl, llm_client)
+    result = summarize_llm(bl, llm_client, table_scores=table_scores)
     return (result["technical_description"], result["business_description"],
             result["primary_purpose"], result["key_metrics"])
 
@@ -323,7 +326,8 @@ def _summarize_with_llm(bl: BusinessLogic, llm_client) -> tuple[str, str, str, l
 def _generate_report_description_core(sql: str, schema: dict, *,
                                        use_llm: bool = False,
                                        llm_client=None,
-                                       dialect: str = "tsql") -> ReportDescription:
+                                       dialect: str = "tsql",
+                                       table_scores: dict | None = None) -> ReportDescription:
     """Ungated core for Tool 4."""
     bl = _extract_business_logic_core(sql, schema, use_llm=use_llm,
                                         llm_client=llm_client, dialect=dialect)
@@ -332,10 +336,12 @@ def _generate_report_description_core(sql: str, schema: dict, *,
     from .comment_attachment import extract_view_level_notes
     view_notes = extract_view_level_notes(sql)
     if use_llm:
-        technical, business, purpose, metrics = _summarize_with_llm(bl, llm_client)
+        technical, business, purpose, metrics = _summarize_with_llm(
+            bl, llm_client, table_scores=table_scores)
     else:
         technical, business, purpose, metrics = _summarize_engineered(
-            bl, schema or {}, view_level_notes=view_notes)
+            bl, schema or {}, view_level_notes=view_notes,
+            table_scores=table_scores)
     return ReportDescription(business_logic=bl,
                               technical_description=technical,
                               business_description=business,
@@ -346,12 +352,18 @@ def _generate_report_description_core(sql: str, schema: dict, *,
 def generate_report_description(sql: str, schema: dict, *,
                                  use_llm: bool = False,
                                  llm_client=None,
-                                 dialect: str = "tsql") -> ReportDescription:
+                                 dialect: str = "tsql",
+                                 table_scores: dict | None = None) -> ReportDescription:
     """Tool 4 -- natural-language description of what the SQL report does.
     `use_llm=False` (default) uses a deterministic template; `use_llm=True`
-    uses an LLM and requires the report_description_llm feature."""
+    uses an LLM and requires the report_description_llm feature.
+
+    `table_scores` is an optional dict mapping bare table name (upper) to
+    (score, role) from table_importance.  When present, descriptions
+    emphasize center tables and de-emphasize lookups."""
     require_feature("report_description")
     if use_llm:
         require_feature("report_description_llm")
     return _generate_report_description_core(sql, schema, use_llm=use_llm,
-                                               llm_client=llm_client, dialect=dialect)
+                                               llm_client=llm_client, dialect=dialect,
+                                               table_scores=table_scores)

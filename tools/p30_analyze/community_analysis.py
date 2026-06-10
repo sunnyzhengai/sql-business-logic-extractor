@@ -29,7 +29,9 @@ from __future__ import annotations
 
 
 def analyze_community(g, community_tables: set[str],
-                       primary_views: set[str]) -> dict:
+                       primary_views: set[str],
+                       corpus_freq: dict[str, int] | None = None,
+                       fk_ontology: dict[str, int] | None = None) -> dict:
     """Summarize one community for downstream synthesis + presentation.
 
     Parameters
@@ -37,6 +39,12 @@ def analyze_community(g, community_tables: set[str],
     g                : nx.MultiDiGraph (the full graph from p20_index)
     community_tables : set of table node IDs in this community
     primary_views    : set of view names whose primary community is this one
+    corpus_freq      : (optional) table node ID -> distinct view count,
+                       from table_importance.build_corpus_table_frequency.
+                       Passed through to table_importance ranking.
+    fk_ontology      : (optional) bare table name -> inbound FK count,
+                       from table_importance._load_fk_ontology.
+                       Passed through to table_importance ranking.
 
     Returns
     -------
@@ -49,6 +57,10 @@ def analyze_community(g, community_tables: set[str],
       - primary_views     : sorted list of view names
       - zc_table_count    : int    -- how many tables in the community are ZC_*
       - table_node_ids    : set    -- the raw node IDs (for downstream renderers)
+      - table_importance  : list of (label, score, role) -- importance-ranked
+                            tables with role classification (center/secondary/
+                            peripheral). See table_importance.py.
+      - center_table      : str or None -- label of the center table
     """
     # Compute degrees inside the FULL graph (which includes JOIN edges with
     # direction information). A "leaf" in our usage = a table that other tables
@@ -93,6 +105,15 @@ def analyze_community(g, community_tables: set[str],
 
     zc_count = sum(1 for t in community_tables if g.nodes[t].get("is_zc"))
 
+    # --- Table importance ranking (PageRank + frequency + FK ontology) ---
+    from tools.p30_analyze.table_importance import rank_tables_in_community
+    importance = rank_tables_in_community(
+        g, community_tables,
+        corpus_freq=corpus_freq,
+        fk_ontology=fk_ontology,
+    )
+    center = next((name for name, _, role in importance if role == "center"), None)
+
     return {
         "n_tables": len(community_tables),
         "n_primary_views": len(primary_views),
@@ -104,4 +125,6 @@ def analyze_community(g, community_tables: set[str],
         # The full set of community-tables (raw node IDs, not labels) for
         # downstream use by the per-community renderer.
         "table_node_ids": set(community_tables),
+        "table_importance": importance,
+        "center_table": center,
     }

@@ -245,6 +245,7 @@ class TestAnalyzeCommunity(unittest.TestCase):
         expected_keys = {
             "n_tables", "n_primary_views", "top_tables", "leaf_tables",
             "core_tables", "primary_views", "zc_table_count", "table_node_ids",
+            "table_importance", "center_table",
         }
         self.assertEqual(set(result.keys()), expected_keys)
         self.assertEqual(result["n_tables"], 3)

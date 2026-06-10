@@ -238,22 +238,30 @@ def _normalize_filter(expr: str) -> str:
 # ---------------------------------------------------------------------------
 
 _INDEX: Optional[StructuralIndex] = None
+_SEMANTIC: Optional[object] = None  # SemanticIndex, typed loosely to avoid import
+_LLM_CLIENT: Optional[object] = None
+_TABLE_SCORES: Optional[dict] = None
 
 
 def build_index(corpus_path: str | Path,
-                schema_path: str | None = None) -> StructuralIndex:
-    """Build (or rebuild) the structural index from a corpus.
+                schema_path: str | None = None,
+                llm_provider: str | None = None) -> StructuralIndex:
+    """Build (or rebuild) the structural + semantic index from a corpus.
 
     Call once in a notebook session. Subsequent ``ask()`` calls use the
     cached index. Takes ~1-2s for a few hundred views.
 
     Parameters
     ----------
-    corpus_path : path to corpus.jsonl
-    schema_path : optional path to clarity_schema.yaml (enables FK-based
-                  table importance in results)
+    corpus_path  : path to corpus.jsonl
+    schema_path  : optional path to clarity_schema.yaml (enables FK-based
+                   table importance in results)
+    llm_provider : optional LLM provider override for semantic answer
+                   synthesis (azure-openai / openai / gemini). When None,
+                   semantic search still works but answers are returned as
+                   raw retrieved context without LLM synthesis.
     """
-    global _INDEX
+    global _INDEX, _SEMANTIC, _LLM_CLIENT, _TABLE_SCORES
     from tools.shared.corpus_io import load_corpus
 
     _, views = load_corpus(corpus_path)
@@ -273,7 +281,6 @@ def build_index(corpus_path: str | Path,
         bridges = detect_bridge_tables(table_g)
         table_g_no_bridges = project_without_bridges(table_g, bridges)
         communities = detect_table_communities(table_g_no_bridges)
-        # Re-insert bridges so they get scored
         for bridge_id in bridges:
             best_comm, best_count = 0, 0
             for ci, comm in enumerate(communities):
@@ -286,13 +293,34 @@ def build_index(corpus_path: str | Path,
         table_scores = build_table_scores_lookup(rankings)
     except Exception:
         table_scores = None
+    _TABLE_SCORES = table_scores
 
+    # Structural index (Phase 1)
     _INDEX = StructuralIndex(views, table_scores=table_scores)
+
+    # Semantic index (Phase 2)
+    from tools.jit.semantic import SemanticIndex
+    _SEMANTIC = SemanticIndex(views)
+
+    # LLM client for synthesis (optional)
+    _LLM_CLIENT = None
+    if llm_provider:
+        try:
+            from sql_logic_extractor.llm_client import make_llm_client
+            _LLM_CLIENT = make_llm_client(provider=llm_provider)
+        except Exception:
+            _LLM_CLIENT = None
+
     n_views = len(_INDEX.views_by_name)
     n_tables = len(_INDEX.all_table_names)
     print(f"JIT index built: {n_views} views, {n_tables} tables")
     if table_scores:
         print(f"  Table importance: {len(table_scores)} tables scored")
+    print(f"  Semantic index: {n_views} documents indexed")
+    if _LLM_CLIENT:
+        print(f"  LLM synthesis: enabled ({llm_provider})")
+    else:
+        print(f"  LLM synthesis: disabled (pass llm_provider= to enable)")
     return _INDEX
 
 
@@ -335,6 +363,12 @@ class _QueryResult:
             return _format_column_lookup(self.match_term, self.results)
         elif self.query_type == "filter_lookup":
             return _format_filter_lookup(self.match_term, self.results)
+        elif self.query_type == "semantic_llm":
+            # results is the LLM-synthesized answer string
+            return self.results if isinstance(self.results, str) else str(self.results)
+        elif self.query_type == "semantic_retrieval":
+            # results is list of hits without LLM synthesis
+            return _format_semantic_hits(self.question, self.results)
         elif self.query_type == "no_match":
             return (f"I couldn't find a specific table, column, or view name "
                     f"in your question: \"{self.question}\"\n\n"
@@ -343,21 +377,23 @@ class _QueryResult:
         return str(self.results)
 
 
-def _route_question(question: str, index: StructuralIndex) -> _QueryResult:
+def _route_question(question: str, index: StructuralIndex,
+                     semantic_index=None, llm_client=None,
+                     table_scores: dict | None = None) -> _QueryResult:
     """Classify a question and dispatch to the right query method.
 
-    Phase 1 routing is keyword-based:
+    Routing priority:
     1. If the question mentions a known view name -> describe_view
     2. If the question mentions a known table name -> find_by_table
     3. If the question mentions a known column name -> find_by_column
     4. If the question mentions filter-like terms -> find_by_filter
-    5. Otherwise -> no_match (Phase 2 will add semantic search here)
+    5. Semantic search (Phase 2) -> TF-IDF retrieval + optional LLM synthesis
+    6. no_match -> helpful fallback message
     """
     q_upper = question.upper()
-    # Extract words and multi-word tokens from the question
     tokens = set(re.findall(r"[A-Z][A-Z0-9_]+", q_upper))
 
-    # 1. Check for view names (longest match first to avoid partial matches)
+    # 1. Check for view names (longest match first)
     for vname in sorted(index.all_view_names, key=len, reverse=True):
         if vname in q_upper:
             result = index.describe_view(vname)
@@ -365,20 +401,18 @@ def _route_question(question: str, index: StructuralIndex) -> _QueryResult:
                 return _QueryResult(question, "view_detail", result,
                                     match_term=vname)
 
-    # 2. Check for table names (prefer longer matches, skip ZC unless explicit)
+    # 2. Check for table names
     best_table = None
     best_len = 0
     for token in tokens:
         if token in index.all_table_names and len(token) > best_len:
             best_table = token
             best_len = len(token)
-    # Also check multi-word patterns like "REFERRAL table" or "the PAT_ENC"
     if not best_table:
         for tname in sorted(index.all_table_names, key=len, reverse=True):
             if tname in q_upper:
                 best_table = tname
                 break
-
     if best_table:
         results = index.find_by_table(best_table)
         return _QueryResult(question, "table_lookup", results,
@@ -406,6 +440,18 @@ def _route_question(question: str, index: StructuralIndex) -> _QueryResult:
             if results:
                 return _QueryResult(question, "filter_lookup", results,
                                     match_term=kw)
+
+    # 5. Semantic search (Phase 2) -- TF-IDF retrieval + LLM synthesis
+    if semantic_index is not None:
+        hits = semantic_index.search(question, top_k=5)
+        if hits:
+            if llm_client is not None:
+                from tools.jit.semantic import synthesize_answer
+                answer = synthesize_answer(question, hits, llm_client,
+                                           table_scores=table_scores)
+                return _QueryResult(question, "semantic_llm", answer)
+            else:
+                return _QueryResult(question, "semantic_retrieval", hits)
 
     return _QueryResult(question, "no_match", [])
 
@@ -542,6 +588,40 @@ def _format_filter_lookup(term: str, results: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _format_semantic_hits(question: str, hits: list[dict]) -> str:
+    """Format semantic retrieval results (no LLM synthesis) as markdown."""
+    if not hits:
+        return (f"No relevant views found for: \"{question}\"\n\n"
+                f"Try rephrasing or asking about a specific table or column.")
+
+    lines = [
+        f"## Relevant views for: \"{question}\"",
+        "",
+        f"_Found {len(hits)} relevant views via semantic search. "
+        f"Enable LLM synthesis (pass llm_provider= to build_index) "
+        f"for a synthesized answer with citations._",
+        "",
+    ]
+    for hit in hits:
+        vname = hit["view_name"]
+        score = hit["score"]
+        report = hit["view"].get("report") or {}
+        lines.append(f"### {vname} ({score:.0%} match)")
+        if report.get("primary_purpose"):
+            lines.append(f"**Purpose:** {report['primary_purpose']}")
+        if report.get("business_description"):
+            desc = report["business_description"]
+            if len(desc) > 300:
+                desc = desc[:300].rsplit(" ", 1)[0] + "..."
+            lines.append(f"{desc}")
+        lines.append("")
+
+    lines.append("---")
+    lines.append(f"_Source: TF-IDF semantic search across "
+                 f"{len(hits)} views_")
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
@@ -551,14 +631,19 @@ def ask(question: str) -> _QueryResult:
 
     The index must be built first via ``build_index(corpus_path)``.
 
+    Routing:
+      1. Structural match (table/column/view/filter name detected) -> direct lookup
+      2. Semantic search (TF-IDF retrieval) -> top-k relevant views
+      3. If LLM is configured -> synthesized answer with citations
+      4. If no LLM -> raw retrieved context
+
     Parameters
     ----------
-    question : natural-language question (e.g., "which views use REFERRAL?")
+    question : natural-language question
 
     Returns
     -------
-    A ``_QueryResult`` that renders as markdown in Jupyter/notebook cells,
-    with citations back to specific views, scopes, columns, and filters.
+    A ``_QueryResult`` that renders as markdown in Jupyter/notebook cells.
 
     Examples
     --------
@@ -566,13 +651,12 @@ def ask(question: str) -> _QueryResult:
     ## Views using `REFERRAL` (12 found)
     ...
 
-    >>> ask("what does VW_REFERRAL_STATUS do?")
-    ## VW_REFERRAL_STATUS
-    ...
-
-    >>> ask("which views produce PAT_ID?")
-    ## Views producing `PAT_ID` (45 found)
+    >>> ask("how is denied referral defined in our reports?")
+    # (semantic search + LLM synthesis with citations)
     ...
     """
     index = get_index()
-    return _route_question(question, index)
+    return _route_question(question, index,
+                           semantic_index=_SEMANTIC,
+                           llm_client=_LLM_CLIENT,
+                           table_scores=_TABLE_SCORES)

@@ -122,7 +122,8 @@ _IS_CREATE_PROC_RE = re.compile(
 
 
 def _render(target_sql: str, schema: dict, llm_client, per_column_llm: bool,
-            table_scores: dict | None = None) -> tuple[object, str]:
+            table_scores: dict | None = None,
+            detailed: bool = False) -> tuple[object, str]:
     """Run Tool 4 on already-prepared SQL. Returns (report_or_None, status).
 
     `per_column_llm=True` is full quality: one LLM call PER COLUMN to translate
@@ -135,23 +136,39 @@ def _render(target_sql: str, schema: dict, llm_client, per_column_llm: bool,
     `table_scores` is an optional dict mapping bare table name (upper) to
     (score, role) from table_importance.  Passed through to the description
     generator so it can emphasize center tables.
+
+    `detailed=True` generates a parallel detailed_description alongside the
+    high-level summary, for side-by-side comparison.
     """
     try:
         if per_column_llm:
             rpt = generate_report_description(target_sql, schema, use_llm=True,
                                               llm_client=llm_client,
-                                              table_scores=table_scores)
+                                              table_scores=table_scores,
+                                              detailed=detailed)
         else:
             from sql_logic_extractor.products import (
                 ReportDescription, extract_business_logic,
             )
-            from sql_logic_extractor.business_logic import summarize_llm
+            from sql_logic_extractor.business_logic import (
+                summarize_llm, summarize_engineered, summarize_detailed_llm,
+            )
             bl = extract_business_logic(target_sql, schema, use_llm=False)
             res = summarize_llm(bl, llm_client, table_scores=table_scores)
+            detailed_desc = ""
+            if detailed:
+                engineered = summarize_engineered(bl, schema or {},
+                                                     table_scores=table_scores)
+                detailed_desc = summarize_detailed_llm(
+                    bl, llm_client,
+                    engineered_summary=engineered,
+                    table_scores=table_scores,
+                )
             rpt = ReportDescription(
                 business_logic=bl,
                 technical_description=res.get("technical_description", ""),
                 business_description=res.get("business_description", ""),
+                detailed_description=detailed_desc,
                 primary_purpose=res.get("primary_purpose", ""),
                 key_metrics=res.get("key_metrics", []),
                 use_llm=True,
@@ -215,7 +232,8 @@ def _describe_raw_llm(sql: str, llm_client) -> tuple[object, str]:
 def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool,
                   per_column_llm: bool = True,
                   raw_fallback: bool = True,
-                  table_scores: dict | None = None) -> tuple[object, str]:
+                  table_scores: dict | None = None,
+                  detailed: bool = False) -> tuple[object, str]:
     """Describe one SQL file. Returns (report_or_None, status).
 
     status is "ok" (structured), "ok:raw" (direct-from-SQL fallback),
@@ -233,7 +251,7 @@ def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool,
             if not _IS_CREATE_PROC_RE.search(sql):
                 # actually a misfiled view -- try the structured path on it
                 rpt, status = _render(sql, schema, llm_client, per_column_llm,
-                                      table_scores=table_scores)
+                                      table_scores=table_scores, detailed=detailed)
                 if status == "ok":
                     return rpt, status
             if raw_fallback:
@@ -241,7 +259,7 @@ def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool,
             return None, f"skipped:{e.reason}"
 
     rpt, status = _render(target_sql, schema, llm_client, per_column_llm,
-                          table_scores=table_scores)
+                          table_scores=table_scores, detailed=detailed)
     if status.startswith("error") and raw_fallback:
         return _describe_raw_llm(sql, llm_client)      # structured failed -> raw
     return rpt, status
@@ -278,6 +296,7 @@ def describe_folders(
     limit: int | None = None,
     per_column_llm: bool = True,
     raw_fallback: bool = True,
+    detailed: bool = False,
 ) -> dict:
     """Describe every .sql in the given view + proc folders to one Markdown file.
 
@@ -293,6 +312,9 @@ def describe_folders(
         provider: LLM provider override; defaults to SLE_LLM_PROVIDER / env.
         dialect: SQL dialect (default tsql).
         limit: process at most this many files total (handy for a dry run).
+        detailed: when True (and LLM is available), generates a parallel
+            detailed_description alongside the high-level business_description,
+            grounded to the engineered technical scaffold.
 
     Returns a dict with per-file results and a status tally.
     """
@@ -375,7 +397,8 @@ def describe_folders(
                 report, status = _describe_one(sql, schema, llm_client, is_proc=is_proc,
                                                per_column_llm=per_column_llm,
                                                raw_fallback=raw_fallback,
-                                               table_scores=table_scores)
+                                               table_scores=table_scores,
+                                               detailed=detailed)
             except Exception as e:  # unreadable file, etc.
                 report, status = None, f"error:{type(e).__name__}: {e}"[:200]
 
@@ -391,6 +414,8 @@ def describe_folders(
                 fh.write(f"## [{kind}] {rel}{tag}\n\n")
                 fh.write(f"**Primary purpose:** {report.primary_purpose or '(n/a)'}\n\n")
                 fh.write(f"**Description:** {report.business_description or '(empty)'}\n\n")
+                if hasattr(report, "detailed_description") and report.detailed_description:
+                    fh.write(f"**Detailed description:**\n\n{report.detailed_description}\n\n")
                 if report.key_metrics:
                     fh.write(f"**Key metrics:** {', '.join(report.key_metrics)}\n\n")
             elif bucket == "skipped":
@@ -517,6 +542,10 @@ def main() -> int:
                         help="Path to corpus.jsonl. When provided, table-importance "
                              "scores are computed so descriptions emphasize center "
                              "tables and de-emphasize lookups.")
+    parser.add_argument("--detailed", action="store_true", default=False,
+                        help="Generate a parallel detailed description (grounded "
+                             "to the engineered scaffold) alongside the high-level "
+                             "summary. Adds ~1 extra LLM call per file.")
     args = parser.parse_args()
 
     if not args.views and not args.procs:
@@ -532,6 +561,7 @@ def main() -> int:
         provider=args.provider,
         dialect=args.dialect,
         limit=args.limit,
+        detailed=args.detailed,
     )
     return 0
 

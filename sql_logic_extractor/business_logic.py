@@ -769,3 +769,137 @@ def summarize_llm(business_logic, llm_client,
             "primary_purpose": "",
             "key_metrics": [],
         }
+
+
+# ---------------------------------------------------------------------------
+# Grounded detailed description -- LLM verbalizes the engineered scaffold
+# ---------------------------------------------------------------------------
+
+_DETAILED_SYSTEM_PROMPT = """You produce a DETAILED, multi-paragraph business description of a SQL query.
+
+You are given the query's ENGINEERED SCAFFOLD: a structured breakdown of its tables, columns, column-level definitions, filters, and grain classification. Your job is to VERBALIZE this scaffold into fluent, readable prose that a business analyst can understand without reading SQL.
+
+CRITICAL RULES:
+1. GROUNDED: describe ONLY what appears in the scaffold. Do NOT invent tables, columns, filters, or business logic that aren't listed. Every claim must trace back to a scaffold element.
+2. DETAILED: unlike a 2-4 sentence summary, expand into 2-4 SHORT PARAGRAPHS covering:
+   - Paragraph 1: What this query produces and why (the business question it answers). Mention the center/primary table if table importance is provided.
+   - Paragraph 2: Key computed columns and what they calculate. Group related columns together rather than listing them one by one.
+   - Paragraph 3: Filter logic -- what business rules constrain the output rows. Translate SQL predicates into business language.
+   - Paragraph 4 (if applicable): Notable joins or data assembly patterns (e.g., "combines encounter data with provider information").
+3. NO SQL: do not include table names, column codes, function names, or SQL syntax. Use business language throughout.
+4. NO SPECULATION: do not guess at downstream use cases, report consumers, or business processes not evidenced in the scaffold.
+5. When TABLE IMPORTANCE is provided, lead with the center table's business domain and weave the table hierarchy into the narrative naturally.
+
+Output JSON:
+{
+  "detailed_description": "multi-paragraph business description as described above"
+}"""
+
+
+def summarize_detailed_llm(business_logic, llm_client,
+                            engineered_summary: dict | None = None,
+                            table_scores: dict | None = None) -> str:
+    """Produce a grounded, detailed description by feeding the engineered
+    scaffold to an LLM for verbalization.
+
+    Parameters
+    ----------
+    business_logic   : BusinessLogic from Tool 3
+    llm_client       : provider-neutral LLM adapter
+    engineered_summary : the dict returned by summarize_engineered() --
+                         contains technical_description, business_description,
+                         primary_purpose, key_metrics. This is the scaffold
+                         the LLM must stay grounded to.
+    table_scores     : optional table importance dict
+
+    Returns
+    -------
+    The detailed description string. Empty on error.
+    """
+    lineage = business_logic.lineage
+    translations = business_logic.column_translations
+
+    # Build the scaffold context for the LLM
+    scaffold_parts = []
+
+    # 1. Engineered technical overview (the grounding anchor)
+    if engineered_summary:
+        scaffold_parts += [
+            "## Engineered Technical Overview",
+            engineered_summary.get("technical_description", ""),
+            "",
+            "## Engineered Business Summary",
+            engineered_summary.get("business_description", ""),
+            "",
+            f"## Primary Purpose: {engineered_summary.get('primary_purpose', '')}",
+        ]
+        km = engineered_summary.get("key_metrics", [])
+        if km:
+            scaffold_parts += [
+                "",
+                f"## Key Metrics ({len(km)})",
+                ", ".join(km),
+            ]
+
+    # 2. Per-column definitions (the detail the LLM can expand on)
+    column_lines = []
+    for t in translations:
+        col_name = t.get("column_name", "")
+        col_type = t.get("column_type", "")
+        definition = t.get("english_definition", "")
+        domain = t.get("business_domain", "")
+        line = f"- {col_name}"
+        if col_type:
+            line += f" [{col_type}]"
+        if domain and domain != "General":
+            line += f" ({domain})"
+        line += f": {definition}" if definition else ""
+        column_lines.append(line)
+
+    if column_lines:
+        scaffold_parts += [
+            "",
+            f"## Column Definitions ({len(column_lines)})",
+            "\n".join(column_lines),
+        ]
+
+    # 3. Table importance (if available)
+    if table_scores:
+        base_tables = sorted(
+            {tbl for col in lineage.resolved_columns
+             for tbl in (col.get("base_tables", []) or [])},
+            key=lambda t: table_scores.get(t.upper(), (0.0, ""))[0],
+            reverse=True,
+        )
+        importance_lines = []
+        for tbl in base_tables:
+            score, role = table_scores.get(tbl.upper(), (0.0, "peripheral"))
+            importance_lines.append(f"- {tbl}: {role} (importance {score:.0%})")
+        if importance_lines:
+            scaffold_parts += [
+                "",
+                "## Table Importance",
+                "\n".join(importance_lines),
+            ]
+
+    # 4. Filters (raw SQL -- the LLM should translate these)
+    filter_lines = [f for f in lineage.query_filters
+                    if f and not re.match(r"^\s*\d+\s*=\s*\d+\s*$", f.strip())]
+    if filter_lines:
+        scaffold_parts += [
+            "",
+            f"## Query Filters ({len(filter_lines)})",
+            "\n".join(f"- {f}" for f in filter_lines),
+        ]
+
+    user_prompt = (
+        "Produce a detailed, multi-paragraph business description of this SQL query. "
+        "Stay grounded to the scaffold below -- do not invent details.\n\n"
+        + "\n".join(scaffold_parts)
+    )
+
+    try:
+        result = llm_client.complete_json(_DETAILED_SYSTEM_PROMPT, user_prompt)
+        return (result.get("detailed_description") or "").strip()
+    except Exception:
+        return ""

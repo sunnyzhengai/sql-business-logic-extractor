@@ -249,6 +249,71 @@ def _insert_statement_separators(body: str, dialect: str) -> str:
     return "".join(out)
 
 
+# Words that turn a BEGIN into a procedural block we must NOT flatten.
+_SPECIAL_BLOCK = {"TRY", "CATCH", "TRANSACTION", "TRAN", "DISTRIBUTED"}
+
+
+def _has_control_flow(body: str, dialect: str) -> bool:
+    """True if the body has real control flow -- `IF`/`WHILE` (tokenized as
+    VARs, distinct from the `IIF` function) or a `BEGIN TRY/CATCH/TRANSACTION`
+    block. Such procs aren't view-shaped; we neither flatten nor mis-describe
+    them. Tokenizer-based so the keywords aren't matched inside strings."""
+    try:
+        toks = sqlglot.tokenize(body, dialect=dialect)
+    except Exception:
+        return False
+    n = len(toks)
+    for i, t in enumerate(toks):
+        if t.token_type == TokenType.VAR and (t.text or "").upper() in ("IF", "WHILE"):
+            return True
+        if t.token_type == TokenType.BEGIN and i + 1 < n \
+                and (toks[i + 1].text or "").upper() in _SPECIAL_BLOCK:
+            return True
+    return False
+
+
+def _strip_block_begin_end(body: str, dialect: str) -> str:
+    """Remove plain `BEGIN ... END` block delimiters so the inner statements
+    parse (sqlglot treats a BEGIN..END block as an opaque 'Command').
+
+    Done with the tokenizer, so `CASE ... END` is preserved (its END is kept)
+    and string/comment content is respected. BAILS (returns the body
+    unchanged) when the proc has real control flow -- flattening that would
+    change semantics; such procs are genuinely procedural and get rejected.
+    """
+    if _has_control_flow(body, dialect):
+        return body
+    try:
+        toks = sqlglot.tokenize(body, dialect=dialect)
+    except Exception:
+        return body
+
+    stack: list[str] = []          # 'case' (keep its END) vs 'begin' (drop its END)
+    remove: list[tuple[int, int]] = []
+    for t in toks:
+        tt = t.token_type
+        if tt == TokenType.CASE:
+            stack.append("case")
+        elif tt == TokenType.BEGIN:
+            stack.append("begin")
+            remove.append((t.start, t.end))
+        elif tt == TokenType.END:
+            kind = stack.pop() if stack else None
+            if kind == "begin":
+                remove.append((t.start, t.end))
+
+    if not remove:
+        return body
+    out: list[str] = []
+    last = 0
+    for s, e in sorted(remove):
+        out.append(body[last:s])
+        out.append(" ")            # keep token separation
+        last = e + 1               # token .end is inclusive
+    out.append(body[last:])
+    return "".join(out)
+
+
 # ---- AST helpers ---------------------------------------------------------
 
 def _is_temp_table(node: exp.Expression | None) -> bool:
@@ -333,6 +398,11 @@ def select_into_to_cte(
     from .parsing_rules import apply_all
     body, _ = apply_all(body)
 
+    # Strip plain BEGIN..END block delimiters (the proc wrapper, or a block
+    # that sits after a DECLARE preamble). Without this sqlglot parses the whole
+    # block as an opaque Command. Bails on real control flow / TRY-CATCH.
+    body = _strip_block_begin_end(body, dialect)
+
     # Insert any missing top-level statement separators (T-SQL makes `;`
     # optional; sqlglot's parser requires it). Tokenizer-based, so subqueries /
     # INSERT..SELECT / CTEs / set-ops / MERGE aren't mis-split.
@@ -340,7 +410,15 @@ def select_into_to_cte(
 
     # Parse the (now guard-free) body into its top-level statements. Drop
     # Nones, which sqlglot emits for empty fragments between semicolons.
-    statements = [s for s in sqlglot.parse(body, dialect=dialect) if s is not None]
+    try:
+        statements = [s for s in sqlglot.parse(body, dialect=dialect) if s is not None]
+    except Exception:
+        # A parse failure on a body with control flow (IF/WHILE/TRY-CATCH) is a
+        # procedural proc -> not view-shaped. A failure WITHOUT control flow is
+        # a genuine parser gap we want to surface, so re-raise that.
+        if _has_control_flow(body, dialect):
+            raise ProcNotViewShaped("procedural")
+        raise
     if not statements:
         raise ProcNotViewShaped("empty_body")
 
@@ -356,6 +434,17 @@ def select_into_to_cte(
     for st in statements:
         if isinstance(st, exp.Set):
             # SET NOCOUNT ON / SET ANSI_NULLS ON -- no lineage, skip.
+            continue
+        if isinstance(st, exp.Declare):
+            # DECLARE @v ... -- a local variable. A parameterized proc is just a
+            # view with @params; the declarations are setup, not lineage. Skip.
+            continue
+        if isinstance(st, exp.Select) and st.expressions and all(
+                isinstance(e, exp.EQ) and isinstance(e.this, exp.Parameter)
+                for e in st.expressions):
+            # `SELECT @v = <expr>` -- a variable assignment, not a result set
+            # (a result alias `col = <expr>` has a Column on the left, not a
+            # Parameter, so real result SELECTs are unaffected). Skip.
             continue
         if isinstance(st, exp.SetOperation):
             # A UNION / EXCEPT / INTERSECT query -- a legitimate view shape, and

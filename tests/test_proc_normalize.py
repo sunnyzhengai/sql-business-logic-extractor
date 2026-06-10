@@ -256,3 +256,45 @@ def test_union_all_not_split():
     """
     out = select_into_to_cte(sql)          # must not raise multiple_terminal_selects
     assert "UNION ALL" in _norm(out)
+
+
+# ============================================================
+# Parameterized procs are view-shaped; control flow is not
+# ============================================================
+
+def test_parameterized_proc_is_a_view():
+    """params + DECLARE + variable-assignment + BEGIN/END + @params in the
+    query -> a view (a proc is just a view with parameters)."""
+    sql = """
+    CREATE PROCEDURE [rpt].[EncByDept] (@StartDate DATETIME = NULL, @Dept VARCHAR(20) = NULL)
+    AS
+    /****** header ******/
+    DECLARE @d1 DATETIME, @d2 DATETIME
+    BEGIN
+        SELECT @d1 = ISNULL(@StartDate, GETDATE())
+        SELECT pat_id, enc_date, dept_id
+        FROM encounter
+        WHERE enc_date >= @d1 AND dept_id = @Dept
+    END
+    """
+    out = select_into_to_cte(sql)
+    assert out.startswith("CREATE VIEW [rpt].[EncByDept] AS")
+    assert "@d1" in out and "@Dept" in out          # params preserved as filters
+    assert "encounter" in _norm(out)
+
+
+@pytest.mark.parametrize("body, reason_in", [
+    ("IF @n > 1 BEGIN SELECT a INTO #x FROM b END\nSELECT a FROM #x",
+     ("unsupported_statement", "procedural")),
+    ("WHILE @i < 10 BEGIN SELECT a FROM b END",
+     ("unsupported_statement", "procedural")),
+    ("BEGIN TRY\nSELECT a FROM b\nEND TRY\nBEGIN CATCH\nSELECT 1\nEND CATCH",
+     ("procedural", "unsupported_statement")),
+])
+def test_control_flow_procs_skipped_not_errored(body, reason_in):
+    """Real control flow -> ProcNotViewShaped (skipped), never a parse error
+    and never a (wrong) view."""
+    sql = f"CREATE PROCEDURE p AS\nBEGIN\n{body}\nEND"
+    with pytest.raises(ProcNotViewShaped) as ei:
+        select_into_to_cte(sql)
+    assert ei.value.reason in reason_in

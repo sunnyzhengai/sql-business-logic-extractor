@@ -29,7 +29,7 @@ from sql_logic_extractor.resolve import preprocess_ssms
 from sql_logic_extractor.parsing_rules import apply_all
 from sql_logic_extractor.proc_normalize import (
     ProcNotViewShaped, select_into_to_cte,
-    _strip_proc_wrapper, _strip_temp_guards,
+    _strip_proc_wrapper, _strip_temp_guards, _insert_statement_separators,
 )
 
 
@@ -59,6 +59,7 @@ if is_proc:
     _, body = _strip_proc_wrapper(raw)
     body = _strip_temp_guards(body)
     body, _ = apply_all(body)
+    body = _insert_statement_separators(body, "tsql")   # the missing-`;` fix, like the pipeline
     try:
         sqlglot.parse(body, dialect="tsql")          # the parse select_into_to_cte does
     except Exception as e:

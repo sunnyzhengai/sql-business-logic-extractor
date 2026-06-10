@@ -161,31 +161,81 @@ def _render(target_sql: str, schema: dict, llm_client, per_column_llm: bool) -> 
     return rpt, "ok"
 
 
+# Direct-from-SQL description for objects the structured path can't handle
+# (ETL / procedural procs, or a genuine parser gap). No structured lineage --
+# just a high-level read of the SQL by the LLM. This is what guarantees ZERO
+# skips: every object gets a description, one way or the other.
+_RAW_DESC_SYSTEM = """You summarize a T-SQL stored procedure or view in plain business language.
+This object could not be parsed into a single view, so describe it directly from the SQL.
+
+Rules:
+1. ACCURATE -- describe only what the SQL actually does.
+2. HIGH-LEVEL -- 2-4 sentences.
+3. Note what it READS (main source tables) and what it PRODUCES or LOADS (target tables, for ETL/load procs).
+4. Plain business language; no SQL/column dumps.
+
+Output JSON:
+{"business_description": "...", "primary_purpose": "what it answers or what it loads", "key_metrics": ["notable outputs, if any"]}"""
+
+
+class _RawReport:
+    """Minimal report shape for the raw fallback (same fields the writer reads)."""
+    def __init__(self, business_description: str, primary_purpose: str, key_metrics: list):
+        self.business_description = business_description
+        self.primary_purpose = primary_purpose
+        self.key_metrics = key_metrics
+        self.technical_description = ""
+
+
+def _describe_raw_llm(sql: str, llm_client) -> tuple[object, str]:
+    """Describe raw SQL directly via the LLM (no structured parse). Returns
+    (report, "ok:raw") or (None, "error:..."). Used as the no-skip fallback."""
+    from sql_logic_extractor.resolve import preprocess_ssms
+    try:
+        clean, _ = preprocess_ssms(sql)
+    except Exception:
+        clean = sql
+    text = (clean or sql).strip()[:12000]      # cap context size
+    try:
+        res = llm_client.complete_json(_RAW_DESC_SYSTEM, "T-SQL to summarize:\n\n" + text)
+    except Exception as e:
+        return None, f"error:raw_llm {type(e).__name__}: {e}"[:180]
+    biz = (res.get("business_description") or "").strip()
+    if not biz:
+        return None, "error:raw_llm returned empty"
+    return _RawReport(biz, res.get("primary_purpose", ""), res.get("key_metrics", [])), "ok:raw"
+
+
 def _describe_one(sql: str, schema: dict, llm_client, *, is_proc: bool,
-                  per_column_llm: bool = True) -> tuple[object, str]:
+                  per_column_llm: bool = True,
+                  raw_fallback: bool = True) -> tuple[object, str]:
     """Describe one SQL file. Returns (report_or_None, status).
 
-    status is "ok", "skipped:<reason>", or "error:<msg>". For proc files we
-    normalize temp-table staging into CTEs first; if that's rejected as
-    not-view-shaped we still try describing as-is (covers a plain view that
-    landed in a proc folder) before giving up with the reason.
+    status is "ok" (structured), "ok:raw" (direct-from-SQL fallback),
+    "skipped:<reason>", or "error:<msg>". With raw_fallback=True (the no-skip
+    mode), anything the structured path can't handle is described directly from
+    the SQL by the LLM instead of skipped.
     """
     target_sql = sql
     if is_proc:
         try:
             target_sql = select_into_to_cte(sql)
         except ProcNotViewShaped as e:
-            # A real CREATE PROCEDURE the normalizer rejected is genuinely not
-            # view-shaped (ETL / mutation / multi-output) -- SKIP with the
-            # reason rather than describe a partial/wrong result from whatever
-            # happens to parse. Only fall back to direct description when the
-            # file isn't actually a proc (e.g. a CREATE VIEW misfiled here).
-            if _IS_CREATE_PROC_RE.search(sql):
-                return None, f"skipped:{e.reason}"
-            rpt, status = _render(sql, schema, llm_client, per_column_llm)
-            return (rpt, status) if status == "ok" else (None, f"skipped:{e.reason}")
+            # Not view-shaped (ETL / procedural). Don't skip -- describe the raw
+            # SQL directly. (If raw_fallback is off, fall back to a skip.)
+            if not _IS_CREATE_PROC_RE.search(sql):
+                # actually a misfiled view -- try the structured path on it
+                rpt, status = _render(sql, schema, llm_client, per_column_llm)
+                if status == "ok":
+                    return rpt, status
+            if raw_fallback:
+                return _describe_raw_llm(sql, llm_client)
+            return None, f"skipped:{e.reason}"
 
-    return _render(target_sql, schema, llm_client, per_column_llm)
+    rpt, status = _render(target_sql, schema, llm_client, per_column_llm)
+    if status.startswith("error") and raw_fallback:
+        return _describe_raw_llm(sql, llm_client)      # structured failed -> raw
+    return rpt, status
 
 
 def _iter_sql(paths: list[str]) -> list[tuple[Path, str]]:
@@ -217,6 +267,7 @@ def describe_folders(
     dialect: str = "tsql",
     limit: int | None = None,
     per_column_llm: bool = True,
+    raw_fallback: bool = True,
 ) -> dict:
     """Describe every .sql in the given view + proc folders to one Markdown file.
 
@@ -272,7 +323,8 @@ def describe_folders(
             try:
                 sql = read_sql_robust(path)
                 report, status = _describe_one(sql, schema, llm_client, is_proc=is_proc,
-                                               per_column_llm=per_column_llm)
+                                               per_column_llm=per_column_llm,
+                                               raw_fallback=raw_fallback)
             except Exception as e:  # unreadable file, etc.
                 report, status = None, f"error:{type(e).__name__}: {e}"[:200]
 
@@ -282,8 +334,10 @@ def describe_folders(
 
             # ---- write this file's section ----
             rel = f"{label}/{path.name}"
-            if status == "ok" and report is not None:
-                fh.write(f"## [{kind}] {rel}\n\n")
+            if bucket == "ok" and report is not None:
+                raw = status == "ok:raw"          # described directly from SQL (no lineage)
+                tag = "  _(described directly from SQL)_" if raw else ""
+                fh.write(f"## [{kind}] {rel}{tag}\n\n")
                 fh.write(f"**Primary purpose:** {report.primary_purpose or '(n/a)'}\n\n")
                 fh.write(f"**Description:** {report.business_description or '(empty)'}\n\n")
                 if report.key_metrics:

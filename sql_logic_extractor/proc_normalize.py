@@ -211,6 +211,9 @@ def _insert_statement_separators(body: str, dialect: str) -> str:
             if opener == TokenType.MERGE and tt in (
                     TokenType.INSERT, TokenType.UPDATE, TokenType.DELETE):
                 pass                       # MERGE WHEN-clause, not a new statement
+            elif opener == TokenType.WITH:
+                opener = tt                # WITH..MERGE/INSERT/UPDATE/DELETE: the
+                #                            CTE's main statement, not a new one
             elif opener is None:
                 opener = tt
             else:
@@ -218,9 +221,10 @@ def _insert_statement_separators(body: str, dialect: str) -> str:
         elif tt == TokenType.SELECT:
             if after_setop:
                 after_setop = False        # set-operation continuation (UNION [ALL] SELECT)
-            elif opener in (TokenType.INSERT, TokenType.MERGE, TokenType.WITH) \
-                    and not saw_select:
+            elif opener in (TokenType.INSERT, TokenType.WITH) and not saw_select:
                 saw_select = True          # INSERT..SELECT / WITH..SELECT body
+                #  (MERGE excluded: its source SELECT is parenthesized, so a
+                #   top-level SELECT after a MERGE is a NEW statement.)
             elif opener is None:
                 opener, saw_select = tt, True
             else:

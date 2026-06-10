@@ -4,12 +4,35 @@ Run: python3 -m pytest tests/test_proc_normalize.py -v
 """
 
 import pytest
+import sqlglot
 from sqlglot import parse_one
 
 from sql_logic_extractor.proc_normalize import (
     ProcNotViewShaped,
     select_into_to_cte,
+    _insert_statement_separators,
 )
+
+
+@pytest.mark.parametrize("sql, n_statements", [
+    # new statements that need a separator inserted
+    ("SELECT a INTO #x FROM b\nSELECT c FROM #x", 2),
+    ("SELECT a FROM t\nDROP TABLE #y\nSELECT b FROM u", 3),
+    ("MERGE t USING s ON s.k=t.k WHEN MATCHED THEN UPDATE SET t.a=1\nSELECT * FROM t", 2),
+    # continuations that must NOT be split
+    ("INSERT INTO #t (a) SELECT a FROM s", 1),
+    ("WITH c AS (SELECT 1 AS x) SELECT * FROM c", 1),
+    ("WITH c AS (SELECT k FROM o) MERGE t USING c ON c.k=t.k WHEN MATCHED THEN UPDATE SET t.a=1", 1),
+    ("SELECT a FROM t\nUNION ALL\nSELECT b FROM u", 1),
+    ("SELECT a FROM t\nEXCEPT\nSELECT b FROM u", 1),
+    ("SELECT * FROM (SELECT a FROM t) z", 1),
+    ("MERGE t USING s ON s.k=t.k WHEN MATCHED THEN UPDATE SET t.a=s.a WHEN NOT MATCHED THEN INSERT (a) VALUES (s.a)", 1),
+])
+def test_statement_separator_counts(sql, n_statements):
+    """Tokenizer-based splitter: new statements get a `;`, continuations don't."""
+    fixed = _insert_statement_separators(sql, "tsql")
+    parsed = [s for s in sqlglot.parse(fixed, dialect="tsql") if s is not None]
+    assert len(parsed) == n_statements
 
 
 def _norm(sql: str) -> str:

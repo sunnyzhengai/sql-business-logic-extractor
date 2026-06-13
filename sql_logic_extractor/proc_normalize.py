@@ -101,6 +101,42 @@ _BARE_DROP_RE = re.compile(
 )
 
 
+def _strip_bare_header(sql: str) -> str:
+    """Strip bare-text headers that sit above the CREATE PROCEDURE line.
+
+    Many SQL files have un-commented headers like:
+
+        TITLE: Patient Referral Report
+        AUTHOR: John Smith
+        ========================
+        CREATE PROCEDURE [rpt].[Foo] AS ...
+
+    These are not valid SQL and break the parser. This function removes
+    everything before the first SQL keyword (CREATE, ALTER, SELECT, WITH,
+    DECLARE, SET) or SQL comment (-- or /*).
+
+    Lines that are purely separator characters (===, ---, ***) are also
+    removed.
+    """
+    lines = sql.split("\n")
+    # Find the first line that looks like actual SQL or a SQL comment
+    _SQL_START_RE = re.compile(
+        r"^\s*("
+        r"CREATE\b|ALTER\b|SELECT\b|WITH\b|DECLARE\b|SET\b|INSERT\b|"
+        r"UPDATE\b|DELETE\b|MERGE\b|EXEC\b|USE\b|IF\b|BEGIN\b|"
+        r"--|/\*"
+        r")",
+        re.IGNORECASE,
+    )
+    for i, line in enumerate(lines):
+        if _SQL_START_RE.match(line):
+            if i == 0:
+                return sql  # no header to strip
+            return "\n".join(lines[i:])
+    # No SQL found at all — return as-is, let downstream handle it
+    return sql
+
+
 def _strip_proc_wrapper(sql: str) -> tuple[str | None, str]:
     """Peel the `CREATE PROCEDURE ... AS [BEGIN] ... [END]` wrapper.
 
@@ -388,6 +424,7 @@ def select_into_to_cte(
             a reference to an undefined temp). The exception's `reason` is a
             stable code the caller can use to bucket the proc.
     """
+    sql = _strip_bare_header(sql)
     proc_name, body = _strip_proc_wrapper(sql)
     body = _strip_temp_guards(body)
 

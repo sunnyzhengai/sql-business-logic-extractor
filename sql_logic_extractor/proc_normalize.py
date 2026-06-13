@@ -451,8 +451,40 @@ def select_into_to_cte(
             # never a SELECT..INTO staging step. Treat it as a terminal query.
             terminals.append(st)
             continue
+        if isinstance(st, exp.Command):
+            # sqlglot falls back to Command for T-SQL it can't fully parse:
+            #   - DECLARE @var AS DateTime  (complex DECLARE forms)
+            #   - SET @var = (SELECT ...)   (variable assignments)
+            #   - EXEC / EXECUTE           (proc calls)
+            #   - PRINT                    (debug output)
+            #   - RETURN                   (proc exit)
+            #   - USE [database]           (context switch)
+            # These are procedural preamble / postamble with no lineage.
+            # Skip them so the proc's real SELECT(s) can be extracted.
+            cmd_text = (st.this or "").strip().upper() if isinstance(st.this, str) else ""
+            if not cmd_text:
+                cmd_text = st.sql(dialect=dialect).strip().upper()
+            # Only skip known-safe command patterns. Unknown commands
+            # should still raise so we don't silently miss real logic.
+            _SAFE_CMD_PREFIXES = (
+                "DECLARE", "SET @", "SET NOCOUNT", "SET ANSI",
+                "SET XACT", "SET TRANSACTION", "SET QUOTED",
+                "SET ARITHABORT", "SET CONCAT_NULL",
+                "SET DATEFIRST", "SET DATEFORMAT", "SET DEADLOCK",
+                "SET FMTONLY", "SET IDENTITY", "SET LANGUAGE",
+                "SET LOCK_TIMEOUT", "SET NUMERIC",
+                "SET ROWCOUNT", "SET TEXTSIZE",
+                "EXEC", "EXECUTE",
+                "PRINT", "RETURN", "USE",
+                "RAISERROR", "THROW",
+            )
+            if any(cmd_text.startswith(p) for p in _SAFE_CMD_PREFIXES):
+                continue
+            # Unknown Command — reject
+            raise ProcNotViewShaped("unsupported_statement",
+                                     f"Command: {cmd_text[:60]}")
         if not isinstance(st, exp.Select):
-            # INSERT/UPDATE/MERGE/DELETE/DECLARE/IF/WHILE/CREATE/... -- any
+            # INSERT/UPDATE/MERGE/DELETE/CREATE/... -- any
             # of these means the proc isn't a pure stage-and-read.
             raise ProcNotViewShaped("unsupported_statement", type(st).__name__)
 

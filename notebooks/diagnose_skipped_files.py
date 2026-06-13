@@ -229,6 +229,21 @@ if results["errored"]:
         print(f"         file: {error_samples[pat]}")
         print()
 
+# %% Cell 9b: Load API key from .env
+import os
+from pathlib import Path
+
+env_path = Path("/lakehouse/default/Files/.env")
+if env_path.exists():
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, val = line.split("=", 1)
+            os.environ[key.strip()] = val.strip().strip('"').strip("'")
+    print(f"Loaded .env, OPENAI_API_KEY={'set' if os.environ.get('OPENAI_API_KEY') else 'missing'}")
+else:
+    print(f"No .env at {env_path}")
+
 # %% Cell 10: LLM diagnosis — what's in the skipped files and how to fix
 import openai
 

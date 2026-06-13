@@ -1,0 +1,144 @@
+diabetes:
+  term: diabetes
+  aliases:
+  - diabetic
+  - diabetic patients
+  - diabetes mellitus
+  - type 2 diabetes
+  category: diagnosis
+  tables:
+  - PROBLEM_LIST
+  - CLARITY_EDG
+  route: PATIENT -> PROBLEM_LIST -> CLARITY_EDG
+  confirmed_by: corpus_build
+  confirmed_date: '2026-06-11'
+  filters:
+    CLARITY_EDG: CURRENT_ICD10_LIST LIKE 'E11%'
+  source_definition: diabetic_patients_problem_list
+  icd10: E11.%
+emergency:
+  term: emergency
+  aliases:
+  - ER
+  - ED
+  - emergency department
+  - emergency room
+  - emergency visits
+  category: encounter
+  tables:
+  - PAT_ENC
+  - CLARITY_DEP
+  route: PATIENT -> PAT_ENC -> CLARITY_DEP
+  confirmed_by: corpus_build
+  confirmed_date: '2026-06-11'
+  filters:
+    CLARITY_DEP: DEPARTMENT_NAME LIKE '%Emergency%'
+  source_definition: ed_encounters
+high_utilizer:
+  term: high utilizer
+  aliases:
+  - frequent flyer
+  - frequent visitor
+  - high utilization
+  - frequent ER
+  category: encounter
+  tables:
+  - PAT_ENC
+  - CLARITY_DEP
+  route: PATIENT -> PAT_ENC -> CLARITY_DEP
+  confirmed_by: corpus_build
+  confirmed_date: '2026-06-11'
+  filters:
+    CLARITY_DEP: DEPARTMENT_NAME LIKE '%Emergency%'
+  source_definition: ed_high_utilizers
+no_show:
+  term: no-show
+  aliases:
+  - missed visit
+  - missed appointment
+  - no show
+  - noshow
+  - missed PCP
+  category: encounter
+  tables:
+  - PAT_ENC
+  route: PATIENT -> PAT_ENC
+  confirmed_by: corpus_build
+  confirmed_date: '2026-06-11'
+  filters:
+    PAT_ENC: APPT_STATUS_C = 4
+  source_definition: missed_pcp_visits
+readmission:
+  term: readmission
+  aliases:
+  - readmit
+  - readmitted
+  - 30-day readmission
+  - hospital readmission
+  category: encounter
+  tables:
+  - PAT_ENC_HSP
+  route: PATIENT -> PAT_ENC -> PAT_ENC_HSP
+  confirmed_by: corpus_build
+  confirmed_date: '2026-06-11'
+  source_definition: readmission_30day
+length_of_stay:
+  term: length of stay
+  aliases:
+  - LOS
+  - hospital days
+  - stay duration
+  - inpatient days
+  category: encounter
+  tables:
+  - PAT_ENC_HSP
+  route: PATIENT -> PAT_ENC -> PAT_ENC_HSP
+  confirmed_by: corpus_build
+  confirmed_date: '2026-06-11'
+  source_definition: length_of_stay
+referral:
+  term: referral
+  aliases:
+  - referred
+  - referral order
+  - specialty referral
+  category: referral
+  tables:
+  - REFERRAL
+  route: PATIENT -> REFERRAL
+  confirmed_by: corpus_build
+  confirmed_date: '2026-06-11'
+  source_definition: active_referrals
+hypertension:
+  term: hypertension
+  aliases:
+  - high blood pressure
+  - HTN
+  - hypertensive
+  category: diagnosis
+  tables:
+  - PROBLEM_LIST
+  - CLARITY_EDG
+  route: PATIENT -> PROBLEM_LIST -> CLARITY_EDG
+  confirmed_by: corpus_build
+  confirmed_date: '2026-06-11'
+  filters:
+    CLARITY_EDG: CURRENT_ICD10_LIST LIKE 'I1%'
+  icd10: I10-I15
+pcp:
+  term: PCP
+  aliases:
+  - primary care
+  - primary care provider
+  - family medicine
+  - family doctor
+  category: encounter
+  tables:
+  - PAT_PCP
+  - CLARITY_DEP
+  route: PATIENT -> PAT_PCP
+  confirmed_by: corpus_build
+  confirmed_date: '2026-06-11'
+  filters:
+    CLARITY_DEP: SPECIALTY = 'Family Medicine'
+  source_definition: pcp_assignments_active

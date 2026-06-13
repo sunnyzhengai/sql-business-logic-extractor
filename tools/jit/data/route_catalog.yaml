@@ -1,0 +1,99 @@
+diagnosis:
+  description: Routes to find diagnosis/condition information
+  routes:
+  - name: Active problem list
+    path:
+    - PATIENT
+    - PROBLEM_LIST
+    - CLARITY_EDG
+    description: Chronic/ongoing conditions — best for 'patients with X disease'
+    filter_column: CLARITY_EDG.CURRENT_ICD10_LIST
+    active_filter: PROBLEM_LIST.RESOLVED_DATE IS NULL
+  - name: Encounter diagnoses
+    path:
+    - PATIENT
+    - PAT_ENC
+    - PAT_ENC_DX
+    - CLARITY_EDG
+    description: Diagnoses recorded at each visit — best for 'diagnosed with X during
+      a visit'
+    filter_column: CLARITY_EDG.CURRENT_ICD10_LIST
+  - name: Discharge/billing diagnoses
+    path:
+    - PATIENT
+    - HSP_ACCOUNT
+    - HSP_ACCT_DX_LIST
+    - CLARITY_EDG
+    description: Final discharge diagnoses for billing — best for 'billed for X' or
+      'discharged with X'
+    filter_column: CLARITY_EDG.CURRENT_ICD10_LIST
+medication:
+  description: Routes to find medication/prescription information
+  routes:
+  - name: Medication orders
+    path:
+    - PATIENT
+    - PAT_ENC
+    - ORDER_MED
+    - CLARITY_MEDICATION
+    description: Prescribed medications — 'patients taking X' or 'patients on X'
+    filter_column: CLARITY_MEDICATION.NAME
+procedure:
+  description: Routes to find procedure/lab information
+  routes:
+  - name: Procedure orders
+    path:
+    - PATIENT
+    - PAT_ENC
+    - ORDER_PROC
+    - CLARITY_EAP
+    description: Ordered procedures and labs — 'patients who had X'
+    filter_column: CLARITY_EAP.PROC_NAME
+encounter:
+  description: Routes to find visit/appointment information
+  routes:
+  - name: All encounters
+    path:
+    - PATIENT
+    - PAT_ENC
+    description: All patient visits — filter by department, status, type
+    filter_column: PAT_ENC.APPT_STATUS_C
+  - name: Hospital encounters
+    path:
+    - PATIENT
+    - PAT_ENC
+    - PAT_ENC_HSP
+    description: Inpatient stays — admission/discharge times, LOS
+    filter_column: PAT_ENC_HSP.HOSP_ADMSN_TIME
+  - name: ED encounters
+    path:
+    - PATIENT
+    - PAT_ENC
+    - CLARITY_DEP
+    description: Emergency department visits — filter by ED department names
+    filter_column: CLARITY_DEP.DEPARTMENT_NAME
+referral:
+  description: Routes to find referral information
+  routes:
+  - name: Referral orders
+    path:
+    - PATIENT
+    - REFERRAL
+    - CLARITY_SER
+    description: Referral tracking with provider details
+    filter_column: REFERRAL.RFL_STATUS_C
+billing:
+  description: Routes to find financial/billing information
+  routes:
+  - name: Professional billing
+    path:
+    - PATIENT
+    - ARPB_TRANSACTIONS
+    description: Professional billing charges and payments
+    filter_column: ARPB_TRANSACTIONS.TX_TYPE_C
+  - name: Hospital billing
+    path:
+    - PATIENT
+    - HSP_ACCOUNT
+    description: Hospital account charges, payments, adjustments
+    filter_column: HSP_ACCOUNT.TOT_CHGS
